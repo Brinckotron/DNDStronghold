@@ -1,0 +1,15 @@
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\bin\Debug\net8.0-windows\DNDStrongholdApp.exe
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\bin\Debug\net8.0-windows\DNDStrongholdApp.deps.json
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\bin\Debug\net8.0-windows\DNDStrongholdApp.runtimeconfig.json
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\bin\Debug\net8.0-windows\DNDStrongholdApp.dll
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\bin\Debug\net8.0-windows\DNDStrongholdApp.pdb
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.AssemblyInfoInputs.cache
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.AssemblyInfo.cs
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.csproj.CoreCompileInputs.cache
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.sourcelink.json
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.dll
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\refint\DNDStrongholdApp.dll
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.pdb
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\DNDStrongholdApp.genruntimeconfig.cache
+C:\Users\Francois\Documents\D&D\DNDStronghold\DNDStronghold-WinForms\DNDStrongholdApp\obj\Debug\net8.0-windows\ref\DNDStrongholdApp.dll
