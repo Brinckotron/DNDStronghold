@@ -326,7 +326,7 @@ public partial class MainDashboard : Form
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.ConstructionStatus.ToString());
             item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
-            item.Tag = building.Id;
+            item.Tag = building.Id; // Ensure Tag is set to building.Id
             // Set color based on building status
             if (building.ConstructionStatus == BuildingStatus.Damaged)
             {
@@ -388,7 +388,7 @@ public partial class MainDashboard : Form
             item.SubItems.Add(npc.Type.ToString());
             item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
             item.SubItems.Add(npc.Happiness.ToString());
-            item.Tag = npc.Id;
+            item.Tag = npc.Id; // Ensure Tag is set to npc.Id
             listView.Items.Add(item);
         }
         // Double-click to open in NPCs tab
@@ -778,12 +778,194 @@ public partial class MainDashboard : Form
 
     private void InitializeResourcesTab(TabPage tab)
     {
-        // To be implemented
-        Label placeholder = new Label();
-        placeholder.Text = "Resources tab content will be implemented here";
-        placeholder.Dock = DockStyle.Fill;
-        placeholder.TextAlign = ContentAlignment.MiddleCenter;
-        tab.Controls.Add(placeholder);
+        // Create main layout
+        TableLayoutPanel layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(10)
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+
+        // Create resources list view
+        ListView resourcesListView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            MultiSelect = false,
+            GridLines = true,
+            Tag = "ResourcesListView"
+        };
+        resourcesListView.Columns.AddRange(new[]
+        {
+            new ColumnHeader { Text = "Resource", Width = 150 },
+            new ColumnHeader { Text = "Amount", Width = 100 },
+            new ColumnHeader { Text = "Net Change", Width = 100 }
+        });
+        // Dynamic column widths (45%, 25%, 30%)
+        void ResizeResourceColumns(object s, EventArgs e)
+        {
+            int totalWidth = resourcesListView.ClientSize.Width;
+            resourcesListView.Columns[0].Width = (int)(totalWidth * 0.45);
+            resourcesListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            resourcesListView.Columns[2].Width = (int)(totalWidth * 0.30);
+        }
+        resourcesListView.Resize += ResizeResourceColumns;
+        ResizeResourceColumns(null, null);
+        resourcesListView.SelectedIndexChanged += ResourcesListView_SelectedIndexChanged;
+
+        // Create resource details panel
+        Panel detailsPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(10)
+        };
+
+        // Create resource details controls
+        GroupBox detailsGroupBox = new GroupBox
+        {
+            Text = "Resource Details",
+            Dock = DockStyle.Fill,
+            Padding = new Padding(10)
+        };
+
+        // 2 columns: label (right), value (left)
+        TableLayoutPanel detailsLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 9,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
+        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38F));
+        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62F));
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Name
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Amount
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Net Change
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Weekly Production
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 40F)); // Production Sources
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Weekly Consumption
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 40F)); // Consumption Sources
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 0F)); // Spacer
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Adjust Button
+
+        var boldFont = new Font(SystemFonts.DefaultFont, FontStyle.Bold);
+        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 2, 0, 0), Font = boldFont };
+        Label amountLabel = new Label { Text = "Current Amount:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 2, 0, 0), Font = boldFont };
+        Label netChangeLabel = new Label { Text = "Net Weekly Change:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 2, 0, 0), Font = boldFont };
+        Label productionLabel = new Label { Text = "Weekly Production:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 2, 0, 0), Font = boldFont };
+        Label consumptionLabel = new Label { Text = "Weekly Consumption:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 2, 0, 0), Font = boldFont };
+        // Value labels remain unchanged
+        Label nameValueLabel = new Label { Text = "", Tag = "ResourceName", AutoSize = true, Margin = new Padding(0, 2, 0, 0) };
+        Label amountValueLabel = new Label { Text = "", Tag = "ResourceAmount", AutoSize = true, Margin = new Padding(0, 2, 0, 0) };
+        Label netChangeValueLabel = new Label { Text = "", Tag = "ResourceNetChange", AutoSize = true, Margin = new Padding(0, 2, 0, 0) };
+        Label productionValueLabel = new Label { Text = "", Tag = "ResourceProduction", AutoSize = true, Margin = new Padding(0, 2, 0, 0) };
+        Label consumptionValueLabel = new Label { Text = "", Tag = "ResourceConsumption", AutoSize = true, Margin = new Padding(0, 2, 0, 0) };
+
+        // Production sources list view
+        ListView productionSourcesListView = new ListView
+        {
+            View = View.Details,
+            FullRowSelect = true,
+            MultiSelect = false,
+            GridLines = true,
+            Dock = DockStyle.Fill,
+            Tag = "ProductionSourcesListView",
+            Margin = new Padding(0, 2, 0, 2)
+        };
+        productionSourcesListView.Columns.AddRange(new[]
+        {
+            new ColumnHeader { Text = "Source", Width = 150 },
+            new ColumnHeader { Text = "Type", Width = 100 },
+            new ColumnHeader { Text = "Amount", Width = 100 }
+        });
+        void ResizeProductionSourcesColumns(object s, EventArgs e)
+        {
+            int totalWidth = productionSourcesListView.ClientSize.Width;
+            productionSourcesListView.Columns[0].Width = (int)(totalWidth * 0.5);
+            productionSourcesListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            productionSourcesListView.Columns[2].Width = (int)(totalWidth * 0.25);
+        }
+        productionSourcesListView.Resize += ResizeProductionSourcesColumns;
+        ResizeProductionSourcesColumns(null, null);
+
+        // Consumption sources list view
+        ListView consumptionSourcesListView = new ListView
+        {
+            View = View.Details,
+            FullRowSelect = true,
+            MultiSelect = false,
+            GridLines = true,
+            Dock = DockStyle.Fill,
+            Tag = "ConsumptionSourcesListView",
+            Margin = new Padding(0, 2, 0, 2)
+        };
+        consumptionSourcesListView.Columns.AddRange(new[]
+        {
+            new ColumnHeader { Text = "Source", Width = 150 },
+            new ColumnHeader { Text = "Type", Width = 100 },
+            new ColumnHeader { Text = "Amount", Width = 100 }
+        });
+        void ResizeConsumptionSourcesColumns(object s, EventArgs e)
+        {
+            int totalWidth = consumptionSourcesListView.ClientSize.Width;
+            consumptionSourcesListView.Columns[0].Width = (int)(totalWidth * 0.5);
+            consumptionSourcesListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            consumptionSourcesListView.Columns[2].Width = (int)(totalWidth * 0.25);
+        }
+        consumptionSourcesListView.Resize += ResizeConsumptionSourcesColumns;
+        ResizeConsumptionSourcesColumns(null, null);
+
+        Button adjustButton = new Button
+        {
+            Text = "Adjust Amount",
+            Width = 120,
+            Height = 38,
+            Tag = "AdjustResourceButton",
+            Margin = new Padding(0, 8, 0, 0)
+        };
+        adjustButton.Click += AdjustResourceButton_Click;
+
+        // Add controls to details layout (label, value)
+        detailsLayout.Controls.Add(nameLabel, 0, 0);
+        detailsLayout.Controls.Add(nameValueLabel, 1, 0);
+        detailsLayout.Controls.Add(amountLabel, 0, 1);
+        detailsLayout.Controls.Add(amountValueLabel, 1, 1);
+        detailsLayout.Controls.Add(netChangeLabel, 0, 2);
+        detailsLayout.Controls.Add(netChangeValueLabel, 1, 2);
+        detailsLayout.Controls.Add(productionLabel, 0, 3);
+        detailsLayout.Controls.Add(productionValueLabel, 1, 3);
+        detailsLayout.Controls.Add(productionSourcesListView, 0, 4);
+        detailsLayout.SetColumnSpan(productionSourcesListView, 2);
+        detailsLayout.Controls.Add(consumptionLabel, 0, 5);
+        detailsLayout.Controls.Add(consumptionValueLabel, 1, 5);
+        detailsLayout.Controls.Add(consumptionSourcesListView, 0, 6);
+        detailsLayout.SetColumnSpan(consumptionSourcesListView, 2);
+        detailsLayout.Controls.Add(adjustButton, 1, 8);
+
+        detailsGroupBox.Controls.Add(detailsLayout);
+        detailsPanel.Controls.Add(detailsGroupBox);
+
+        // Add controls to main layout
+        layout.Controls.Add(resourcesListView, 0, 0);
+        layout.Controls.Add(detailsPanel, 1, 0);
+
+        tab.Controls.Add(layout);
+
+        // Populate the resources list directly
+        resourcesListView.Items.Clear();
+        foreach (var resource in _stronghold.Resources)
+        {
+            var item = new ListViewItem(resource.Type.ToString());
+            item.SubItems.Add(resource.Amount.ToString());
+            item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
+            item.Tag = resource;
+            resourcesListView.Items.Add(item);
+        }
     }
 
     private void InitializeJournalTab(TabPage tab)
@@ -1366,6 +1548,123 @@ public partial class MainDashboard : Form
                     }
                 }
             }
+        }
+    }
+
+    private void ResourcesListView_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        if (listView.SelectedItems.Count == 0) return;
+
+        Resource selectedResource = (Resource)listView.SelectedItems[0].Tag;
+        if (selectedResource == null) return;
+
+        // Update resource details
+        Label nameValueLabel = FindControl<Label>(listView.Parent, "ResourceName");
+        Label amountValueLabel = FindControl<Label>(listView.Parent, "ResourceAmount");
+        Label productionValueLabel = FindControl<Label>(listView.Parent, "ResourceProduction");
+        Label consumptionValueLabel = FindControl<Label>(listView.Parent, "ResourceConsumption");
+        Label netChangeValueLabel = FindControl<Label>(listView.Parent, "ResourceNetChange");
+        ListView productionSourcesListView = FindControl<ListView>(listView.Parent, "ProductionSourcesListView");
+        ListView consumptionSourcesListView = FindControl<ListView>(listView.Parent, "ConsumptionSourcesListView");
+
+        if (nameValueLabel != null) nameValueLabel.Text = selectedResource.Type.ToString();
+        if (amountValueLabel != null) amountValueLabel.Text = selectedResource.Amount.ToString();
+        if (productionValueLabel != null) productionValueLabel.Text = $"+{selectedResource.WeeklyProduction} per week";
+        if (consumptionValueLabel != null) consumptionValueLabel.Text = $"-{selectedResource.WeeklyConsumption} per week";
+        if (netChangeValueLabel != null)
+        {
+            int netChange = selectedResource.NetWeeklyChange;
+            netChangeValueLabel.Text = $"{(netChange >= 0 ? "+" : "")}{netChange} per week";
+            netChangeValueLabel.ForeColor = netChange >= 0 ? Color.Green : Color.Red;
+        }
+
+        // Update production sources list
+        if (productionSourcesListView != null)
+        {
+            productionSourcesListView.Items.Clear();
+            var prodSources = selectedResource.Sources.Where(s => s.IsProduction).ToList();
+            if (prodSources.Count == 0)
+            {
+                var placeholder = new ListViewItem("No production sources");
+                placeholder.SubItems.Add("");
+                placeholder.SubItems.Add("");
+                placeholder.ForeColor = Color.Gray;
+                productionSourcesListView.Items.Add(placeholder);
+            }
+            else
+            {
+                foreach (var source in prodSources)
+                {
+                    var item = new ListViewItem(source.SourceName);
+                    item.SubItems.Add(source.SourceType.ToString());
+                    item.SubItems.Add($"+{source.Amount}");
+                    productionSourcesListView.Items.Add(item);
+                }
+            }
+        }
+        // Update consumption sources list
+        if (consumptionSourcesListView != null)
+        {
+            consumptionSourcesListView.Items.Clear();
+            var consSources = selectedResource.Sources.Where(s => !s.IsProduction).ToList();
+            if (consSources.Count == 0)
+            {
+                var placeholder = new ListViewItem("No consumption sources");
+                placeholder.SubItems.Add("");
+                placeholder.SubItems.Add("");
+                placeholder.ForeColor = Color.Gray;
+                consumptionSourcesListView.Items.Add(placeholder);
+            }
+            else
+            {
+                foreach (var source in consSources)
+                {
+                    var item = new ListViewItem(source.SourceName);
+                    item.SubItems.Add(source.SourceType.ToString());
+                    item.SubItems.Add($"-{source.Amount}");
+                    consumptionSourcesListView.Items.Add(item);
+                }
+            }
+        }
+    }
+
+    private void AdjustResourceButton_Click(object sender, EventArgs e)
+    {
+        ListView resourcesListView = FindControl<ListView>(((Button)sender).Parent.Parent.Parent, "ResourcesListView");
+        if (resourcesListView == null || resourcesListView.SelectedItems.Count == 0) return;
+
+        Resource selectedResource = (Resource)resourcesListView.SelectedItems[0].Tag;
+        if (selectedResource == null) return;
+
+        using (var dialog = new NumericInputDialog(
+            $"Adjust {selectedResource.Type} Amount",
+            "New Amount:",
+            0,
+            10000,
+            selectedResource.Amount))
+        {
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                selectedResource.Amount = dialog.Value;
+                RefreshResourcesList();
+            }
+        }
+    }
+
+    private void RefreshResourcesList()
+    {
+        ListView resourcesListView = FindControl<ListView>(_tabControl.TabPages[2], "ResourcesListView");
+        if (resourcesListView == null) return;
+
+        resourcesListView.Items.Clear();
+        foreach (var resource in _stronghold.Resources)
+        {
+            var item = new ListViewItem(resource.Type.ToString());
+            item.SubItems.Add(resource.Amount.ToString());
+            item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
+            item.Tag = resource;
+            resourcesListView.Items.Add(item);
         }
     }
 

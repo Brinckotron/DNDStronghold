@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
+using System.Linq;
 
 namespace DNDStrongholdApp.Services
 {
@@ -163,9 +164,9 @@ namespace DNDStrongholdApp.Services
                 }
                 else if (building.ConstructionStatus == BuildingStatus.Repairing)
                 {
-                    bool repaired = building.AdvanceRepair();
+                    bool completed = building.AdvanceRepair();
                     
-                    if (repaired)
+                    if (completed)
                     {
                         completedRepairs.Add(building);
                         
@@ -173,33 +174,54 @@ namespace DNDStrongholdApp.Services
                         _currentStronghold.Journal.Add(new JournalEntry(
                             _currentStronghold.CurrentWeek,
                             _currentStronghold.YearsSinceFoundation,
-                            JournalEntryType.BuildingRepaired,
-                            $"{building.Name} Repairs Complete",
-                            $"The repairs on {building.Name} have been completed."
+                            JournalEntryType.BuildingRepairComplete,
+                            $"{building.Name} Repair Complete",
+                            $"Repairs to {building.Name} have been completed."
                         ));
                     }
                 }
-                else if (building.ConstructionStatus == BuildingStatus.Complete)
+
+                // --- Resource production/upkeep logic ---
+                if (building.IsFunctional())
                 {
-                    // Random chance for building to take damage (5% chance)
-                    Random random = new Random();
-                    if (random.Next(100) < 5)
+                    // Calculate actual production based on assigned workers
+                    var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
+                    building.ActualProduction = new List<ResourceProduction>();
+                    foreach (var prod in building.BaseProduction)
                     {
-                        int damageAmount = random.Next(10, 30);
-                        building.Damage(damageAmount);
-                        
-                        if (building.ConstructionStatus == BuildingStatus.Damaged)
+                        int total = 0;
+                        if (building.WorkerSlots > 0 && building.BaseProduction.Count > 0)
                         {
-                            // Add journal entry for damaged building
-                            _currentStronghold.Journal.Add(new JournalEntry(
-                                _currentStronghold.CurrentWeek,
-                                _currentStronghold.YearsSinceFoundation,
-                                JournalEntryType.BuildingDamaged,
-                                $"{building.Name} Damaged",
-                                $"The {building.Name} has been damaged and requires repairs."
-                            ));
+                            // Scale production by number of assigned workers
+                            int max = prod.Amount;
+                            int assigned = assignedNPCs.Count;
+                            total = (int)(max * (assigned / (float)building.WorkerSlots));
+                            // Optionally, apply worker efficiency bonuses here
                         }
+                        else
+                        {
+                            total = prod.Amount;
+                        }
+                        building.ActualProduction.Add(new ResourceProduction { ResourceType = prod.ResourceType, Amount = total });
                     }
+
+                    // Calculate actual upkeep: base upkeep + assigned workers * salary
+                    building.ActualUpkeep = new List<ResourceCost>();
+                    foreach (var upkeep in building.BaseUpkeep)
+                    {
+                        int total = upkeep.Amount;
+                        if (upkeep.ResourceType == ResourceType.Gold)
+                        {
+                            total += assignedNPCs.Count * 2; // 2 gold per assigned worker
+                        }
+                        building.ActualUpkeep.Add(new ResourceCost { ResourceType = upkeep.ResourceType, Amount = total });
+                    }
+                }
+                else
+                {
+                    // Not functional: no production, no upkeep
+                    building.ActualProduction = new List<ResourceProduction>();
+                    building.ActualUpkeep = new List<ResourceCost>();
                 }
             }
         }
@@ -316,10 +338,75 @@ namespace DNDStrongholdApp.Services
         // Process resources (production, consumption, etc.)
         private void ProcessResources()
         {
+            // Reset all resource rates
             foreach (var resource in _currentStronghold.Resources)
             {
-                resource.UpdateWeeklyRates();
-                resource.ApplyWeeklyChange();
+                resource.WeeklyProduction = 0;
+                resource.WeeklyConsumption = 0;
+                resource.Sources.Clear();
+            }
+
+            // Aggregate building production and upkeep
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                if (building.IsFunctional())
+                {
+                    // Production
+                    foreach (var prod in building.ActualProduction)
+                    {
+                        var resource = _currentStronghold.Resources.Find(r => r.Type == prod.ResourceType);
+                        if (resource != null && prod.Amount > 0)
+                        {
+                            resource.WeeklyProduction += prod.Amount;
+                            resource.Sources.Add(new ResourceSource
+                            {
+                                SourceType = ResourceSourceType.Building,
+                                SourceId = building.Id,
+                                SourceName = building.Name,
+                                Amount = prod.Amount,
+                                IsProduction = true
+                            });
+                        }
+                    }
+                    // Upkeep
+                    foreach (var upkeep in building.ActualUpkeep)
+                    {
+                        var resource = _currentStronghold.Resources.Find(r => r.Type == upkeep.ResourceType);
+                        if (resource != null && upkeep.Amount > 0)
+                        {
+                            resource.WeeklyConsumption += upkeep.Amount;
+                            resource.Sources.Add(new ResourceSource
+                            {
+                                SourceType = ResourceSourceType.Building,
+                                SourceId = building.Id,
+                                SourceName = building.Name,
+                                Amount = upkeep.Amount,
+                                IsProduction = false
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Food consumption: 1 per NPC (assigned or not)
+            var foodResource = _currentStronghold.Resources.Find(r => r.Type == ResourceType.Food);
+            if (foodResource != null)
+            {
+                int foodPerNPC = 1;
+                int totalNPCs = _currentStronghold.NPCs.Count;
+                foodResource.WeeklyConsumption += totalNPCs * foodPerNPC;
+                if (totalNPCs > 0)
+                {
+                    foodResource.Sources.Add(new ResourceSource
+                    {
+                        SourceType = ResourceSourceType.Manual,
+                        SourceId = "NPCs",
+                        SourceName = "Population",
+                        Amount = totalNPCs * foodPerNPC,
+                        IsProduction = false
+                    });
+                }
+                // TODO: Add special building food consumption (tavern, inn, etc.)
             }
         }
         
