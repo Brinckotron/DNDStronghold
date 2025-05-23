@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DNDStrongholdApp.Models
 {
@@ -22,6 +23,7 @@ namespace DNDStrongholdApp.Models
         public List<SpecialAbility> SpecialAbilities { get; set; } = new List<SpecialAbility>();
         public int Condition { get; set; } = 100; // 0-100%
         public int RepairTimeRemaining { get; set; } = 0; // in weeks
+        public int RepairTime { get; set; } = 0; // Total repair time in weeks
         public List<ResourceCost> RepairCost { get; set; } = new List<ResourceCost>();
 
         // Constructor for a new building
@@ -57,9 +59,20 @@ namespace DNDStrongholdApp.Models
                     
                     BaseUpkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 8 });
                     break;
+
+                case BuildingType.Quarry:
+                    WorkerSlots = 4;
+                    ConstructionTimeRemaining = 4; // 4 weeks
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 100 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 50 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 20 });
+                    
+                    BaseProduction.Add(new ResourceProduction { ResourceType = ResourceType.Stone, Amount = 5 }); // Base rate per worker
+                    BaseUpkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 1 }); // Base upkeep per level
+                    break;
                     
                 // Add other building types as needed
-                
+                    
                 default:
                     WorkerSlots = 1;
                     ConstructionTimeRemaining = 1;
@@ -81,8 +94,9 @@ namespace DNDStrongholdApp.Models
             }
             
             // Default repair time is 50% of construction time
-            RepairTimeRemaining = (int)(ConstructionTimeRemaining * 0.5f);
-            if (RepairTimeRemaining < 1) RepairTimeRemaining = 1;
+            RepairTime = (int)(ConstructionTimeRemaining * 0.5f);
+            if (RepairTime < 1) RepairTime = 1;
+            RepairTimeRemaining = RepairTime;
         }
 
         // Get default name based on building type
@@ -115,46 +129,29 @@ namespace DNDStrongholdApp.Models
                 return;
             }
 
-            // Apply worker efficiency bonuses
+            // Apply worker bonuses
             foreach (var npc in assignedNPCs)
             {
-                float efficiencyMultiplier = GetWorkerEfficiency(npc.Type);
-                
                 foreach (var production in ActualProduction)
                 {
-                    production.Amount = (int)(production.Amount * efficiencyMultiplier);
+                    // Add worker's skill level to production
+                    var skill = npc.Skills.Find(s => s.Name == production.ResourceType.ToString());
+                    if (skill != null)
+                    {
+                        production.Amount += skill.Level;
+                    }
                 }
             }
-        }
-
-        // Get worker efficiency based on NPC type
-        private float GetWorkerEfficiency(NPCType npcType)
-        {
-            // Default efficiency
-            float efficiency = 0.75f; // 75% for most workers
-            
-            switch (Type)
-            {
-                case BuildingType.Farm:
-                    if (npcType == NPCType.Farmer) return 1.5f; // 150%
-                    if (npcType == NPCType.Peasant) return 1.0f; // 100%
-                    break;
-                    
-                case BuildingType.Watchtower:
-                    if (npcType == NPCType.Scout) return 1.5f;
-                    if (npcType == NPCType.Militia) return 1.25f;
-                    break;
-                    
-                // Add other building types as needed
-            }
-            
-            return efficiency;
         }
 
         // Progress construction by one week
         public bool AdvanceConstruction()
         {
             if (ConstructionStatus != BuildingStatus.UnderConstruction)
+                return false;
+
+            // No progress if no workers are assigned
+            if (AssignedWorkers.Count == 0)
                 return false;
 
             ConstructionTimeRemaining--;
@@ -176,16 +173,21 @@ namespace DNDStrongholdApp.Models
             if (ConstructionStatus != BuildingStatus.Repairing)
                 return false;
 
+            // No progress if no workers are assigned
+            if (AssignedWorkers.Count == 0)
+                return false;
+
             RepairTimeRemaining--;
             
+            // If repair is complete
             if (RepairTimeRemaining <= 0)
             {
                 ConstructionStatus = BuildingStatus.Complete;
                 Condition = 100;
-                return true; // Repair completed
+                return true;
             }
-
-            return false; // Still repairing
+            
+            return false;
         }
         
         // Damage the building
@@ -245,6 +247,7 @@ namespace DNDStrongholdApp.Models
             {
                 case BuildingType.Farm: return 2;
                 case BuildingType.Watchtower: return 3;
+                case BuildingType.Quarry: return 4;
                 // Add other building types
                 default: return 1;
             }
@@ -254,6 +257,87 @@ namespace DNDStrongholdApp.Models
         public bool IsFunctional()
         {
             return ConstructionStatus == BuildingStatus.Complete;
+        }
+
+        public int GetMaxLevel()
+        {
+            switch (Type)
+            {
+                case BuildingType.Quarry:
+                    return 4;
+                default:
+                    return 5; // Default max level for other buildings
+            }
+        }
+
+        public int GetWorkerSlots()
+        {
+            int baseSlots = WorkerSlots;
+            if (Type == BuildingType.Quarry)
+            {
+                return baseSlots + (Level - 1); // +1 slot per level after level 1
+            }
+            return baseSlots;
+        }
+
+        public List<ResourceProduction> CalculateProduction(List<NPC> workers)
+        {
+            var production = new List<ResourceProduction>();
+            
+            if (Type == BuildingType.Quarry)
+            {
+                int totalStone = 0;
+                foreach (var worker in workers)
+                {
+                    // Base production of 5 stone per worker
+                    int workerProduction = 5;
+                    
+                    // Add worker's labor skill level
+                    var laborSkill = worker.Skills.FirstOrDefault(s => s.Name == "Labor");
+                    if (laborSkill != null)
+                    {
+                        workerProduction += laborSkill.Level;
+                    }
+                    
+                    // Add +1 per building level
+                    workerProduction += Level;
+                    
+                    totalStone += workerProduction;
+                }
+                
+                production.Add(new ResourceProduction { ResourceType = ResourceType.Stone, Amount = totalStone });
+            }
+            else
+            {
+                // Default production calculation for other buildings
+                production.AddRange(BaseProduction);
+            }
+            
+            return production;
+        }
+
+        public List<ResourceCost> CalculateUpkeep(List<NPC> workers)
+        {
+            var upkeep = new List<ResourceCost>();
+            
+            if (Type == BuildingType.Quarry)
+            {
+                // Base upkeep of 1 gold per level
+                upkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = Level });
+                
+                // Add worker salaries
+                foreach (var worker in workers)
+                {
+                    upkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 2 }); // Base salary of 2 gold per worker
+                }
+            }
+            else
+            {
+                // Default upkeep calculation for other buildings
+                upkeep.AddRange(BaseUpkeep);
+            }
+            
+            return upkeep;
         }
     }
 
@@ -272,7 +356,8 @@ namespace DNDStrongholdApp.Models
         Tavern,
         MasonsYard,
         Workshop,
-        Granary
+        Granary,
+        Quarry
     }
 
     public enum BuildingStatus

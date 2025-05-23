@@ -16,14 +16,41 @@ namespace DNDStrongholdApp.Services
         public event EventHandler GameStateChanged;
         
         // Singleton instance
+        private static readonly object _lock = new object();
         private static GameStateService _instance;
-        public static GameStateService Instance => _instance ??= new GameStateService();
+        public static GameStateService Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    lock (_lock)
+                    {
+                        _instance ??= new GameStateService();
+                    }
+                }
+                return _instance;
+            }
+        }
         
         // Private constructor for singleton
         private GameStateService()
         {
-            // Initialize with a new stronghold
-            CreateNewStronghold();
+            try
+            {
+                if (Program.DebugMode)
+                    MessageBox.Show("Starting GameStateService initialization...", "Debug");
+                // Initialize with a new stronghold
+                CreateNewStronghold();
+                if (Program.DebugMode)
+                    MessageBox.Show("GameStateService initialization complete.", "Debug");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error in GameStateService initialization: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                throw;
+            }
         }
         
         // Get current stronghold
@@ -118,10 +145,7 @@ namespace DNDStrongholdApp.Services
             _currentStronghold.AdvanceWeek();
             
             // Process buildings
-            ProcessBuildings();
-            
-            // Process NPCs
-            ProcessNPCs();
+            ProcessConstructionAndRepairs();
             
             // Process missions
             ProcessMissions();
@@ -136,8 +160,8 @@ namespace DNDStrongholdApp.Services
             OnGameStateChanged();
         }
         
-        // Process buildings (construction progress, production, etc.)
-        private void ProcessBuildings()
+        // Process construction and repairs
+        private void ProcessConstructionAndRepairs()
         {
             List<Building> completedBuildings = new List<Building>();
             List<Building> completedRepairs = new List<Building>();
@@ -146,38 +170,52 @@ namespace DNDStrongholdApp.Services
             {
                 if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
                 {
-                    bool completed = building.AdvanceConstruction();
+                    // Get assigned workers
+                    var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
                     
-                    if (completed)
+                    // Only progress if workers are assigned
+                    if (assignedNPCs.Count > 0)
                     {
-                        completedBuildings.Add(building);
+                        bool completed = building.AdvanceConstruction();
                         
-                        // Add journal entry for completed building
-                        _currentStronghold.Journal.Add(new JournalEntry(
-                            _currentStronghold.CurrentWeek,
-                            _currentStronghold.YearsSinceFoundation,
-                            JournalEntryType.BuildingComplete,
-                            $"{building.Name} Construction Complete",
-                            $"The construction of {building.Name} has been completed."
-                        ));
+                        if (completed)
+                        {
+                            completedBuildings.Add(building);
+                            
+                            // Add journal entry for completed building
+                            _currentStronghold.Journal.Add(new JournalEntry(
+                                _currentStronghold.CurrentWeek,
+                                _currentStronghold.YearsSinceFoundation,
+                                JournalEntryType.BuildingComplete,
+                                $"{building.Name} Construction Complete",
+                                $"The construction of {building.Name} has been completed."
+                            ));
+                        }
                     }
                 }
                 else if (building.ConstructionStatus == BuildingStatus.Repairing)
                 {
-                    bool completed = building.AdvanceRepair();
+                    // Get assigned workers
+                    var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
                     
-                    if (completed)
+                    // Only progress if workers are assigned
+                    if (assignedNPCs.Count > 0)
                     {
-                        completedRepairs.Add(building);
+                        bool completed = building.AdvanceRepair();
                         
-                        // Add journal entry for repaired building
-                        _currentStronghold.Journal.Add(new JournalEntry(
-                            _currentStronghold.CurrentWeek,
-                            _currentStronghold.YearsSinceFoundation,
-                            JournalEntryType.BuildingRepairComplete,
-                            $"{building.Name} Repair Complete",
-                            $"Repairs to {building.Name} have been completed."
-                        ));
+                        if (completed)
+                        {
+                            completedRepairs.Add(building);
+                            
+                            // Add journal entry for repaired building
+                            _currentStronghold.Journal.Add(new JournalEntry(
+                                _currentStronghold.CurrentWeek,
+                                _currentStronghold.YearsSinceFoundation,
+                                JournalEntryType.BuildingRepairComplete,
+                                $"{building.Name} Repair Complete",
+                                $"Repairs to {building.Name} have been completed."
+                            ));
+                        }
                     }
                 }
 
@@ -186,24 +224,7 @@ namespace DNDStrongholdApp.Services
                 {
                     // Calculate actual production based on assigned workers
                     var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
-                    building.ActualProduction = new List<ResourceProduction>();
-                    foreach (var prod in building.BaseProduction)
-                    {
-                        int total = 0;
-                        if (building.WorkerSlots > 0 && building.BaseProduction.Count > 0)
-                        {
-                            // Scale production by number of assigned workers
-                            int max = prod.Amount;
-                            int assigned = assignedNPCs.Count;
-                            total = (int)(max * (assigned / (float)building.WorkerSlots));
-                            // Optionally, apply worker efficiency bonuses here
-                        }
-                        else
-                        {
-                            total = prod.Amount;
-                        }
-                        building.ActualProduction.Add(new ResourceProduction { ResourceType = prod.ResourceType, Amount = total });
-                    }
+                    building.UpdateProduction(assignedNPCs);
 
                     // Calculate actual upkeep: base upkeep + assigned workers * salary
                     building.ActualUpkeep = new List<ResourceCost>();
@@ -222,67 +243,6 @@ namespace DNDStrongholdApp.Services
                     // Not functional: no production, no upkeep
                     building.ActualProduction = new List<ResourceProduction>();
                     building.ActualUpkeep = new List<ResourceCost>();
-                }
-            }
-        }
-        
-        // Start repairs on a building
-        public bool StartBuildingRepair(string buildingId)
-        {
-            var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
-            if (building == null || building.ConstructionStatus != BuildingStatus.Damaged)
-            {
-                return false;
-            }
-            
-            bool success = building.StartRepair(_currentStronghold.Resources);
-            
-            if (success)
-            {
-                // Add journal entry for repair start
-                _currentStronghold.Journal.Add(new JournalEntry(
-                    _currentStronghold.CurrentWeek,
-                    _currentStronghold.YearsSinceFoundation,
-                    JournalEntryType.BuildingRepairStarted,
-                    $"{building.Name} Repairs Started",
-                    $"Repairs have begun on the {building.Name}."
-                ));
-                
-                // Notify listeners that the game state has changed
-                OnGameStateChanged();
-            }
-            
-            return success;
-        }
-        
-        // Process NPCs (happiness, assignments, etc.)
-        private void ProcessNPCs()
-        {
-            bool hasTavern = _currentStronghold.Buildings.Exists(b => 
-                b.Type == BuildingType.Tavern && b.ConstructionStatus == BuildingStatus.Complete);
-                
-            foreach (var npc in _currentStronghold.NPCs)
-            {
-                // Update happiness
-                // For now, assume all NPCs have proper housing and food
-                npc.UpdateHappiness(true, true, hasTavern);
-                
-                // Add some experience
-                if (npc.Assignment.Type != AssignmentType.Unassigned)
-                {
-                    bool leveledUp = npc.AddExperience(10);
-                    
-                    if (leveledUp)
-                    {
-                        // Add journal entry for level up
-                        _currentStronghold.Journal.Add(new JournalEntry(
-                            _currentStronghold.CurrentWeek,
-                            _currentStronghold.YearsSinceFoundation,
-                            JournalEntryType.Event,
-                            $"{npc.Name} Gained a Level",
-                            $"{npc.Name} has reached level {npc.Level}."
-                        ));
-                    }
                 }
             }
         }
@@ -698,6 +658,57 @@ namespace DNDStrongholdApp.Services
         private void OnGameStateChanged()
         {
             GameStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        // Check if we have enough resources for a list of costs
+        private bool HasEnoughResources(List<ResourceCost> costs)
+        {
+            foreach (var cost in costs)
+            {
+                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                if (resource == null || resource.Amount < cost.Amount)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public bool StartBuildingRepair(string buildingId)
+        {
+            var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
+            if (building == null || building.ConstructionStatus != BuildingStatus.Damaged)
+                return false;
+
+            // Check if we have enough resources for repair
+            if (!HasEnoughResources(building.RepairCost))
+                return false;
+
+            // Deduct repair costs
+            foreach (var cost in building.RepairCost)
+            {
+                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                if (resource != null)
+                {
+                    resource.Amount -= cost.Amount;
+                }
+            }
+
+            // Start repair
+            building.ConstructionStatus = BuildingStatus.Repairing;
+            building.RepairTimeRemaining = building.RepairTime;
+
+            // Add journal entry
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                $"Started repairing {building.Name}",
+                $"Repairs have begun on {building.Name}. Expected completion in {building.RepairTime} weeks."
+            ));
+
+            OnGameStateChanged();
+            return true;
         }
     }
 } 

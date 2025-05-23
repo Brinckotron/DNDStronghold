@@ -293,7 +293,7 @@ namespace DNDStrongholdApp
                     return "Stables house and breed mounts and pack animals. Handlers can train animals for riding, hauling, or combat.";
                     
                 case BuildingType.Tavern:
-                    return "A tavern provides entertainment and relaxation for your people. It increases happiness and can attract visitors with news and rumors.";
+                    return "A tavern provides entertainment and relaxation for your people. It can attract visitors with news and rumors.";
                     
                 case BuildingType.MasonsYard:
                     return "A mason's yard allows for the creation of stone structures. Masons can build and repair stone buildings more efficiently.";
@@ -303,6 +303,9 @@ namespace DNDStrongholdApp
                     
                 case BuildingType.Granary:
                     return "A granary stores food to prevent spoilage. It increases your food storage capacity and helps survive lean seasons.";
+                    
+                case BuildingType.Quarry:
+                    return "A quarry extracts stone from the earth. Workers can produce stone at a base rate, with additional production based on their labor skill. The quarry can be upgraded to increase worker capacity and production efficiency.";
                     
                 default:
                     return "No description available.";

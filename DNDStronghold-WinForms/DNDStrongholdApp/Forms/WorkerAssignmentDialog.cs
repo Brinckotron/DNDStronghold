@@ -90,21 +90,30 @@ namespace DNDStrongholdApp
             // Button panel
             Panel buttonPanel = new Panel();
             buttonPanel.Dock = DockStyle.Fill;
+            buttonPanel.Padding = new Padding(0);
             
             Button assignButton = new Button();
-            assignButton.Text = "Assign >";
-            assignButton.Size = new Size(80, 30);
-            assignButton.Location = new Point(10, 20);
+            assignButton.Text = ">";
+            assignButton.Size = new Size(40, 30);
+            assignButton.Anchor = AnchorStyles.None;
             assignButton.Click += AssignButton_Click;
             
             Button unassignButton = new Button();
-            unassignButton.Text = "< Unassign";
-            unassignButton.Size = new Size(80, 30);
-            unassignButton.Location = new Point(10, 60);
+            unassignButton.Text = "<";
+            unassignButton.Size = new Size(40, 30);
+            unassignButton.Anchor = AnchorStyles.None;
             unassignButton.Click += UnassignButton_Click;
             
-            buttonPanel.Controls.Add(assignButton);
-            buttonPanel.Controls.Add(unassignButton);
+            // Use a TableLayoutPanel to center the buttons vertically
+            TableLayoutPanel buttonLayout = new TableLayoutPanel();
+            buttonLayout.Dock = DockStyle.Fill;
+            buttonLayout.RowCount = 2;
+            buttonLayout.ColumnCount = 1;
+            buttonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            buttonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            buttonLayout.Controls.Add(assignButton, 0, 0);
+            buttonLayout.Controls.Add(unassignButton, 0, 1);
+            buttonPanel.Controls.Add(buttonLayout);
             
             // OK/Cancel buttons
             Panel bottomPanel = new TableLayoutPanel();

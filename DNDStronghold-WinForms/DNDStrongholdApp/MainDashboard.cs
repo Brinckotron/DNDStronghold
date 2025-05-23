@@ -13,7 +13,7 @@ public partial class MainDashboard : Form
     private GameStateService _gameStateService;
     
     // Reference to the current stronghold
-    private Stronghold _stronghold => _gameStateService.GetCurrentStronghold();
+    private Stronghold _stronghold => _gameStateService?.GetCurrentStronghold() ?? throw new InvalidOperationException("GameStateService not initialized");
     
     // UI controls that need to be updated
     private StatusStrip _statusStrip;
@@ -30,8 +30,30 @@ public partial class MainDashboard : Form
 
     public MainDashboard()
     {
-        InitializeComponent();
-        InitializeDashboard();
+        try
+        {
+            if (Program.DebugMode)
+                MessageBox.Show("Starting MainDashboard initialization...", "Debug");
+            InitializeComponent();
+            
+            if (Program.DebugMode)
+                MessageBox.Show("Getting GameStateService instance...", "Debug");
+            // Get reference to game state service first
+            _gameStateService = GameStateService.Instance;
+            _gameStateService.GameStateChanged += GameStateService_GameStateChanged;
+            
+            if (Program.DebugMode)
+                MessageBox.Show("Initializing dashboard...", "Debug");
+            InitializeDashboard();
+            if (Program.DebugMode)
+                MessageBox.Show("MainDashboard initialization complete.", "Debug");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error in MainDashboard initialization: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}", 
+                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            throw;
+        }
     }
 
     private void InitializeDashboard()
@@ -45,10 +67,6 @@ public partial class MainDashboard : Form
         
         // Center the form on screen
         this.StartPosition = FormStartPosition.CenterScreen;
-
-        // Get reference to game state service
-        _gameStateService = GameStateService.Instance;
-        _gameStateService.GameStateChanged += GameStateService_GameStateChanged;
 
         // Create main menu
         CreateMainMenu();
@@ -367,7 +385,7 @@ public partial class MainDashboard : Form
         listView.Columns.Add("Name", 150);
         listView.Columns.Add("Type", 100);
         listView.Columns.Add("Assignment", 150);
-        listView.Columns.Add("Morale", 80);
+        listView.Columns.Add("Status", 100);
         
         // Dynamic column widths (40%, 20%, 25%, 15%)
         void ResizeNPCColumns(object s, EventArgs e)
@@ -387,8 +405,12 @@ public partial class MainDashboard : Form
             ListViewItem item = new ListViewItem(npc.Name);
             item.SubItems.Add(npc.Type.ToString());
             item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-            item.SubItems.Add(npc.Happiness.ToString());
-            item.Tag = npc.Id; // Ensure Tag is set to npc.Id
+            // Status column: show health states or 'Healthy'
+            string status = npc.States != null && npc.States.Any()
+                ? string.Join(", ", npc.States.Select(s => s.Type.ToString()))
+                : "Healthy";
+            item.SubItems.Add(status);
+            item.Tag = npc.Id;
             listView.Items.Add(item);
         }
         // Double-click to open in NPCs tab
@@ -626,7 +648,7 @@ public partial class MainDashboard : Form
         // Repair button
         Button repairButton = new Button();
         repairButton.Text = "Repair Building";
-        repairButton.Size = new Size(120, 30);
+        repairButton.Size = new Size(150, 30);
         repairButton.Location = new Point(10, 90);
         repairButton.Tag = "RepairButton";
         repairButton.Enabled = false; // Disabled by default
@@ -634,8 +656,8 @@ public partial class MainDashboard : Form
         
         // Assign workers button
         Button assignWorkersButton = new Button();
-        assignWorkersButton.Text = "Assign Workers";
-        assignWorkersButton.Size = new Size(120, 30);
+        assignWorkersButton.Text = "Manage Workers";
+        assignWorkersButton.Size = new Size(150, 30);
         assignWorkersButton.Location = new Point(10, 50);
         assignWorkersButton.Tag = "AssignWorkersButton";
         assignWorkersButton.Enabled = false; // Disabled by default
@@ -644,7 +666,7 @@ public partial class MainDashboard : Form
         // Cancel construction button
         Button cancelConstructionButton = new Button();
         cancelConstructionButton.Text = "Cancel Construction";
-        cancelConstructionButton.Size = new Size(120, 30);
+        cancelConstructionButton.Size = new Size(150, 30);
         cancelConstructionButton.Location = new Point(10, 130);
         cancelConstructionButton.Tag = "CancelConstructionButton";
         cancelConstructionButton.Enabled = false;
@@ -653,7 +675,7 @@ public partial class MainDashboard : Form
         // Add new building button
         Button addBuildingButton = new Button();
         addBuildingButton.Text = "Add New Building";
-        addBuildingButton.Size = new Size(120, 30);
+        addBuildingButton.Size = new Size(150, 30);
         addBuildingButton.Location = new Point(10, 10);
         addBuildingButton.Click += AddBuildingButton_Click;
         
@@ -694,17 +716,15 @@ public partial class MainDashboard : Form
         npcsListView.Columns.Add("Type", 80);
         npcsListView.Columns.Add("Level", 50);
         npcsListView.Columns.Add("Assignment", 120);
-        npcsListView.Columns.Add("Morale", 80);
         
-        // Dynamic column widths (28%, 18%, 12%, 28%, 14%)
+        // Dynamic column widths (35%, 20%, 15%, 30%)
         void ResizeNPCsTabColumns(object s, EventArgs e)
         {
             int totalWidth = npcsListView.ClientSize.Width;
-            npcsListView.Columns[0].Width = (int)(totalWidth * 0.28);
-            npcsListView.Columns[1].Width = (int)(totalWidth * 0.18);
-            npcsListView.Columns[2].Width = (int)(totalWidth * 0.12);
-            npcsListView.Columns[3].Width = (int)(totalWidth * 0.28);
-            npcsListView.Columns[4].Width = (int)(totalWidth * 0.14);
+            npcsListView.Columns[0].Width = (int)(totalWidth * 0.35);
+            npcsListView.Columns[1].Width = (int)(totalWidth * 0.20);
+            npcsListView.Columns[2].Width = (int)(totalWidth * 0.15);
+            npcsListView.Columns[3].Width = (int)(totalWidth * 0.30);
         }
         npcsListView.Resize += ResizeNPCsTabColumns;
         ResizeNPCsTabColumns(null, null);
@@ -716,7 +736,6 @@ public partial class MainDashboard : Form
             item.SubItems.Add(npc.Type.ToString());
             item.SubItems.Add(npc.Level.ToString());
             item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-            item.SubItems.Add(npc.Happiness.ToString());
             item.Tag = npc.Id;
             npcsListView.Items.Add(item);
         }
@@ -731,7 +750,7 @@ public partial class MainDashboard : Form
         TableLayoutPanel detailsLayout = new TableLayoutPanel();
         detailsLayout.Dock = DockStyle.Fill;
         detailsLayout.ColumnCount = 2;
-        detailsLayout.RowCount = 7;
+        detailsLayout.RowCount = 5;
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
         
@@ -1199,7 +1218,8 @@ public partial class MainDashboard : Form
                 if (repairButton != null)
                     repairButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Damaged;
                 if (assignWorkersButton != null)
-                    assignWorkersButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Complete;
+                    assignWorkersButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Complete || 
+                                                selectedBuilding.ConstructionStatus == BuildingStatus.UnderConstruction;
                 if (cancelConstructionButton != null)
                     cancelConstructionButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Planning;
             }
@@ -1411,58 +1431,63 @@ public partial class MainDashboard : Form
             NPC selectedNpc = _stronghold.NPCs.Find(n => n.Id == npcId);
             if (selectedNpc != null)
             {
-                UpdateNPCDetails(listView.Parent, selectedNpc);
+                UpdateNPCDetails(selectedNpc);
             }
-        }
-        else
-        {
-            ClearNPCDetails(listView.Parent);
         }
     }
 
     // Update NPC details panel
-    private void UpdateNPCDetails(Control parent, NPC npc)
+    private void UpdateNPCDetails(NPC npc)
     {
-        Label nameLabel = FindControl<Label>(parent, "NPCName");
-        if (nameLabel != null) nameLabel.Text = npc.Name;
-        Label typeLabel = FindControl<Label>(parent, "NPCType");
-        if (typeLabel != null) typeLabel.Text = npc.Type.ToString();
-        Label levelLabel = FindControl<Label>(parent, "NPCLevel");
-        if (levelLabel != null) levelLabel.Text = npc.Level.ToString();
-        Label expLabel = FindControl<Label>(parent, "NPCExperience");
-        if (expLabel != null) expLabel.Text = npc.Experience.ToString();
-        Label happinessLabel = FindControl<Label>(parent, "NPCHappiness");
-        if (happinessLabel != null) happinessLabel.Text = npc.Happiness.ToString();
-        Label skillsLabel = FindControl<Label>(parent, "NPCSkills");
-        if (skillsLabel != null)
-        {
-            string skillsText = string.Join(", ", npc.Skills.ConvertAll(s => $"{s.Name} ({s.Level})"));
-            skillsLabel.Text = skillsText;
-        }
-        Label assignmentLabel = FindControl<Label>(parent, "NPCAssignment");
-        if (assignmentLabel != null)
-        {
-            assignmentLabel.Text = npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName;
-        }
-    }
+        if (npc == null) return;
 
-    // Clear NPC details panel
-    private void ClearNPCDetails(Control parent)
-    {
-        Label nameLabel = FindControl<Label>(parent, "NPCName");
-        if (nameLabel != null) nameLabel.Text = "";
-        Label typeLabel = FindControl<Label>(parent, "NPCType");
-        if (typeLabel != null) typeLabel.Text = "";
-        Label levelLabel = FindControl<Label>(parent, "NPCLevel");
-        if (levelLabel != null) levelLabel.Text = "";
-        Label expLabel = FindControl<Label>(parent, "NPCExperience");
-        if (expLabel != null) expLabel.Text = "";
-        Label happinessLabel = FindControl<Label>(parent, "NPCHappiness");
-        if (happinessLabel != null) happinessLabel.Text = "";
-        Label skillsLabel = FindControl<Label>(parent, "NPCSkills");
-        if (skillsLabel != null) skillsLabel.Text = "";
-        Label assignmentLabel = FindControl<Label>(parent, "NPCAssignment");
-        if (assignmentLabel != null) assignmentLabel.Text = "";
+        var detailsGroupBox = new GroupBox
+        {
+            Text = "NPC Details",
+            Dock = DockStyle.Fill
+        };
+
+        var detailsLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 5,
+            Padding = new Padding(10)
+        };
+
+        // Name
+        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight };
+        Label nameValueLabel = new Label { Text = npc.Name };
+        detailsLayout.Controls.Add(nameLabel, 0, 0);
+        detailsLayout.Controls.Add(nameValueLabel, 1, 0);
+
+        // Type
+        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight };
+        Label typeValueLabel = new Label { Text = npc.Type.ToString() };
+        detailsLayout.Controls.Add(typeLabel, 0, 1);
+        detailsLayout.Controls.Add(typeValueLabel, 1, 1);
+
+        // Skills
+        Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.MiddleRight };
+        Label skillsValueLabel = new Label { Text = string.Join(", ", npc.Skills.Select(s => $"{s.Name} (Lvl {s.Level})")) };
+        detailsLayout.Controls.Add(skillsLabel, 0, 2);
+        detailsLayout.Controls.Add(skillsValueLabel, 1, 2);
+
+        // Assignment
+        Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight };
+        Label assignmentValueLabel = new Label { Text = npc.Assignment.Type == AssignmentType.Unassigned ? "None" : $"{npc.Assignment.Type}: {npc.Assignment.TargetName}" };
+        detailsLayout.Controls.Add(assignmentLabel, 0, 3);
+        detailsLayout.Controls.Add(assignmentValueLabel, 1, 3);
+
+        // Health States
+        Label statesLabel = new Label { Text = "Status:", TextAlign = ContentAlignment.MiddleRight };
+        Label statesValueLabel = new Label { Text = npc.States.Any() ? string.Join(", ", npc.States.Select(s => s.Type.ToString())) : "Healthy" };
+        detailsLayout.Controls.Add(statesLabel, 0, 4);
+        detailsLayout.Controls.Add(statesValueLabel, 1, 4);
+
+        // Clear and add the new layout
+        detailsGroupBox.Controls.Clear();
+        detailsGroupBox.Controls.Add(detailsLayout);
     }
 
     // Helper to switch to NPCs tab and select an NPC
