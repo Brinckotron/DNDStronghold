@@ -18,30 +18,38 @@ namespace DNDStrongholdApp.Services
         // Singleton instance
         private static readonly object _lock = new object();
         private static GameStateService _instance;
-        public static GameStateService Instance
+        public static GameStateService GetInstance(bool populateTestStronghold = false)
         {
-            get
+            if (_instance == null)
             {
-                if (_instance == null)
+                lock (_lock)
                 {
-                    lock (_lock)
+                    if (_instance == null)
                     {
-                        _instance ??= new GameStateService();
+                        _instance = new GameStateService(populateTestStronghold);
                     }
                 }
-                return _instance;
             }
+            return _instance;
         }
         
         // Private constructor for singleton
-        private GameStateService()
+        private GameStateService(bool populateTestStronghold = false)
         {
             try
             {
                 if (Program.DebugMode)
                     MessageBox.Show("Starting GameStateService initialization...", "Debug");
-                // Initialize with a new stronghold
-                CreateNewStronghold();
+                if (populateTestStronghold)
+                {
+                    // Use the test stronghold data
+                    _currentStronghold = TestStrongholdData.GetTestStronghold();
+                }
+                else
+                {
+                    // Initialize with a new stronghold
+                    CreateNewStronghold();
+                }
                 if (Program.DebugMode)
                     MessageBox.Show("GameStateService initialization complete.", "Debug");
             }
@@ -63,9 +71,9 @@ namespace DNDStrongholdApp.Services
         public void CreateNewStronghold(
             string name = "New Stronghold", 
             string location = "Unknown",
-            List<Building> initialBuildings = null,
-            List<NPC> initialNPCs = null,
-            Dictionary<ResourceType, int> initialResources = null)
+            List<Building>? initialBuildings = null,
+            List<NPC>? initialNPCs = null,
+            Dictionary<ResourceType, int>? initialResources = null)
         {
             _currentStronghold = new Stronghold
             {
@@ -129,6 +137,36 @@ namespace DNDStrongholdApp.Services
             
             // Notify listeners that the game state has changed
             OnGameStateChanged();
+
+            // Assign farmer to farm
+            var farmer = _currentStronghold.NPCs.Find(n => n.Type == NPCType.Farmer);
+            var farm = _currentStronghold.Buildings.Find(b => b.Type == BuildingType.Farm);
+            
+            if (farmer != null && farm != null)
+            {
+                farmer.Assignment = new NPCAssignment
+                {
+                    Type = AssignmentType.Building,
+                    TargetId = farm.Id,
+                    TargetName = farm.Name
+                };
+                
+                farm.AssignedWorkers.Add(farmer.Id);
+            }
+
+            // Assign one unassigned worker to the Watchtower if it is UnderConstruction
+            var watchtower = _currentStronghold.Buildings.FirstOrDefault(b => b.Type == BuildingType.Watchtower && b.ConstructionStatus == BuildingStatus.UnderConstruction);
+            var unassignedWorker = _currentStronghold.NPCs.FirstOrDefault(n => n.Assignment.Type == AssignmentType.Unassigned);
+            if (watchtower != null && unassignedWorker != null)
+            {
+                unassignedWorker.Assignment = new NPCAssignment
+                {
+                    Type = AssignmentType.Building,
+                    TargetId = watchtower.Id,
+                    TargetName = watchtower.Name
+                };
+                watchtower.AssignedWorkers.Add(unassignedWorker.Id);
+            }
         }
         
         // Advance the game by one week
@@ -163,86 +201,38 @@ namespace DNDStrongholdApp.Services
         // Process construction and repairs
         private void ProcessConstructionAndRepairs()
         {
-            List<Building> completedBuildings = new List<Building>();
-            List<Building> completedRepairs = new List<Building>();
-            
             foreach (var building in _currentStronghold.Buildings)
             {
-                if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
+                // Check if building in Planning state has workers assigned
+                if (building.ConstructionStatus == BuildingStatus.Planning && building.AssignedWorkers.Any())
                 {
-                    // Get assigned workers
-                    var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
-                    
-                    // Only progress if workers are assigned
-                    if (assignedNPCs.Count > 0)
+                    // Start construction if workers are assigned
+                    if (building.StartConstruction())
                     {
-                        bool completed = building.AdvanceConstruction();
-                        
-                        if (completed)
-                        {
-                            completedBuildings.Add(building);
-                            
-                            // Add journal entry for completed building
-                            _currentStronghold.Journal.Add(new JournalEntry(
-                                _currentStronghold.CurrentWeek,
-                                _currentStronghold.YearsSinceFoundation,
-                                JournalEntryType.BuildingComplete,
-                                $"{building.Name} Construction Complete",
-                                $"The construction of {building.Name} has been completed."
-                            ));
-                        }
+                        // Calculate and apply first week's construction points
+                        building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                        building.AdvanceConstruction();
                     }
                 }
-                else if (building.ConstructionStatus == BuildingStatus.Repairing)
+                // Update construction progress for buildings already under construction
+                else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
                 {
-                    // Get assigned workers
-                    var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
-                    
-                    // Only progress if workers are assigned
-                    if (assignedNPCs.Count > 0)
-                    {
-                        bool completed = building.AdvanceRepair();
-                        
-                        if (completed)
-                        {
-                            completedRepairs.Add(building);
-                            
-                            // Add journal entry for repaired building
-                            _currentStronghold.Journal.Add(new JournalEntry(
-                                _currentStronghold.CurrentWeek,
-                                _currentStronghold.YearsSinceFoundation,
-                                JournalEntryType.BuildingRepairComplete,
-                                $"{building.Name} Repair Complete",
-                                $"Repairs to {building.Name} have been completed."
-                            ));
-                        }
-                    }
+                    building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    building.AdvanceConstruction();
                 }
-
-                // --- Resource production/upkeep logic ---
-                if (building.IsFunctional())
+                
+                // Process repairs
+                if (building.ConstructionStatus == BuildingStatus.Repairing)
                 {
-                    // Calculate actual production based on assigned workers
-                    var assignedNPCs = _currentStronghold.NPCs.Where(n => building.AssignedWorkers.Contains(n.Id)).ToList();
-                    building.UpdateProduction(assignedNPCs);
-
-                    // Calculate actual upkeep: base upkeep + assigned workers * salary
-                    building.ActualUpkeep = new List<ResourceCost>();
-                    foreach (var upkeep in building.BaseUpkeep)
-                    {
-                        int total = upkeep.Amount;
-                        if (upkeep.ResourceType == ResourceType.Gold)
-                        {
-                            total += assignedNPCs.Count * 2; // 2 gold per assigned worker
-                        }
-                        building.ActualUpkeep.Add(new ResourceCost { ResourceType = upkeep.ResourceType, Amount = total });
-                    }
+                    building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    building.AdvanceRepair();
                 }
-                else
+                
+                // Process upgrades
+                if (building.ConstructionStatus == BuildingStatus.Upgrading)
                 {
-                    // Not functional: no production, no upkeep
-                    building.ActualProduction = new List<ResourceProduction>();
-                    building.ActualUpkeep = new List<ResourceCost>();
+                    building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    building.AdvanceUpgrade();
                 }
             }
         }
@@ -483,40 +473,13 @@ namespace DNDStrongholdApp.Services
         // Add initial buildings
         private void AddInitialBuildings()
         {
-            // Add a farm
-            var farm = new Building(BuildingType.Farm);
-            farm.ConstructionStatus = BuildingStatus.Complete;
-            _currentStronghold.Buildings.Add(farm);
-            
-            // Add a watchtower under construction
-            var watchtower = new Building(BuildingType.Watchtower);
-            watchtower.ConstructionStatus = BuildingStatus.UnderConstruction;
-            _currentStronghold.Buildings.Add(watchtower);
+            // No default buildings
         }
         
         // Add initial NPCs
         private void AddInitialNPCs()
         {
-            // Add some NPCs
-            _currentStronghold.NPCs.Add(new NPC(NPCType.Peasant));
-            _currentStronghold.NPCs.Add(new NPC(NPCType.Farmer));
-            _currentStronghold.NPCs.Add(new NPC(NPCType.Militia));
-            
-            // Assign farmer to farm
-            var farmer = _currentStronghold.NPCs.Find(n => n.Type == NPCType.Farmer);
-            var farm = _currentStronghold.Buildings.Find(b => b.Type == BuildingType.Farm);
-            
-            if (farmer != null && farm != null)
-            {
-                farmer.Assignment = new NPCAssignment
-                {
-                    Type = AssignmentType.Building,
-                    TargetId = farm.Id,
-                    TargetName = farm.Name
-                };
-                
-                farm.AssignedWorkers.Add(farmer.Id);
-            }
+            // No default NPCs
         }
         
         // Add a new building to the stronghold
@@ -602,6 +565,15 @@ namespace DNDStrongholdApp.Services
                     building.AssignedWorkers.Add(npcId);
                 }
             }
+
+            // If building is in Planning state and has workers assigned, start construction
+            if (building.ConstructionStatus == BuildingStatus.Planning && building.AssignedWorkers.Count > 0)
+            {
+                building.StartConstruction();
+            }
+            
+            // Update construction progress
+            building.UpdateConstructionProgress(_currentStronghold.NPCs);
             
             // Add journal entry
             _currentStronghold.Journal.Add(new JournalEntry(
@@ -674,41 +646,30 @@ namespace DNDStrongholdApp.Services
             return true;
         }
 
+        // Start building repair
         public bool StartBuildingRepair(string buildingId)
         {
             var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
             if (building == null || building.ConstructionStatus != BuildingStatus.Damaged)
                 return false;
 
-            // Check if we have enough resources for repair
-            if (!HasEnoughResources(building.RepairCost))
-                return false;
-
-            // Deduct repair costs
-            foreach (var cost in building.RepairCost)
+            // Start repair process
+            if (building.StartRepair(_currentStronghold.Resources))
             {
-                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
-                if (resource != null)
-                {
-                    resource.Amount -= cost.Amount;
-                }
+                // Add journal entry
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    $"Started repairing {building.Name}",
+                    $"Repairs have begun on {building.Name}. Expected completion in {building.ConstructionTimeRemaining} weeks."
+                ));
+
+                OnGameStateChanged();
+                return true;
             }
 
-            // Start repair
-            building.ConstructionStatus = BuildingStatus.Repairing;
-            building.RepairTimeRemaining = building.RepairTime;
-
-            // Add journal entry
-            _currentStronghold.Journal.Add(new JournalEntry(
-                _currentStronghold.CurrentWeek,
-                _currentStronghold.YearsSinceFoundation,
-                JournalEntryType.Event,
-                $"Started repairing {building.Name}",
-                $"Repairs have begun on {building.Name}. Expected completion in {building.RepairTime} weeks."
-            ));
-
-            OnGameStateChanged();
-            return true;
+            return false;
         }
     }
 } 

@@ -293,21 +293,11 @@ namespace DNDStrongholdApp
         
         private void InitializeData()
         {
-            // Add default buildings
-            AddBuilding(BuildingType.Farm);
-            AddBuilding(BuildingType.Watchtower);
-            
-            // Add default NPCs
-            AddNPC(NPCType.Peasant);
-            AddNPC(NPCType.Farmer);
-            
-            // Set default resources
-            StartingResources[ResourceType.Gold] = 500;
-            StartingResources[ResourceType.Food] = 100;
-            StartingResources[ResourceType.Wood] = 50;
-            StartingResources[ResourceType.Stone] = 30;
-            StartingResources[ResourceType.Iron] = 10;
-            
+            // No default buildings, NPCs, or resources
+            Buildings.Clear();
+            NPCs.Clear();
+            StartingResources.Clear();
+
             // Add Griffin's Hunt preset button
             Button griffinsHuntButton = new Button();
             griffinsHuntButton.Text = "Load Griffin's Hunt Preset";

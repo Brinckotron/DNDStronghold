@@ -28,8 +28,11 @@ public partial class MainDashboard : Form
     private string _lastCreatedBuildingId = null;
     private string _lastCreatedNpcId = null;
 
-    public MainDashboard()
+    private readonly bool _populateTestStronghold;
+
+    public MainDashboard(bool populateTestStronghold = false)
     {
+        _populateTestStronghold = populateTestStronghold;
         try
         {
             if (Program.DebugMode)
@@ -39,7 +42,7 @@ public partial class MainDashboard : Form
             if (Program.DebugMode)
                 MessageBox.Show("Getting GameStateService instance...", "Debug");
             // Get reference to game state service first
-            _gameStateService = GameStateService.Instance;
+            _gameStateService = GameStateService.GetInstance(_populateTestStronghold);
             _gameStateService.GameStateChanged += GameStateService_GameStateChanged;
             
             if (Program.DebugMode)
@@ -61,9 +64,9 @@ public partial class MainDashboard : Form
         // Set window title
         this.Text = "D&D Stronghold Management";
         
-        // Set window size
-        this.Width = 1024;
-        this.Height = 768;
+        // Set window size (20% larger)
+        this.Width = (int)(1024 * 1.2); // 1228
+        this.Height = (int)(768 * 1.2); // 921
         
         // Center the form on screen
         this.StartPosition = FormStartPosition.CenterScreen;
@@ -324,27 +327,41 @@ public partial class MainDashboard : Form
         
         // Add columns
         listView.Columns.Add("Name", 150);
-        listView.Columns.Add("Status", 130);
-        listView.Columns.Add("Workers", 70);
+        listView.Columns.Add("Type", 100);
+        listView.Columns.Add("Status", 250); // Increased width for status
+        listView.Columns.Add("Condition", 80);
+        listView.Columns.Add("Workers", 80);
         
-        // Dynamic column widths (45%, 35%, 20%)
-        void ResizeBuildingColumns(object s, EventArgs e)
+        // Dynamic column widths (20%, 15%, 35%, 15%, 15%)
+        void ResizeBuildingsTabColumns(object s, EventArgs e)
         {
             int totalWidth = listView.ClientSize.Width;
-            listView.Columns[0].Width = (int)(totalWidth * 0.45);
-            listView.Columns[1].Width = (int)(totalWidth * 0.35);
-            listView.Columns[2].Width = (int)(totalWidth * 0.20);
+            listView.Columns[0].Width = (int)(totalWidth * 0.20); // Name
+            listView.Columns[1].Width = (int)(totalWidth * 0.15); // Type
+            listView.Columns[2].Width = (int)(totalWidth * 0.35); // Status (wider)
+            listView.Columns[3].Width = (int)(totalWidth * 0.15); // Condition
+            listView.Columns[4].Width = (int)(totalWidth * 0.15); // Workers
         }
-        listView.Resize += ResizeBuildingColumns;
-        ResizeBuildingColumns(null, null);
+        listView.Resize += ResizeBuildingsTabColumns;
+        ResizeBuildingsTabColumns(null, null);
         
         // Add items for each building
         foreach (var building in _stronghold.Buildings)
         {
+            string statusText = building.ConstructionStatus.ToString();
+            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                building.ConstructionStatus == BuildingStatus.Repairing ||
+                building.ConstructionStatus == BuildingStatus.Upgrading)
+            {
+                statusText += $" ({building.ConstructionProgress}% - {building.ConstructionTimeRemaining}w left)";
+            }
             ListViewItem item = new ListViewItem(building.Name);
-            item.SubItems.Add(building.ConstructionStatus.ToString());
+            item.SubItems.Add(building.Type.ToString());
+            item.SubItems.Add(statusText);
+            item.SubItems.Add($"{building.Condition}%");
             item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
-            item.Tag = building.Id; // Ensure Tag is set to building.Id
+            item.Tag = building.Id; // Store building ID for reference
+            
             // Set color based on building status
             if (building.ConstructionStatus == BuildingStatus.Damaged)
             {
@@ -354,6 +371,11 @@ public partial class MainDashboard : Form
             {
                 item.ForeColor = Color.Blue;
             }
+            else if (building.ConstructionStatus == BuildingStatus.Repairing)
+            {
+                item.ForeColor = Color.Orange;
+            }
+            
             listView.Items.Add(item);
         }
         // Double-click to open in Buildings tab
@@ -526,19 +548,19 @@ public partial class MainDashboard : Form
         // Add columns
         buildingsListView.Columns.Add("Name", 150);
         buildingsListView.Columns.Add("Type", 100);
-        buildingsListView.Columns.Add("Status", 100);
+        buildingsListView.Columns.Add("Status", 250); // Increased width for status
         buildingsListView.Columns.Add("Condition", 80);
         buildingsListView.Columns.Add("Workers", 80);
         
-        // Dynamic column widths (28%, 18%, 18%, 18%, 18%)
+        // Dynamic column widths (20%, 15%, 35%, 15%, 15%)
         void ResizeBuildingsTabColumns(object s, EventArgs e)
         {
             int totalWidth = buildingsListView.ClientSize.Width;
-            buildingsListView.Columns[0].Width = (int)(totalWidth * 0.28);
-            buildingsListView.Columns[1].Width = (int)(totalWidth * 0.18);
-            buildingsListView.Columns[2].Width = (int)(totalWidth * 0.18);
-            buildingsListView.Columns[3].Width = (int)(totalWidth * 0.18);
-            buildingsListView.Columns[4].Width = (int)(totalWidth * 0.18);
+            buildingsListView.Columns[0].Width = (int)(totalWidth * 0.20); // Name
+            buildingsListView.Columns[1].Width = (int)(totalWidth * 0.15); // Type
+            buildingsListView.Columns[2].Width = (int)(totalWidth * 0.35); // Status (wider)
+            buildingsListView.Columns[3].Width = (int)(totalWidth * 0.15); // Condition
+            buildingsListView.Columns[4].Width = (int)(totalWidth * 0.15); // Workers
         }
         buildingsListView.Resize += ResizeBuildingsTabColumns;
         ResizeBuildingsTabColumns(null, null);
@@ -546,9 +568,16 @@ public partial class MainDashboard : Form
         // Add items for each building
         foreach (var building in _stronghold.Buildings)
         {
+            string statusText = building.ConstructionStatus.ToString();
+            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                building.ConstructionStatus == BuildingStatus.Repairing ||
+                building.ConstructionStatus == BuildingStatus.Upgrading)
+            {
+                statusText += $" ({building.ConstructionProgress}% - {building.ConstructionTimeRemaining}w left)";
+            }
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
-            item.SubItems.Add(building.ConstructionStatus.ToString());
+            item.SubItems.Add(statusText);
             item.SubItems.Add($"{building.Condition}%");
             item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
             item.Tag = building.Id; // Store building ID for reference
@@ -593,7 +622,7 @@ public partial class MainDashboard : Form
         Label typeValueLabel = new Label { Text = "", Tag = "BuildingType" };
         
         Label statusLabel = new Label { Text = "Status:", TextAlign = ContentAlignment.MiddleRight };
-        Label statusValueLabel = new Label { Text = "", Tag = "BuildingStatus" };
+        Label statusValueLabel = new Label { Text = "", Tag = "BuildingStatus", AutoSize = true, MaximumSize = new Size(220, 0) };
         
         Label conditionLabel = new Label { Text = "Condition:", TextAlign = ContentAlignment.MiddleRight };
         Label conditionValueLabel = new Label { Text = "", Tag = "BuildingCondition" };
@@ -1218,8 +1247,7 @@ public partial class MainDashboard : Form
                 if (repairButton != null)
                     repairButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Damaged;
                 if (assignWorkersButton != null)
-                    assignWorkersButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Complete || 
-                                                selectedBuilding.ConstructionStatus == BuildingStatus.UnderConstruction;
+                    assignWorkersButton.Enabled = true; // Enable for all states
                 if (cancelConstructionButton != null)
                     cancelConstructionButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Planning;
             }
@@ -1306,17 +1334,16 @@ public partial class MainDashboard : Form
         Label statusLabel = FindControl<Label>(parent, "BuildingStatus");
         if (statusLabel != null)
         {
-            statusLabel.Text = building.ConstructionStatus.ToString();
+            string statusText = building.ConstructionStatus.ToString();
             
-            // Add time remaining if under construction or repair
-            if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
+            // Add time remaining and progress if under construction, repairing, or upgrading
+            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                building.ConstructionStatus == BuildingStatus.Repairing ||
+                building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                statusLabel.Text += $" ({building.ConstructionTimeRemaining} weeks left)";
+                statusText += $" ({building.ConstructionProgress}% complete, {building.ConstructionTimeRemaining} weeks left)";
             }
-            else if (building.ConstructionStatus == BuildingStatus.Repairing)
-            {
-                statusLabel.Text += $" ({building.RepairTimeRemaining} weeks left)";
-            }
+            statusLabel.Text = statusText;
         }
         
         Label conditionLabel = FindControl<Label>(parent, "BuildingCondition");

@@ -60,6 +60,7 @@ namespace DNDStrongholdApp.Models
         BuildingRepairStarted,
         BuildingRepaired,
         BuildingRepairComplete,
+        BuildingUpgradeComplete,
         NPCRecruited,
         NPCAssigned,
         ResourceChange,

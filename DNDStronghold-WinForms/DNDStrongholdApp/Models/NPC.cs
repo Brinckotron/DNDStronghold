@@ -12,12 +12,12 @@ namespace DNDStrongholdApp.Models
         public List<Skill> Skills { get; set; } = new List<Skill>();
         public NPCAssignment Assignment { get; set; } = new NPCAssignment();
         public List<ResourceCost> UpkeepCost { get; set; } = new List<ResourceCost>();
-        public List<SpecialAbility> SpecialAbilities { get; set; } = new List<SpecialAbility>();
         public List<NPCState> States { get; set; } = new List<NPCState>();
         public List<NPCTrait> Traits { get; set; } = new List<NPCTrait>();
         public int Age { get; set; } = 20; // Starting age
         public bool IsAlive { get; set; } = true;
         public int Level { get; set; } = 1; // NPC level, starts at 1
+        public NPCStatus Status { get; set; } = NPCStatus.Available; // Current status of the NPC
 
         // Constructor for a new NPC
         public NPC(NPCType type, string name = "")
@@ -219,6 +219,8 @@ namespace DNDStrongholdApp.Models
         {
             if (!IsAlive) return;
 
+            bool hadStates = States.Any();
+
             // Check for recovery or worsening of conditions
             foreach (var state in States.ToList())
             {
@@ -245,6 +247,12 @@ namespace DNDStrongholdApp.Models
                     }
                 }
             }
+
+            // If health states changed, update status
+            if (hadStates != States.Any())
+            {
+                UpdateStatus();
+            }
         }
 
         // Add a health state
@@ -256,6 +264,7 @@ namespace DNDStrongholdApp.Models
             if (!States.Any(s => s.Type == stateType))
             {
                 States.Add(new NPCState { Type = stateType });
+                UpdateStatus(); // Update status when health state changes
             }
         }
 
@@ -285,6 +294,35 @@ namespace DNDStrongholdApp.Models
             string lastName = surnames[random.Next(surnames.Length)];
             
             return $"{firstName} {lastName}";
+        }
+
+        // Update status based on health states
+        public void UpdateStatus()
+        {
+            // If NPC has any health states, they are unavailable
+            if (States.Any())
+            {
+                Status = NPCStatus.Unavailable;
+                return;
+            }
+
+            // Otherwise, status is determined by assignment
+            if (Assignment.Type == AssignmentType.Project)
+            {
+                Status = NPCStatus.ProjectAssigned;
+            }
+            else if (Assignment.Type == AssignmentType.Building)
+            {
+                Status = NPCStatus.BuildingAssigned;
+            }
+            else if (Assignment.Type == AssignmentType.Mission)
+            {
+                Status = NPCStatus.OnMission;
+            }
+            else
+            {
+                Status = NPCStatus.Available;
+            }
         }
     }
 
@@ -412,5 +450,15 @@ namespace DNDStrongholdApp.Models
         Building,
         Mission,
         Project
+    }
+
+    public enum NPCStatus
+    {
+        Available,        // NPC is available for assignment
+        BuildingAssigned, // NPC is assigned to a building (not on a project)
+        ProjectAssigned,  // NPC is assigned to a project within a building
+        Training,         // NPC is in training
+        OnMission,        // NPC is on a mission
+        Unavailable       // NPC is unavailable due to health conditions
     }
 } 
