@@ -20,11 +20,14 @@ namespace DNDStrongholdApp.Models
         public List<ResourceProduction> ActualProduction { get; set; } = new List<ResourceProduction>();
         public List<ResourceCost> BaseUpkeep { get; set; } = new List<ResourceCost>();
         public List<ResourceCost> ActualUpkeep { get; set; } = new List<ResourceCost>();
-        public List<SpecialAbility> SpecialAbilities { get; set; } = new List<SpecialAbility>();
         public int Condition { get; set; } = 100; // 0-100%
         public int RepairTimeRemaining { get; set; } = 0; // in weeks
         public int RepairTime { get; set; } = 0; // Total repair time in weeks
         public List<ResourceCost> RepairCost { get; set; } = new List<ResourceCost>();
+        public Project? CurrentProject { get; set; }
+        public int UpgradeTimeRemaining { get; set; } = 0; // in weeks
+        public int UpgradeTime { get; set; } = 0; // Total upgrade time in weeks
+        public List<ResourceCost> UpgradeCost { get; set; } = new List<ResourceCost>();
 
         // Constructor for a new building
         public Building(BuildingType type)
@@ -119,8 +122,9 @@ namespace DNDStrongholdApp.Models
                 });
             }
 
-            // If building is damaged, no production
-            if (ConstructionStatus == BuildingStatus.Damaged)
+            // If building is damaged or upgrading, no production
+            if (ConstructionStatus == BuildingStatus.Damaged || 
+                ConstructionStatus == BuildingStatus.Upgrading)
             {
                 foreach (var production in ActualProduction)
                 {
@@ -129,19 +133,25 @@ namespace DNDStrongholdApp.Models
                 return;
             }
 
-            // Apply worker bonuses
-            foreach (var npc in assignedNPCs)
+            // Get workers not assigned to the current project
+            var availableWorkers = assignedNPCs;
+            if (CurrentProject != null)
+            {
+                availableWorkers = assignedNPCs.Where(npc => 
+                    !CurrentProject.AssignedWorkers.Contains(npc.Id)).ToList();
+            }
+
+            // If all workers are assigned to the project, no production
+            if (availableWorkers.Count == 0)
             {
                 foreach (var production in ActualProduction)
                 {
-                    // Add worker's skill level to production
-                    var skill = npc.Skills.Find(s => s.Name == production.ResourceType.ToString());
-                    if (skill != null)
-                    {
-                        production.Amount += skill.Level;
-                    }
+                    production.Amount = 0;
                 }
+                return;
             }
+
+            // TODO: Add worker skill-based production bonuses here
         }
 
         // Progress construction by one week
@@ -190,16 +200,90 @@ namespace DNDStrongholdApp.Models
             return false;
         }
         
+        // Progress upgrade by one week
+        public bool AdvanceUpgrade()
+        {
+            if (ConstructionStatus != BuildingStatus.Upgrading)
+                return false;
+
+            // No progress if no workers are assigned
+            if (AssignedWorkers.Count == 0)
+                return false;
+
+            UpgradeTimeRemaining--;
+
+            // If upgrade is complete
+            if (UpgradeTimeRemaining <= 0)
+            {
+                ConstructionStatus = BuildingStatus.Complete;
+                Level++;
+                return true;
+            }
+
+            return false;
+        }
+
+        // Start upgrade process
+        public bool StartUpgrade(List<Resource> availableResources)
+        {
+            if (ConstructionStatus != BuildingStatus.Complete || Level >= GetMaxLevel())
+                return false;
+
+            // Calculate upgrade costs (50% + 10% per level of construction cost)
+            float upgradeCostMultiplier = 0.5f + (0.1f * Level);
+            UpgradeCost = new List<ResourceCost>();
+            foreach (var cost in ConstructionCost)
+            {
+                UpgradeCost.Add(new ResourceCost
+                {
+                    ResourceType = cost.ResourceType,
+                    Amount = (int)(cost.Amount * upgradeCostMultiplier)
+                });
+            }
+
+            // Check if we have enough resources
+            foreach (var cost in UpgradeCost)
+            {
+                var resource = availableResources.Find(r => r.Type == cost.ResourceType);
+                if (resource == null || resource.Amount < cost.Amount)
+                {
+                    return false; // Not enough resources
+                }
+            }
+
+            // Consume resources
+            foreach (var cost in UpgradeCost)
+            {
+                var resource = availableResources.Find(r => r.Type == cost.ResourceType);
+                if (resource != null)
+                {
+                    resource.Amount -= cost.Amount;
+                }
+            }
+
+            // Start upgrade
+            ConstructionStatus = BuildingStatus.Upgrading;
+            UpgradeTime = Level; // Number of weeks equals current level
+            UpgradeTimeRemaining = UpgradeTime;
+
+            return true;
+        }
+
         // Damage the building
         public void Damage(int damageAmount)
         {
             // Reduce condition
             Condition -= damageAmount;
             
-            // If condition falls below 25%, building becomes damaged
-            if (Condition < 25 && ConstructionStatus == BuildingStatus.Complete)
+            // If condition falls below 50%, building becomes damaged
+            if (Condition < 50 && ConstructionStatus == BuildingStatus.Complete)
             {
                 ConstructionStatus = BuildingStatus.Damaged;
+                // Cancel any ongoing project
+                if (CurrentProject != null)
+                {
+                    CurrentProject = null;
+                }
             }
             
             // Ensure condition doesn't go below 0
@@ -208,15 +292,15 @@ namespace DNDStrongholdApp.Models
                 Condition = 0;
             }
         }
-        
-        // Start repair process
-        public bool StartRepair(List<Resource> availableResources)
+
+        // Start a project
+        public bool StartProject(Project project, List<Resource> availableResources)
         {
-            if (ConstructionStatus != BuildingStatus.Damaged)
+            if (ConstructionStatus != BuildingStatus.Complete || CurrentProject != null)
                 return false;
-                
+
             // Check if we have enough resources
-            foreach (var cost in RepairCost)
+            foreach (var cost in project.InitialCost)
             {
                 var resource = availableResources.Find(r => r.Type == cost.ResourceType);
                 if (resource == null || resource.Amount < cost.Amount)
@@ -224,9 +308,9 @@ namespace DNDStrongholdApp.Models
                     return false; // Not enough resources
                 }
             }
-            
+
             // Consume resources
-            foreach (var cost in RepairCost)
+            foreach (var cost in project.InitialCost)
             {
                 var resource = availableResources.Find(r => r.Type == cost.ResourceType);
                 if (resource != null)
@@ -234,10 +318,36 @@ namespace DNDStrongholdApp.Models
                     resource.Amount -= cost.Amount;
                 }
             }
-            
-            // Start repair
-            ConstructionStatus = BuildingStatus.Repairing;
-            
+
+            // Assign current workers to the project
+            project.AssignedWorkers = new List<string>(AssignedWorkers);
+            CurrentProject = project;
+
+            return true;
+        }
+
+        // Cancel current project
+        public void CancelProject()
+        {
+            if (CurrentProject != null)
+            {
+                CurrentProject = null;
+            }
+        }
+
+        // Check if any project workers are unavailable
+        public bool AreProjectWorkersAvailable(List<NPC> allNPCs)
+        {
+            if (CurrentProject == null) return true;
+
+            foreach (var workerId in CurrentProject.AssignedWorkers)
+            {
+                var worker = allNPCs.Find(n => n.Id == workerId);
+                if (worker == null || worker.Status != NPCStatus.Available)
+                {
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -366,7 +476,8 @@ namespace DNDStrongholdApp.Models
         UnderConstruction,
         Complete,
         Damaged,
-        Repairing
+        Repairing,
+        Upgrading
     }
 
     public class ResourceCost
@@ -381,11 +492,17 @@ namespace DNDStrongholdApp.Models
         public int Amount { get; set; }
     }
 
-    public class SpecialAbility
+    public class Project
     {
-        public string Type { get; set; } = string.Empty;
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public int MinimumLevel { get; set; } = 2; // Most abilities unlock at level 2+
-        public bool IsActive { get; set; } = false;
+        public List<ResourceCost> InitialCost { get; set; } = new List<ResourceCost>();
+        public int Duration { get; set; } // in weeks
+        public int TimeRemaining { get; set; } // in weeks
+        public List<string> AssignedWorkers { get; set; } = new List<string>(); // NPC IDs
+        public List<ResourceProduction> OngoingEffects { get; set; } = new List<ResourceProduction>();
+        public List<ResourceProduction> CompletionEffects { get; set; } = new List<ResourceProduction>();
+        public bool IsActive { get; set; } = true;
     }
 } 
