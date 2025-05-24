@@ -47,8 +47,8 @@ namespace DNDStrongholdApp.Services
                 }
                 else
                 {
-                    // Initialize with a new stronghold
-                    CreateNewStronghold();
+                // Initialize with a new stronghold
+                CreateNewStronghold();
                 }
                 if (Program.DebugMode)
                     MessageBox.Show("GameStateService initialization complete.", "Debug");
@@ -181,7 +181,13 @@ namespace DNDStrongholdApp.Services
             
             // Advance the week
             _currentStronghold.AdvanceWeek();
-            
+
+            // Award XP to building workers for skills
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                building.AwardWorkerSkillXP(_currentStronghold.NPCs);
+            }
+
             // Process buildings
             ProcessConstructionAndRepairs();
             
@@ -208,7 +214,7 @@ namespace DNDStrongholdApp.Services
                 {
                     // Start construction if workers are assigned
                     if (building.StartConstruction())
-                    {
+                        {
                         // Calculate and apply first week's construction points
                         building.UpdateConstructionProgress(_currentStronghold.NPCs);
                         building.AdvanceConstruction();
@@ -655,18 +661,18 @@ namespace DNDStrongholdApp.Services
 
             // Start repair process
             if (building.StartRepair(_currentStronghold.Resources))
-            {
-                // Add journal entry
-                _currentStronghold.Journal.Add(new JournalEntry(
-                    _currentStronghold.CurrentWeek,
-                    _currentStronghold.YearsSinceFoundation,
-                    JournalEntryType.Event,
-                    $"Started repairing {building.Name}",
+                {
+            // Add journal entry
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                $"Started repairing {building.Name}",
                     $"Repairs have begun on {building.Name}. Expected completion in {building.ConstructionTimeRemaining} weeks."
-                ));
+            ));
 
-                OnGameStateChanged();
-                return true;
+            OnGameStateChanged();
+            return true;
             }
 
             return false;

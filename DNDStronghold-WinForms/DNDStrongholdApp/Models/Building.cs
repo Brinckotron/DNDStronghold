@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.IO;
 
 namespace DNDStrongholdApp.Models
 {
@@ -45,49 +47,51 @@ namespace DNDStrongholdApp.Models
         // Set default properties based on building type
         private void SetDefaultProperties()
         {
-            switch (Type)
+            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+            if (File.Exists(jsonPath))
             {
-                case BuildingType.Farm:
-                    WorkerSlots = 3;
-                    RequiredConstructionPoints = 30; // 30 points needed
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 50 });
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 30 });
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 10 });
-                    
-                    BaseProduction.Add(new ResourceProduction { ResourceType = ResourceType.Food, Amount = 20 });
-                    BaseUpkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 5 });
-                    break;
-                    
-                case BuildingType.Watchtower:
-                    WorkerSlots = 2;
-                    RequiredConstructionPoints = 45; // 45 points needed
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 40 });
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 20 });
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 30 });
-                    
-                    BaseUpkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 8 });
-                    break;
-
-                case BuildingType.Quarry:
-                    WorkerSlots = 4;
-                    RequiredConstructionPoints = 60; // 60 points needed
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 100 });
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 50 });
-                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 20 });
-                    
-                    BaseProduction.Add(new ResourceProduction { ResourceType = ResourceType.Stone, Amount = 5 });
-                    BaseUpkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 1 });
-                    break;
-                    
-                default:
-                    WorkerSlots = 1;
-                    RequiredConstructionPoints = 20; // Default 20 points needed
-                    break;
+                string json = File.ReadAllText(jsonPath);
+                var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
+                var buildingInfo = buildingData.buildings.Find(b => b.type == Type.ToString());
+                if (buildingInfo != null)
+                {
+                    WorkerSlots = buildingInfo.workerSlots;
+                    RequiredConstructionPoints = buildingInfo.requiredConstructionPoints;
+                    ConstructionCost = buildingInfo.constructionCost.Select(c => new ResourceCost { ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), c.resourceType), Amount = c.amount }).ToList();
+                }
             }
-            
-            // Initialize actual production and upkeep with base values
-            ActualProduction = new List<ResourceProduction>(BaseProduction);
-            ActualUpkeep = new List<ResourceCost>(BaseUpkeep);
+            else
+            {
+                // Fallback to hardcoded values if JSON file is not found
+                switch (Type)
+                {
+                    case BuildingType.Farm:
+                        WorkerSlots = 3;
+                        RequiredConstructionPoints = 30;
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 50 });
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 30 });
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 10 });
+                        break;
+                    case BuildingType.Watchtower:
+                        WorkerSlots = 2;
+                        RequiredConstructionPoints = 45;
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 40 });
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 20 });
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 30 });
+                        break;
+                    case BuildingType.Quarry:
+                        WorkerSlots = 4;
+                        RequiredConstructionPoints = 60;
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 100 });
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 50 });
+                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 20 });
+                        break;
+                    default:
+                        WorkerSlots = 1;
+                        RequiredConstructionPoints = 20;
+                        break;
+                }
+            }
             
             // Set repair costs to 50% of construction costs
             foreach (var cost in ConstructionCost)
@@ -114,47 +118,70 @@ namespace DNDStrongholdApp.Models
         // Update production based on assigned workers
         public void UpdateProduction(List<NPC> assignedNPCs)
         {
-            // Reset actual production to base values
+            // Use scaling for current level
             ActualProduction = new List<ResourceProduction>();
-            foreach (var production in BaseProduction)
+            var buildingData = LoadBuildingData();
+            var buildingInfo = buildingData?.buildings.Find(b => b.type == Type.ToString());
+            if (buildingInfo != null)
             {
-                ActualProduction.Add(new ResourceProduction
+                var level = Level;
+                var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == level);
+                if (prodAtLevel != null)
                 {
-                    ResourceType = production.ResourceType,
-                    Amount = production.Amount
-                });
-            }
+                    // Get workers not assigned to the current project
+                    var availableWorkers = assignedNPCs;
+                    if (CurrentProject != null)
+                    {
+                        availableWorkers = assignedNPCs.Where(npc => 
+                            !CurrentProject.AssignedWorkers.Contains(npc.Id)).ToList();
+                    }
 
-            // If building is damaged or upgrading, no production
-            if (ConstructionStatus == BuildingStatus.Damaged || 
-                ConstructionStatus == BuildingStatus.Upgrading)
-            {
-                foreach (var production in ActualProduction)
-                {
-                    production.Amount = 0;
+                    // If building is not functional, or no workers available, no production
+                    if (!IsFunctional() ||
+                        availableWorkers.Count == 0)
+                    {
+                        return;
+                    }
+
+                    // Calculate production for each resource type
+                    foreach (var resource in prodAtLevel.resources)
+                    {
+                        int totalProduction = resource.perWorkerValue * availableWorkers.Count;
+                        
+                        // Add worker skill bonuses if applicable
+                        var applicableBonuses = buildingInfo.workerProductionBonus.Where(b => b.resourceType == resource.resourceType);
+                        foreach (var bonus in applicableBonuses)
+                        {
+                            foreach (var worker in availableWorkers)
+                            {
+                                var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                if (skill != null)
+                                {
+                                    totalProduction += (int)(skill.Level * bonus.bonusValue);
+                                }
+                            }
+                        }
+
+                        ActualProduction.Add(new ResourceProduction
+                        {
+                            ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType),
+                            Amount = totalProduction
+                        });
+                    }
                 }
-                return;
             }
+        }
 
-            // Get workers not assigned to the current project
-            var availableWorkers = assignedNPCs;
-            if (CurrentProject != null)
+        // Helper to load building data
+        private BuildingData LoadBuildingData()
+        {
+            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+            if (File.Exists(jsonPath))
             {
-                availableWorkers = assignedNPCs.Where(npc => 
-                    !CurrentProject.AssignedWorkers.Contains(npc.Id)).ToList();
+                string json = File.ReadAllText(jsonPath);
+                return JsonSerializer.Deserialize<BuildingData>(json);
             }
-
-            // If all workers are assigned to the project, no production
-            if (availableWorkers.Count == 0)
-            {
-                foreach (var production in ActualProduction)
-                {
-                    production.Amount = 0;
-                }
-                return;
-            }
-
-            // TODO: Add worker skill-based production bonuses here
+            return null;
         }
 
         // Update construction progress based on assigned workers
@@ -241,16 +268,16 @@ namespace DNDStrongholdApp.Models
                 Condition = 100;
                 return true;
             }
-
+            
             return false;
         }
-
+        
         // Start repair process
         public bool StartRepair(List<Resource> availableResources)
         {
             if (ConstructionStatus != BuildingStatus.Damaged)
                 return false;
-
+                
             // Calculate repair costs (50% of construction cost)
             RepairCost = new List<ResourceCost>();
             foreach (var cost in ConstructionCost)
@@ -271,7 +298,7 @@ namespace DNDStrongholdApp.Models
                     return false; // Not enough resources
                 }
             }
-
+            
             // Consume resources
             foreach (var cost in RepairCost)
             {
@@ -287,7 +314,7 @@ namespace DNDStrongholdApp.Models
             RequiredConstructionPoints = (int)(RequiredConstructionPoints * damagePercentage);
             CurrentConstructionPoints = 0;
             WeeklyConstructionPoints = 0; // Will be calculated when workers are assigned
-
+            
             // Start repair
             ConstructionStatus = BuildingStatus.Repairing;
             return true;
@@ -451,17 +478,6 @@ namespace DNDStrongholdApp.Models
             return true;
         }
 
-        private int GetTotalConstructionTime()
-        {
-            switch (Type)
-            {
-                case BuildingType.Farm: return 2;
-                case BuildingType.Watchtower: return 3;
-                case BuildingType.Quarry: return 4;
-                // Add other building types
-                default: return 1;
-            }
-        }
         
         // Check if the building is functional
         public bool IsFunctional()
@@ -493,60 +509,60 @@ namespace DNDStrongholdApp.Models
         public List<ResourceProduction> CalculateProduction(List<NPC> workers)
         {
             var production = new List<ResourceProduction>();
-            
-            if (Type == BuildingType.Quarry)
+            var buildingData = LoadBuildingData();
+            var buildingInfo = buildingData?.buildings.Find(b => b.type == Type.ToString());
+            if (buildingInfo != null)
             {
-                int totalStone = 0;
-                foreach (var worker in workers)
+                var level = Level;
+                var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == level);
+                if (prodAtLevel != null)
                 {
-                    // Base production of 5 stone per worker
-                    int workerProduction = 5;
-                    
-                    // Add worker's labor skill level
-                    var laborSkill = worker.Skills.FirstOrDefault(s => s.Name == "Labor");
-                    if (laborSkill != null)
+                    foreach (var resource in prodAtLevel.resources)
                     {
-                        workerProduction += laborSkill.Level;
+                        int totalProduction = resource.perWorkerValue * workers.Count;
+                        // Add worker skill bonuses if applicable
+                        var applicableBonuses = buildingInfo.workerProductionBonus
+                            .Where(b => b.resourceType == resource.resourceType);
+                        foreach (var bonus in applicableBonuses)
+                        {
+                            foreach (var worker in workers)
+                            {
+                                var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                if (skill != null)
+                                {
+                                    totalProduction += (int)(skill.Level * bonus.bonusValue);
+                                }
+                            }
+                        }
+                        production.Add(new ResourceProduction
+                        {
+                            ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType),
+                            Amount = totalProduction
+                        });
                     }
-                    
-                    // Add +1 per building level
-                    workerProduction += Level;
-                    
-                    totalStone += workerProduction;
                 }
-                
-                production.Add(new ResourceProduction { ResourceType = ResourceType.Stone, Amount = totalStone });
             }
-            else
-            {
-                // Default production calculation for other buildings
-                production.AddRange(BaseProduction);
-            }
-            
             return production;
         }
 
         public List<ResourceCost> CalculateUpkeep(List<NPC> workers)
         {
             var upkeep = new List<ResourceCost>();
-            
-            if (Type == BuildingType.Quarry)
+            var buildingData = LoadBuildingData();
+            var buildingInfo = buildingData?.buildings.Find(b => b.type == Type.ToString());
+            if (buildingInfo != null)
             {
-                // Base upkeep of 1 gold per level
-                upkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = Level });
-                
-                // Add worker salaries
-                foreach (var worker in workers)
+                var level = Level;
+                var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == level);
+                foreach (var up in upkeepAtLevel)
                 {
-                    upkeep.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 2 }); // Base salary of 2 gold per worker
+                    upkeep.Add(new ResourceCost
+                    {
+                        ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), up.resourceType),
+                        Amount = up.baseValue
+                    });
                 }
             }
-            else
-            {
-                // Default upkeep calculation for other buildings
-                upkeep.AddRange(BaseUpkeep);
-            }
-            
             return upkeep;
         }
 
@@ -590,6 +606,64 @@ namespace DNDStrongholdApp.Models
                 CurrentConstructionPoints = 0;
                 
                 // Note: Resource refunding is handled by GameStateService
+            }
+        }
+
+        // Award XP to assigned workers for building skills (to be called on Next Turn)
+        public void AwardWorkerSkillXP(List<NPC> allNPCs)
+        {
+            // Construction/repair/upgrade XP
+            if ((ConstructionStatus == BuildingStatus.UnderConstruction ||
+                 ConstructionStatus == BuildingStatus.Repairing ||
+                 ConstructionStatus == BuildingStatus.Upgrading) &&
+                AssignedWorkers != null && AssignedWorkers.Count > 0)
+            {
+                foreach (var workerId in AssignedWorkers)
+                {
+                    var npc = allNPCs.Find(n => n.Id == workerId);
+                    if (npc == null) continue;
+                    int constructionXP = Random.Shared.Next(5, 11); // 5-10
+                    int laborXP = Random.Shared.Next(0, 6); // 0-5
+                    npc.AddSkillExperience("Construction", constructionXP);
+                    npc.AddSkillExperience("Labor", laborXP);
+                }
+                return; // Do not also grant functional building XP
+            }
+
+            // Functional building XP
+            if (!IsFunctional() || AssignedWorkers == null || AssignedWorkers.Count == 0)
+                return;
+
+            var buildingData = LoadBuildingData();
+            var buildingInfo = buildingData?.buildings.Find(b => b.type == Type.ToString());
+            if (buildingInfo == null)
+                return;
+
+            foreach (var workerId in AssignedWorkers)
+            {
+                var npc = allNPCs.Find(n => n.Id == workerId);
+                if (npc == null) continue;
+
+                // Primary skill XP: 5-10
+                if (!string.IsNullOrEmpty(buildingInfo.primarySkill))
+                {
+                    int xp = Random.Shared.Next(5, 11); // 5 to 10 inclusive
+                    npc.AddSkillExperience(buildingInfo.primarySkill, xp);
+                }
+
+                // Secondary skill XP: 0-10
+                if (!string.IsNullOrEmpty(buildingInfo.secondarySkill))
+                {
+                    int xp = Random.Shared.Next(0, 11); // 0 to 10 inclusive
+                    npc.AddSkillExperience(buildingInfo.secondarySkill, xp);
+                }
+
+                // Tertiary skill XP: 0-5
+                if (!string.IsNullOrEmpty(buildingInfo.tertiarySkill))
+                {
+                    int xp = Random.Shared.Next(0, 6); // 0 to 5 inclusive
+                    npc.AddSkillExperience(buildingInfo.tertiarySkill, xp);
+                }
             }
         }
     }
@@ -647,5 +721,78 @@ namespace DNDStrongholdApp.Models
         public List<ResourceProduction> OngoingEffects { get; set; } = new List<ResourceProduction>();
         public List<ResourceProduction> CompletionEffects { get; set; } = new List<ResourceProduction>();
         public bool IsActive { get; set; } = true;
+    }
+
+    // Classes for JSON deserialization
+    public class BuildingData
+    {
+        public List<BuildingInfo> buildings { get; set; } = new List<BuildingInfo>();
+    }
+
+    public class BuildingInfo
+    {
+        public string type { get; set; } = string.Empty;
+        public int workerSlots { get; set; }
+        public int requiredConstructionPoints { get; set; }
+        public int maxLevel { get; set; } = 1;
+        public List<LevelIncrease> workerSlotIncrease { get; set; } = new List<LevelIncrease>();
+        public List<LevelResourceValue> productionScaling { get; set; } = new List<LevelResourceValue>();
+        public List<LevelUpkeepValue> upkeepScaling { get; set; } = new List<LevelUpkeepValue>();
+        public List<WorkerBonusInfo> workerProductionBonus { get; set; } = new List<WorkerBonusInfo>();
+        public List<ResourceCostInfo> constructionCost { get; set; } = new List<ResourceCostInfo>();
+        public List<AvailableProjectInfo> availableProjects { get; set; } = new List<AvailableProjectInfo>();
+        public string primarySkill { get; set; } = string.Empty;
+        public string secondarySkill { get; set; } = string.Empty;
+        public string tertiarySkill { get; set; } = string.Empty;
+    }
+
+    public class LevelIncrease
+    {
+        public int level { get; set; }
+        public int increase { get; set; }
+    }
+
+    public class LevelResourceValue
+    {
+        public int level { get; set; }
+        public List<ResourceScaling> resources { get; set; } = new List<ResourceScaling>();
+    }
+
+    public class ResourceScaling
+    {
+        public string resourceType { get; set; } = string.Empty;
+        public int perWorkerValue { get; set; }
+    }
+
+    public class LevelUpkeepValue
+    {
+        public int level { get; set; }
+        public string resourceType { get; set; } = string.Empty;
+        public int baseValue { get; set; }
+    }
+
+    public class WorkerBonusInfo
+    {
+        public string resourceType { get; set; } = string.Empty;
+        public string skill { get; set; } = string.Empty;
+        public decimal bonusValue { get; set; }
+    }
+
+    public class ResourceCostInfo
+    {
+        public string resourceType { get; set; } = string.Empty;
+        public int amount { get; set; }
+    }
+
+    public class ResourceProductionInfo
+    {
+        public string resourceType { get; set; } = string.Empty;
+        public int amount { get; set; }
+    }
+
+    public class AvailableProjectInfo
+    {
+        public string projectName { get; set; } = string.Empty;
+        public int minLevel { get; set; }
     }
 } 

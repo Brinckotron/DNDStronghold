@@ -112,7 +112,22 @@ public partial class MainDashboard : Form
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
         fileMenu.DropDownItems.Add(exitItem);
 
+        // Tools menu
+        ToolStripMenuItem toolsMenu = new ToolStripMenuItem("Tools");
+        
+        ToolStripMenuItem buildingDataEditorItem = new ToolStripMenuItem("Building Data Editor");
+        buildingDataEditorItem.Click += (s, e) =>
+        {
+            using (var editor = new Forms.BuildingDataEditor())
+            {
+                editor.ShowDialog();
+            }
+        };
+        
+        toolsMenu.DropDownItems.Add(buildingDataEditorItem);
+
         menuStrip.Items.Add(fileMenu);
+        menuStrip.Items.Add(toolsMenu);
         
         this.Controls.Add(menuStrip);
         this.MainMenuStrip = menuStrip;
@@ -631,10 +646,10 @@ public partial class MainDashboard : Form
         Label workersValueLabel = new Label { Text = "", Tag = "BuildingWorkers" };
         
         Label productionLabel = new Label { Text = "Production:", TextAlign = ContentAlignment.MiddleRight };
-        Label productionValueLabel = new Label { Text = "", Tag = "BuildingProduction" };
+        Label productionValueLabel = new Label { Text = "", Tag = "BuildingProduction", AutoSize = true, MaximumSize = new Size(220, 0) };
         
         Label upkeepLabel = new Label { Text = "Upkeep:", TextAlign = ContentAlignment.MiddleRight };
-        Label upkeepValueLabel = new Label { Text = "", Tag = "BuildingUpkeep" };
+        Label upkeepValueLabel = new Label { Text = "", Tag = "BuildingUpkeep", AutoSize = true, MaximumSize = new Size(220, 0) };
         
         // Assigned workers list
         Label assignedWorkersLabel = new Label { Text = "Assigned Workers:", TextAlign = ContentAlignment.MiddleRight };
@@ -1352,26 +1367,61 @@ public partial class MainDashboard : Form
         Label workersLabel = FindControl<Label>(parent, "BuildingWorkers");
         if (workersLabel != null) workersLabel.Text = $"{building.AssignedWorkers.Count}/{building.WorkerSlots}";
         
+        // Calculate production and upkeep before displaying
+        building.UpdateProduction(_stronghold.NPCs);
+        building.ActualUpkeep = building.CalculateUpkeep(_stronghold.NPCs);
+        
         Label productionLabel = FindControl<Label>(parent, "BuildingProduction");
         if (productionLabel != null)
         {
             string productionText = "";
-            foreach (var production in building.ActualProduction)
+            // Only show production if building is functional
+            if (building.IsFunctional())
             {
-                productionText += $"{production.ResourceType}: +{production.Amount}/week\n";
+                if (building.ActualProduction.Count > 0)
+                {
+                    foreach (var production in building.ActualProduction)
+                    {
+                        productionText += $"{production.ResourceType}: +{production.Amount}/week\n";
+                    }
+                    productionLabel.Text = productionText.TrimEnd('\n');
+                }
+                else
+                {
+                    productionLabel.Text = "0";
+                }
             }
-            productionLabel.Text = productionText.TrimEnd('\n');
+            else
+            {
+                productionLabel.Text = "None";
+            }
         }
         
         Label upkeepLabel = FindControl<Label>(parent, "BuildingUpkeep");
         if (upkeepLabel != null)
         {
             string upkeepText = "";
-            foreach (var upkeep in building.ActualUpkeep)
+            // Only show upkeep if building is not in Planning or Damaged
+            if (building.ConstructionStatus != BuildingStatus.Planning &&
+                building.ConstructionStatus != BuildingStatus.Damaged)
             {
-                upkeepText += $"{upkeep.ResourceType}: -{upkeep.Amount}/week\n";
+                if (building.ActualUpkeep.Count > 0)
+                {
+                    foreach (var upkeep in building.ActualUpkeep)
+                    {
+                        upkeepText += $"{upkeep.ResourceType}: -{upkeep.Amount}/week\n";
+                    }
+                    upkeepLabel.Text = upkeepText.TrimEnd('\n');
+                }
+                else
+                {
+                    upkeepLabel.Text = "0";
+                }
             }
-            upkeepLabel.Text = upkeepText.TrimEnd('\n');
+            else
+            {
+                upkeepLabel.Text = "None";
+            }
         }
 
         // Update assigned workers list

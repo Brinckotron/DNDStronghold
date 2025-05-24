@@ -1,0 +1,207 @@
+{
+  "buildings": [
+    {
+      "type": "Farm",
+      "workerSlots": 3,
+      "requiredConstructionPoints": 30,
+      "maxLevel": 5,
+      "primarySkill": "Farming",
+      "secondarySkill": "Labor",
+      "tertiarySkill": "Survival",
+      "workerSlotIncrease": [
+        {
+          "level": 3,
+          "increase": 1
+        },
+        {
+          "level": 5,
+          "increase": 1
+        }
+      ],
+      "productionScaling": [
+        {
+          "level": 1,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 5
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 6
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 6
+            }
+          ]
+        },
+        {
+          "level": 4,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 7
+            }
+          ]
+        },
+        {
+          "level": 5,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 7
+            }
+          ]
+        }
+      ],
+      "upkeepScaling": [
+        {
+          "level": 1,
+          "resourceType": "Gold",
+          "baseValue": 2
+        },
+        {
+          "level": 2,
+          "resourceType": "Gold",
+          "baseValue": 3
+        },
+        {
+          "level": 3,
+          "resourceType": "Gold",
+          "baseValue": 3
+        },
+        {
+          "level": 4,
+          "resourceType": "Gold",
+          "baseValue": 4
+        },
+        {
+          "level": 5,
+          "resourceType": "Gold",
+          "baseValue": 4
+        }
+      ],
+      "workerProductionBonus": [
+        {
+          "resourceType": "Food",
+          "skill": "Farming",
+          "bonusValue": 0.5
+        },
+        {
+          "resourceType": "Food",
+          "skill": "Labor",
+          "bonusValue": 0.2
+        }
+      ],
+      "constructionCost": [
+        {
+          "resourceType": "Gold",
+          "amount": 50
+        },
+        {
+          "resourceType": "Wood",
+          "amount": 20
+        },
+        {
+          "resourceType": "Stone",
+          "amount": 20
+        }
+      ],
+      "availableProjects": []
+    },
+    {
+      "type": "Watchtower",
+      "workerSlots": 2,
+      "requiredConstructionPoints": 25,
+      "maxLevel": 3,
+      "primarySkill": "Perception",
+      "secondarySkill": "Survival",
+      "tertiarySkill": "Combat",
+      "workerSlotIncrease": [
+        {
+          "level": 3,
+          "increase": 1
+        }
+      ],
+      "productionScaling": [
+        {
+          "level": 2,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 3
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "resourceType": "Food",
+              "perWorkerValue": 3
+            }
+          ]
+        }
+      ],
+      "upkeepScaling": [
+        {
+          "level": 1,
+          "resourceType": "",
+          "baseValue": 5
+        },
+        {
+          "level": 2,
+          "resourceType": "",
+          "baseValue": 6
+        },
+        {
+          "level": 3,
+          "resourceType": "",
+          "baseValue": 7
+        }
+      ],
+      "workerProductionBonus": [
+        {
+          "resourceType": "Food",
+          "skill": "Survival",
+          "bonusValue": 0.5
+        }
+      ],
+      "constructionCost": [
+        {
+          "resourceType": "Gold",
+          "amount": 40
+        },
+        {
+          "resourceType": "Wood",
+          "amount": 30
+        },
+        {
+          "resourceType": "Stone",
+          "amount": 20
+        }
+      ],
+      "availableProjects": [
+        {
+          "projectName": "Patrol",
+          "minLevel": 1
+        },
+        {
+          "projectName": "Reconnaissance",
+          "minLevel": 3
+        }
+      ]
+    }
+  ]
+}
