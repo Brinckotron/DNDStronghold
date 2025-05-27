@@ -25,7 +25,6 @@ public partial class MainDashboard : Form
     private Button _nextTurnButton;
 
     // Track last created building/NPC for selection after refresh
-    private string _lastCreatedBuildingId = null;
     private string _lastCreatedNpcId = null;
 
     private readonly bool _populateTestStronghold;
@@ -156,7 +155,6 @@ public partial class MainDashboard : Form
         
         // Create tabs
         TabPage dashboardTab = new TabPage("Dashboard");
-        TabPage buildingsTab = new TabPage("Buildings");
         TabPage npcsTab = new TabPage("NPCs");
         TabPage resourcesTab = new TabPage("Resources");
         TabPage journalTab = new TabPage("Journal");
@@ -164,7 +162,6 @@ public partial class MainDashboard : Form
         
         // Add tabs to tab control
         _tabControl.TabPages.Add(dashboardTab);
-        _tabControl.TabPages.Add(buildingsTab);
         _tabControl.TabPages.Add(npcsTab);
         _tabControl.TabPages.Add(resourcesTab);
         _tabControl.TabPages.Add(journalTab);
@@ -175,7 +172,6 @@ public partial class MainDashboard : Form
         
         // Initialize tab contents
         InitializeDashboardTab(dashboardTab);
-        InitializeBuildingsTab(buildingsTab);
         InitializeNPCsTab(npcsTab);
         InitializeResourcesTab(resourcesTab);
         InitializeJournalTab(journalTab);
@@ -343,22 +339,7 @@ public partial class MainDashboard : Form
         // Add columns
         listView.Columns.Add("Name", 150);
         listView.Columns.Add("Type", 100);
-        listView.Columns.Add("Status", 250); // Increased width for status
-        listView.Columns.Add("Condition", 80);
-        listView.Columns.Add("Workers", 80);
-        
-        // Dynamic column widths (20%, 15%, 35%, 15%, 15%)
-        void ResizeBuildingsTabColumns(object s, EventArgs e)
-        {
-            int totalWidth = listView.ClientSize.Width;
-            listView.Columns[0].Width = (int)(totalWidth * 0.20); // Name
-            listView.Columns[1].Width = (int)(totalWidth * 0.15); // Type
-            listView.Columns[2].Width = (int)(totalWidth * 0.35); // Status (wider)
-            listView.Columns[3].Width = (int)(totalWidth * 0.15); // Condition
-            listView.Columns[4].Width = (int)(totalWidth * 0.15); // Workers
-        }
-        listView.Resize += ResizeBuildingsTabColumns;
-        ResizeBuildingsTabColumns(null, null);
+        listView.Columns.Add("Status", 150);
         
         // Add items for each building
         foreach (var building in _stronghold.Buildings)
@@ -368,14 +349,11 @@ public partial class MainDashboard : Form
                 building.ConstructionStatus == BuildingStatus.Repairing ||
                 building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                statusText += $" ({building.ConstructionProgress}% - {building.ConstructionTimeRemaining}w left)";
+                statusText += $" ({building.ConstructionProgress}%)";
             }
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
             item.SubItems.Add(statusText);
-            item.SubItems.Add($"{building.Condition}%");
-            item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
-            item.Tag = building.Id; // Store building ID for reference
             
             // Set color based on building status
             if (building.ConstructionStatus == BuildingStatus.Damaged)
@@ -393,14 +371,6 @@ public partial class MainDashboard : Form
             
             listView.Items.Add(item);
         }
-        // Double-click to open in Buildings tab
-        listView.DoubleClick += (s, e) => {
-            if (listView.SelectedItems.Count > 0)
-            {
-                string buildingId = (string)listView.SelectedItems[0].Tag;
-                ShowBuildingInTab(buildingId);
-            }
-        };
         
         groupBox.Controls.Add(listView);
         return groupBox;
@@ -540,7 +510,7 @@ public partial class MainDashboard : Form
         return groupBox;
     }
 
-    private void InitializeBuildingsTab(TabPage tab)
+    private void InitializeResourcesTab(TabPage tab)
     {
         // Create layout panel
         TableLayoutPanel layout = new TableLayoutPanel();
@@ -551,306 +521,6 @@ public partial class MainDashboard : Form
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F)); // Details 35%
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 70F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 30F));
-        
-        // Buildings list view
-        ListView buildingsListView = new ListView();
-        buildingsListView.Dock = DockStyle.Fill;
-        buildingsListView.View = View.Details;
-        buildingsListView.FullRowSelect = true;
-        buildingsListView.MultiSelect = false;
-        buildingsListView.Tag = "BuildingsListView"; // For identification
-        
-        // Add columns
-        buildingsListView.Columns.Add("Name", 150);
-        buildingsListView.Columns.Add("Type", 100);
-        buildingsListView.Columns.Add("Status", 250); // Increased width for status
-        buildingsListView.Columns.Add("Condition", 80);
-        buildingsListView.Columns.Add("Workers", 80);
-        
-        // Dynamic column widths (20%, 15%, 35%, 15%, 15%)
-        void ResizeBuildingsTabColumns(object s, EventArgs e)
-        {
-            int totalWidth = buildingsListView.ClientSize.Width;
-            buildingsListView.Columns[0].Width = (int)(totalWidth * 0.20); // Name
-            buildingsListView.Columns[1].Width = (int)(totalWidth * 0.15); // Type
-            buildingsListView.Columns[2].Width = (int)(totalWidth * 0.35); // Status (wider)
-            buildingsListView.Columns[3].Width = (int)(totalWidth * 0.15); // Condition
-            buildingsListView.Columns[4].Width = (int)(totalWidth * 0.15); // Workers
-        }
-        buildingsListView.Resize += ResizeBuildingsTabColumns;
-        ResizeBuildingsTabColumns(null, null);
-        
-        // Add items for each building
-        foreach (var building in _stronghold.Buildings)
-        {
-            string statusText = building.ConstructionStatus.ToString();
-            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
-                building.ConstructionStatus == BuildingStatus.Repairing ||
-                building.ConstructionStatus == BuildingStatus.Upgrading)
-            {
-                statusText += $" ({building.ConstructionProgress}% - {building.ConstructionTimeRemaining}w left)";
-            }
-            ListViewItem item = new ListViewItem(building.Name);
-            item.SubItems.Add(building.Type.ToString());
-            item.SubItems.Add(statusText);
-            item.SubItems.Add($"{building.Condition}%");
-            item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
-            item.Tag = building.Id; // Store building ID for reference
-            
-            // Set color based on building status
-            if (building.ConstructionStatus == BuildingStatus.Damaged)
-            {
-                item.ForeColor = Color.Red;
-            }
-            else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
-            {
-                item.ForeColor = Color.Blue;
-            }
-            else if (building.ConstructionStatus == BuildingStatus.Repairing)
-            {
-                item.ForeColor = Color.Orange;
-            }
-            
-            buildingsListView.Items.Add(item);
-        }
-        
-        // Add selection changed event
-        buildingsListView.SelectedIndexChanged += BuildingsListView_SelectedIndexChanged;
-        
-        // Building details panel
-        GroupBox detailsGroupBox = new GroupBox();
-        detailsGroupBox.Text = "Building Details";
-        detailsGroupBox.Dock = DockStyle.Fill;
-        
-        TableLayoutPanel detailsLayout = new TableLayoutPanel();
-        detailsLayout.Dock = DockStyle.Fill;
-        detailsLayout.ColumnCount = 2;
-        detailsLayout.RowCount = 8; // Add a row for assigned workers
-        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
-        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
-        
-        // Labels for building details
-        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight };
-        Label nameValueLabel = new Label { Text = "", Tag = "BuildingName" };
-        
-        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight };
-        Label typeValueLabel = new Label { Text = "", Tag = "BuildingType" };
-        
-        Label statusLabel = new Label { Text = "Status:", TextAlign = ContentAlignment.MiddleRight };
-        Label statusValueLabel = new Label { Text = "", Tag = "BuildingStatus", AutoSize = true, MaximumSize = new Size(220, 0) };
-        
-        Label conditionLabel = new Label { Text = "Condition:", TextAlign = ContentAlignment.MiddleRight };
-        Label conditionValueLabel = new Label { Text = "", Tag = "BuildingCondition" };
-        
-        Label workersLabel = new Label { Text = "Workers:", TextAlign = ContentAlignment.MiddleRight };
-        Label workersValueLabel = new Label { Text = "", Tag = "BuildingWorkers" };
-        
-        Label productionLabel = new Label { Text = "Production:", TextAlign = ContentAlignment.MiddleRight };
-        Label productionValueLabel = new Label { Text = "", Tag = "BuildingProduction", AutoSize = true, MaximumSize = new Size(220, 0) };
-        
-        Label upkeepLabel = new Label { Text = "Upkeep:", TextAlign = ContentAlignment.MiddleRight };
-        Label upkeepValueLabel = new Label { Text = "", Tag = "BuildingUpkeep", AutoSize = true, MaximumSize = new Size(220, 0) };
-        
-        // Assigned workers list
-        Label assignedWorkersLabel = new Label { Text = "Assigned Workers:", TextAlign = ContentAlignment.MiddleRight };
-        ListBox assignedWorkersListBox = new ListBox { Tag = "AssignedWorkersListBox", Dock = DockStyle.Fill };
-        assignedWorkersListBox.SelectedIndexChanged += (s, e) => {
-            // Placeholder: In the future, this will open the NPCs tab and select the NPC
-            // (handled by double-click now)
-        };
-        assignedWorkersListBox.DoubleClick += (s, e) => {
-            if (assignedWorkersListBox.SelectedItem is NPC selectedNpc)
-            {
-                ShowNPCInTab(selectedNpc.Id);
-            }
-        };
-        
-        // Add labels to details layout
-        detailsLayout.Controls.Add(nameLabel, 0, 0);
-        detailsLayout.Controls.Add(nameValueLabel, 1, 0);
-        detailsLayout.Controls.Add(typeLabel, 0, 1);
-        detailsLayout.Controls.Add(typeValueLabel, 1, 1);
-        detailsLayout.Controls.Add(statusLabel, 0, 2);
-        detailsLayout.Controls.Add(statusValueLabel, 1, 2);
-        detailsLayout.Controls.Add(conditionLabel, 0, 3);
-        detailsLayout.Controls.Add(conditionValueLabel, 1, 3);
-        detailsLayout.Controls.Add(workersLabel, 0, 4);
-        detailsLayout.Controls.Add(workersValueLabel, 1, 4);
-        detailsLayout.Controls.Add(productionLabel, 0, 5);
-        detailsLayout.Controls.Add(productionValueLabel, 1, 5);
-        detailsLayout.Controls.Add(upkeepLabel, 0, 6);
-        detailsLayout.Controls.Add(upkeepValueLabel, 1, 6);
-        detailsLayout.Controls.Add(assignedWorkersLabel, 0, 7);
-        detailsLayout.Controls.Add(assignedWorkersListBox, 1, 7);
-        
-        detailsGroupBox.Controls.Add(detailsLayout);
-        
-        // Action buttons panel
-        Panel actionsPanel = new Panel();
-        actionsPanel.Dock = DockStyle.Fill;
-        
-        // Repair button
-        Button repairButton = new Button();
-        repairButton.Text = "Repair Building";
-        repairButton.Size = new Size(150, 30);
-        repairButton.Location = new Point(10, 90);
-        repairButton.Tag = "RepairButton";
-        repairButton.Enabled = false; // Disabled by default
-        repairButton.Click += RepairButton_Click;
-        
-        // Assign workers button
-        Button assignWorkersButton = new Button();
-        assignWorkersButton.Text = "Manage Workers";
-        assignWorkersButton.Size = new Size(150, 30);
-        assignWorkersButton.Location = new Point(10, 50);
-        assignWorkersButton.Tag = "AssignWorkersButton";
-        assignWorkersButton.Enabled = false; // Disabled by default
-        assignWorkersButton.Click += AssignWorkersButton_Click;
-        
-        // Cancel construction button
-        Button cancelConstructionButton = new Button();
-        cancelConstructionButton.Text = "Cancel Construction";
-        cancelConstructionButton.Size = new Size(150, 30);
-        cancelConstructionButton.Location = new Point(10, 130);
-        cancelConstructionButton.Tag = "CancelConstructionButton";
-        cancelConstructionButton.Enabled = false;
-        cancelConstructionButton.Click += CancelConstructionButton_Click;
-        
-        // Add new building button
-        Button addBuildingButton = new Button();
-        addBuildingButton.Text = "Add New Building";
-        addBuildingButton.Size = new Size(150, 30);
-        addBuildingButton.Location = new Point(10, 10);
-        addBuildingButton.Click += AddBuildingButton_Click;
-        
-        actionsPanel.Controls.Add(repairButton);
-        actionsPanel.Controls.Add(assignWorkersButton);
-        actionsPanel.Controls.Add(cancelConstructionButton);
-        actionsPanel.Controls.Add(addBuildingButton);
-        
-        // Add controls to layout
-        layout.Controls.Add(buildingsListView, 0, 0);
-        layout.Controls.Add(detailsGroupBox, 1, 0);
-        layout.Controls.Add(actionsPanel, 1, 1);
-        
-        // Add layout to tab
-        tab.Controls.Add(layout);
-    }
-
-    private void InitializeNPCsTab(TabPage tab)
-    {
-        // Create main layout
-        TableLayoutPanel layout = new TableLayoutPanel();
-        layout.Dock = DockStyle.Fill;
-        layout.ColumnCount = 2;
-        layout.RowCount = 1;
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F)); // List 55%
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F)); // Details 45%
-        
-        // NPCs list view
-        ListView npcsListView = new ListView();
-        npcsListView.Dock = DockStyle.Fill;
-        npcsListView.View = View.Details;
-        npcsListView.FullRowSelect = true;
-        npcsListView.MultiSelect = false;
-        npcsListView.Tag = "NPCsListView";
-        
-        // Add columns
-        npcsListView.Columns.Add("Name", 120);
-        npcsListView.Columns.Add("Type", 80);
-        npcsListView.Columns.Add("Level", 50);
-        npcsListView.Columns.Add("Assignment", 120);
-        
-        // Dynamic column widths (35%, 20%, 15%, 30%)
-        void ResizeNPCsTabColumns(object s, EventArgs e)
-        {
-            int totalWidth = npcsListView.ClientSize.Width;
-            npcsListView.Columns[0].Width = (int)(totalWidth * 0.35);
-            npcsListView.Columns[1].Width = (int)(totalWidth * 0.20);
-            npcsListView.Columns[2].Width = (int)(totalWidth * 0.15);
-            npcsListView.Columns[3].Width = (int)(totalWidth * 0.30);
-        }
-        npcsListView.Resize += ResizeNPCsTabColumns;
-        ResizeNPCsTabColumns(null, null);
-        
-        // Add items for each NPC
-        foreach (var npc in _stronghold.NPCs)
-        {
-            ListViewItem item = new ListViewItem(npc.Name);
-            item.SubItems.Add(npc.Type.ToString());
-            item.SubItems.Add(npc.Level.ToString());
-            item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-            item.Tag = npc.Id;
-            npcsListView.Items.Add(item);
-        }
-        
-        npcsListView.SelectedIndexChanged += NPCsListView_SelectedIndexChanged;
-        
-        // Details panel
-        GroupBox detailsGroupBox = new GroupBox();
-        detailsGroupBox.Text = "NPC Details";
-        detailsGroupBox.Dock = DockStyle.Fill;
-        
-        TableLayoutPanel detailsLayout = new TableLayoutPanel();
-        detailsLayout.Dock = DockStyle.Fill;
-        detailsLayout.ColumnCount = 2;
-        detailsLayout.RowCount = 5;
-        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
-        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
-        
-        // Labels for details
-        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight };
-        Label nameValueLabel = new Label { Text = "", Tag = "NPCName" };
-        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight };
-        Label typeValueLabel = new Label { Text = "", Tag = "NPCType" };
-        Label levelLabel = new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight };
-        Label levelValueLabel = new Label { Text = "", Tag = "NPCLevel" };
-        Label expLabel = new Label { Text = "Experience:", TextAlign = ContentAlignment.MiddleRight };
-        Label expValueLabel = new Label { Text = "", Tag = "NPCExperience" };
-        Label happinessLabel = new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight };
-        Label happinessValueLabel = new Label { Text = "", Tag = "NPCHappiness" };
-        Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.MiddleRight };
-        Label skillsValueLabel = new Label { Text = "", Tag = "NPCSkills" };
-        Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight };
-        Label assignmentValueLabel = new Label { Text = "", Tag = "NPCAssignment" };
-        
-        // Add to details layout
-        detailsLayout.Controls.Add(nameLabel, 0, 0);
-        detailsLayout.Controls.Add(nameValueLabel, 1, 0);
-        detailsLayout.Controls.Add(typeLabel, 0, 1);
-        detailsLayout.Controls.Add(typeValueLabel, 1, 1);
-        detailsLayout.Controls.Add(levelLabel, 0, 2);
-        detailsLayout.Controls.Add(levelValueLabel, 1, 2);
-        detailsLayout.Controls.Add(expLabel, 0, 3);
-        detailsLayout.Controls.Add(expValueLabel, 1, 3);
-        detailsLayout.Controls.Add(happinessLabel, 0, 4);
-        detailsLayout.Controls.Add(happinessValueLabel, 1, 4);
-        detailsLayout.Controls.Add(skillsLabel, 0, 5);
-        detailsLayout.Controls.Add(skillsValueLabel, 1, 5);
-        detailsLayout.Controls.Add(assignmentLabel, 0, 6);
-        detailsLayout.Controls.Add(assignmentValueLabel, 1, 6);
-        
-        detailsGroupBox.Controls.Add(detailsLayout);
-        
-        // Add controls to layout
-        layout.Controls.Add(npcsListView, 0, 0);
-        layout.Controls.Add(detailsGroupBox, 1, 0);
-        
-        tab.Controls.Add(layout);
-    }
-
-    private void InitializeResourcesTab(TabPage tab)
-    {
-        // Create main layout
-        TableLayoutPanel layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            Padding = new Padding(10)
-        };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
 
         // Create resources list view
         ListView resourcesListView = new ListView
@@ -1031,6 +701,108 @@ public partial class MainDashboard : Form
         }
     }
 
+    private void InitializeNPCsTab(TabPage tab)
+    {
+        // Create main layout
+        TableLayoutPanel layout = new TableLayoutPanel();
+        layout.Dock = DockStyle.Fill;
+        layout.ColumnCount = 2;
+        layout.RowCount = 1;
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F)); // List 55%
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F)); // Details 45%
+        
+        // NPCs list view
+        ListView npcsListView = new ListView();
+        npcsListView.Dock = DockStyle.Fill;
+        npcsListView.View = View.Details;
+        npcsListView.FullRowSelect = true;
+        npcsListView.MultiSelect = false;
+        npcsListView.Tag = "NPCsListView";
+        
+        // Add columns
+        npcsListView.Columns.Add("Name", 120);
+        npcsListView.Columns.Add("Type", 80);
+        npcsListView.Columns.Add("Level", 50);
+        npcsListView.Columns.Add("Assignment", 120);
+        
+        // Dynamic column widths (35%, 20%, 15%, 30%)
+        void ResizeNPCsTabColumns(object s, EventArgs e)
+        {
+            int totalWidth = npcsListView.ClientSize.Width;
+            npcsListView.Columns[0].Width = (int)(totalWidth * 0.35);
+            npcsListView.Columns[1].Width = (int)(totalWidth * 0.20);
+            npcsListView.Columns[2].Width = (int)(totalWidth * 0.15);
+            npcsListView.Columns[3].Width = (int)(totalWidth * 0.30);
+        }
+        npcsListView.Resize += ResizeNPCsTabColumns;
+        ResizeNPCsTabColumns(null, null);
+        
+        // Add items for each NPC
+        foreach (var npc in _stronghold.NPCs)
+        {
+            ListViewItem item = new ListViewItem(npc.Name);
+            item.SubItems.Add(npc.Type.ToString());
+            item.SubItems.Add(npc.Level.ToString());
+            item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
+            item.Tag = npc.Id;
+            npcsListView.Items.Add(item);
+        }
+        
+        npcsListView.SelectedIndexChanged += NPCsListView_SelectedIndexChanged;
+        
+        // Details panel
+        GroupBox detailsGroupBox = new GroupBox();
+        detailsGroupBox.Text = "NPC Details";
+        detailsGroupBox.Dock = DockStyle.Fill;
+        
+        TableLayoutPanel detailsLayout = new TableLayoutPanel();
+        detailsLayout.Dock = DockStyle.Fill;
+        detailsLayout.ColumnCount = 2;
+        detailsLayout.RowCount = 5;
+        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+        detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+        
+        // Labels for details
+        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight };
+        Label nameValueLabel = new Label { Text = "", Tag = "NPCName" };
+        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight };
+        Label typeValueLabel = new Label { Text = "", Tag = "NPCType" };
+        Label levelLabel = new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight };
+        Label levelValueLabel = new Label { Text = "", Tag = "NPCLevel" };
+        Label expLabel = new Label { Text = "Experience:", TextAlign = ContentAlignment.MiddleRight };
+        Label expValueLabel = new Label { Text = "", Tag = "NPCExperience" };
+        Label happinessLabel = new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight };
+        Label happinessValueLabel = new Label { Text = "", Tag = "NPCHappiness" };
+        Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.MiddleRight };
+        Label skillsValueLabel = new Label { Text = "", Tag = "NPCSkills" };
+        Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight };
+        Label assignmentValueLabel = new Label { Text = "", Tag = "NPCAssignment" };
+        
+        // Add to details layout
+        detailsLayout.Controls.Add(nameLabel, 0, 0);
+        detailsLayout.Controls.Add(nameValueLabel, 1, 0);
+        detailsLayout.Controls.Add(typeLabel, 0, 1);
+        detailsLayout.Controls.Add(typeValueLabel, 1, 1);
+        detailsLayout.Controls.Add(levelLabel, 0, 2);
+        detailsLayout.Controls.Add(levelValueLabel, 1, 2);
+        detailsLayout.Controls.Add(expLabel, 0, 3);
+        detailsLayout.Controls.Add(expValueLabel, 1, 3);
+        detailsLayout.Controls.Add(happinessLabel, 0, 4);
+        detailsLayout.Controls.Add(happinessValueLabel, 1, 4);
+        detailsLayout.Controls.Add(skillsLabel, 0, 5);
+        detailsLayout.Controls.Add(skillsValueLabel, 1, 5);
+        detailsLayout.Controls.Add(assignmentLabel, 0, 6);
+        detailsLayout.Controls.Add(assignmentValueLabel, 1, 6);
+        
+        detailsGroupBox.Controls.Add(detailsLayout);
+        
+        // Add controls to layout
+        layout.Controls.Add(npcsListView, 0, 0);
+        layout.Controls.Add(detailsGroupBox, 1, 0);
+        
+        tab.Controls.Add(layout);
+    }
+
     private void InitializeJournalTab(TabPage tab)
     {
         // To be implemented
@@ -1128,21 +900,12 @@ public partial class MainDashboard : Form
     {
         // Store current selected tab
         int selectedIndex = _tabControl.SelectedIndex;
-        // Store selected building ID (if on Buildings tab)
-        string selectedBuildingId = null;
-        if (_tabControl.TabPages.Count > 1 && _tabControl.SelectedTab.Text == "Buildings")
-        {
-            ListView buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
-            if (buildingsListView != null && buildingsListView.SelectedItems.Count > 0)
-            {
-                selectedBuildingId = buildingsListView.SelectedItems[0].Tag as string;
-            }
-        }
+        
         // Store selected NPC ID (if on NPCs tab)
         string selectedNpcId = null;
-        if (_tabControl.TabPages.Count > 2 && _tabControl.SelectedTab.Text == "NPCs")
+        if (_tabControl.TabPages.Count > 1 && _tabControl.SelectedTab.Text == "NPCs")
         {
-            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[1], "NPCsListView");
             if (npcsListView != null && npcsListView.SelectedItems.Count > 0)
             {
                 selectedNpcId = npcsListView.SelectedItems[0].Tag as string;
@@ -1159,49 +922,10 @@ public partial class MainDashboard : Form
         else
             _tabControl.SelectedIndex = 0;
         
-        // Select new building if just created
-        if (_lastCreatedBuildingId != null && _tabControl.TabPages.Count > 1)
-        {
-            ListView buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
-            if (buildingsListView != null)
-            {
-                foreach (ListViewItem item in buildingsListView.Items)
-                {
-                    if ((string)item.Tag == _lastCreatedBuildingId)
-                    {
-                        item.Selected = true;
-                        item.Focused = true;
-                        buildingsListView.Select();
-                        buildingsListView.EnsureVisible(item.Index);
-                        break;
-                    }
-                }
-            }
-            _lastCreatedBuildingId = null;
-        }
-        // Otherwise, restore selected building
-        else if (selectedBuildingId != null && _tabControl.TabPages.Count > 1)
-        {
-            ListView buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
-            if (buildingsListView != null)
-            {
-                foreach (ListViewItem item in buildingsListView.Items)
-                {
-                    if ((string)item.Tag == selectedBuildingId)
-                    {
-                        item.Selected = true;
-                        item.Focused = true;
-                        buildingsListView.Select();
-                        buildingsListView.EnsureVisible(item.Index);
-                        break;
-                    }
-                }
-            }
-        }
         // Select new NPC if just created
-        if (_lastCreatedNpcId != null && _tabControl.TabPages.Count > 2)
+        if (_lastCreatedNpcId != null && _tabControl.TabPages.Count > 1)
         {
-            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[1], "NPCsListView");
             if (npcsListView != null)
             {
                 foreach (ListViewItem item in npcsListView.Items)
@@ -1219,9 +943,9 @@ public partial class MainDashboard : Form
             _lastCreatedNpcId = null;
         }
         // Otherwise, restore selected NPC
-        else if (selectedNpcId != null && _tabControl.TabPages.Count > 2)
+        else if (selectedNpcId != null && _tabControl.TabPages.Count > 1)
         {
-            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[1], "NPCsListView");
             if (npcsListView != null)
             {
                 foreach (ListViewItem item in npcsListView.Items)
@@ -1244,261 +968,8 @@ public partial class MainDashboard : Form
         this.Controls.SetChildIndex(_statusStrip, 2); // Status strip on top
     }
 
-    #region Buildings Tab Event Handlers
-    
-    private void BuildingsListView_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        ListView listView = (ListView)sender;
-        Button repairButton = FindControl<Button>(listView.Parent, "RepairButton");
-        Button assignWorkersButton = FindControl<Button>(listView.Parent, "AssignWorkersButton");
-        Button cancelConstructionButton = FindControl<Button>(listView.Parent, "CancelConstructionButton");
-        if (listView.SelectedItems.Count > 0)
-        {
-            string buildingId = (string)listView.SelectedItems[0].Tag;
-            Building selectedBuilding = _stronghold.Buildings.Find(b => b.Id == buildingId);
-            if (selectedBuilding != null)
-            {
-                UpdateBuildingDetails(listView.Parent, selectedBuilding);
-                if (repairButton != null)
-                    repairButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Damaged;
-                if (assignWorkersButton != null)
-                    assignWorkersButton.Enabled = true; // Enable for all states
-                if (cancelConstructionButton != null)
-                    cancelConstructionButton.Enabled = selectedBuilding.ConstructionStatus == BuildingStatus.Planning;
-            }
-        }
-        else
-        {
-            ClearBuildingDetails(listView.Parent);
-            if (repairButton != null) repairButton.Enabled = false;
-            if (assignWorkersButton != null) assignWorkersButton.Enabled = false;
-            if (cancelConstructionButton != null) cancelConstructionButton.Enabled = false;
-        }
-    }
-    
-    private void RepairButton_Click(object sender, EventArgs e)
-    {
-        // Get selected building
-        ListView buildingsListView = FindControl<ListView>(((Button)sender).Parent.Parent, "BuildingsListView");
-        
-        if (buildingsListView != null && buildingsListView.SelectedItems.Count > 0)
-        {
-            string buildingId = (string)buildingsListView.SelectedItems[0].Tag;
-            
-            // Start repair
-            bool success = _gameStateService.StartBuildingRepair(buildingId);
-            
-            if (!success)
-            {
-                MessageBox.Show("Not enough resources to repair this building.", "Repair Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-    }
-    
-    private void AssignWorkersButton_Click(object sender, EventArgs e)
-    {
-        // Get selected building
-        ListView buildingsListView = FindControl<ListView>(((Button)sender).Parent.Parent, "BuildingsListView");
-        
-        if (buildingsListView != null && buildingsListView.SelectedItems.Count > 0)
-        {
-            string buildingId = (string)buildingsListView.SelectedItems[0].Tag;
-            Building selectedBuilding = _stronghold.Buildings.Find(b => b.Id == buildingId);
-            
-            if (selectedBuilding != null)
-            {
-                // Show worker assignment dialog
-                using (var workerDialog = new WorkerAssignmentDialog(selectedBuilding, _stronghold.NPCs))
-                {
-                    if (workerDialog.ShowDialog() == DialogResult.OK)
-                    {
-                        // Update building with new worker assignments
-                        _gameStateService.AssignWorkersToBuilding(selectedBuilding.Id, workerDialog.AssignedWorkerIds);
-                    }
-                }
-            }
-        }
-    }
-    
-    private void AddBuildingButton_Click(object sender, EventArgs e)
-    {
-        // Show building type selection dialog
-        using (var typeDialog = new AddBuildingDialog())
-        {
-            if (typeDialog.ShowDialog() == DialogResult.OK)
-            {
-                // Create new building
-                Building newBuilding = new Building(typeDialog.SelectedBuildingType);
-                newBuilding.Name = string.IsNullOrWhiteSpace(typeDialog.BuildingName) ? newBuilding.Type.ToString() : typeDialog.BuildingName;
-                // Add to game state
-                _lastCreatedBuildingId = newBuilding.Id;
-                _gameStateService.AddBuilding(newBuilding);
-            }
-        }
-    }
-    
-    private void UpdateBuildingDetails(Control parent, Building building)
-    {
-        // Update labels with building details
-        Label nameLabel = FindControl<Label>(parent, "BuildingName");
-        if (nameLabel != null) nameLabel.Text = building.Name;
-        
-        Label typeLabel = FindControl<Label>(parent, "BuildingType");
-        if (typeLabel != null) typeLabel.Text = building.Type.ToString();
-        
-        Label statusLabel = FindControl<Label>(parent, "BuildingStatus");
-        if (statusLabel != null)
-        {
-            string statusText = building.ConstructionStatus.ToString();
-            
-            // Add time remaining and progress if under construction, repairing, or upgrading
-            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
-                building.ConstructionStatus == BuildingStatus.Repairing ||
-                building.ConstructionStatus == BuildingStatus.Upgrading)
-            {
-                statusText += $" ({building.ConstructionProgress}% complete, {building.ConstructionTimeRemaining} weeks left)";
-            }
-            statusLabel.Text = statusText;
-        }
-        
-        Label conditionLabel = FindControl<Label>(parent, "BuildingCondition");
-        if (conditionLabel != null) conditionLabel.Text = $"{building.Condition}%";
-        
-        Label workersLabel = FindControl<Label>(parent, "BuildingWorkers");
-        if (workersLabel != null) workersLabel.Text = $"{building.AssignedWorkers.Count}/{building.WorkerSlots}";
-        
-        // Calculate production and upkeep before displaying
-        building.UpdateProduction(_stronghold.NPCs);
-        building.ActualUpkeep = building.CalculateUpkeep(_stronghold.NPCs);
-        
-        Label productionLabel = FindControl<Label>(parent, "BuildingProduction");
-        if (productionLabel != null)
-        {
-            string productionText = "";
-            // Only show production if building is functional
-            if (building.IsFunctional())
-            {
-                if (building.ActualProduction.Count > 0)
-                {
-                    foreach (var production in building.ActualProduction)
-                    {
-                        productionText += $"{production.ResourceType}: +{production.Amount}/week\n";
-                    }
-                    productionLabel.Text = productionText.TrimEnd('\n');
-                }
-                else
-                {
-                    productionLabel.Text = "0";
-                }
-            }
-            else
-            {
-                productionLabel.Text = "None";
-            }
-        }
-        
-        Label upkeepLabel = FindControl<Label>(parent, "BuildingUpkeep");
-        if (upkeepLabel != null)
-        {
-            string upkeepText = "";
-            // Only show upkeep if building is not in Planning or Damaged
-            if (building.ConstructionStatus != BuildingStatus.Planning &&
-                building.ConstructionStatus != BuildingStatus.Damaged)
-            {
-                if (building.ActualUpkeep.Count > 0)
-                {
-                    foreach (var upkeep in building.ActualUpkeep)
-                    {
-                        upkeepText += $"{upkeep.ResourceType}: -{upkeep.Amount}/week\n";
-                    }
-                    upkeepLabel.Text = upkeepText.TrimEnd('\n');
-                }
-                else
-                {
-                    upkeepLabel.Text = "0";
-                }
-            }
-            else
-            {
-                upkeepLabel.Text = "None";
-            }
-        }
+    #region NPCs Tab Event Handlers
 
-        // Update assigned workers list
-        ListBox assignedWorkersListBox = FindControl<ListBox>(parent, "AssignedWorkersListBox");
-        if (assignedWorkersListBox != null)
-        {
-            assignedWorkersListBox.Items.Clear();
-            foreach (var workerId in building.AssignedWorkers)
-            {
-                var npc = _stronghold.NPCs.Find(n => n.Id == workerId);
-                if (npc != null)
-                {
-                    assignedWorkersListBox.Items.Add(npc);
-                }
-            }
-            assignedWorkersListBox.DisplayMember = "Name";
-        }
-    }
-    
-    private void ClearBuildingDetails(Control parent)
-    {
-        Label nameLabel = FindControl<Label>(parent, "BuildingName");
-        if (nameLabel != null) nameLabel.Text = "";
-        
-        Label typeLabel = FindControl<Label>(parent, "BuildingType");
-        if (typeLabel != null) typeLabel.Text = "";
-        
-        Label statusLabel = FindControl<Label>(parent, "BuildingStatus");
-        if (statusLabel != null) statusLabel.Text = "";
-        
-        Label conditionLabel = FindControl<Label>(parent, "BuildingCondition");
-        if (conditionLabel != null) conditionLabel.Text = "";
-        
-        Label workersLabel = FindControl<Label>(parent, "BuildingWorkers");
-        if (workersLabel != null) workersLabel.Text = "";
-        
-        Label productionLabel = FindControl<Label>(parent, "BuildingProduction");
-        if (productionLabel != null) productionLabel.Text = "";
-        
-        Label upkeepLabel = FindControl<Label>(parent, "BuildingUpkeep");
-        if (upkeepLabel != null) upkeepLabel.Text = "";
-
-        // Clear assigned workers list
-        ListBox assignedWorkersListBox = FindControl<ListBox>(parent, "AssignedWorkersListBox");
-        if (assignedWorkersListBox != null)
-        {
-            assignedWorkersListBox.Items.Clear();
-        }
-    }
-    
-    // Helper method to find control by tag
-    private T FindControl<T>(Control parent, string tag) where T : Control
-    {
-        foreach (Control control in parent.Controls)
-        {
-            if (control is T && control.Tag?.ToString() == tag)
-            {
-                return (T)control;
-            }
-            
-            // Recursively search in child controls
-            if (control.Controls.Count > 0)
-            {
-                T result = FindControl<T>(control, tag);
-                if (result != null)
-                {
-                    return result;
-                }
-            }
-        }
-        
-        return null;
-    }
-    
-    #endregion
-
-    // Event handler for NPCs list selection
     private void NPCsListView_SelectedIndexChanged(object sender, EventArgs e)
     {
         ListView listView = (ListView)sender;
@@ -1513,7 +984,6 @@ public partial class MainDashboard : Form
         }
     }
 
-    // Update NPC details panel
     private void UpdateNPCDetails(NPC npc)
     {
         if (npc == null) return;
@@ -1601,56 +1071,6 @@ public partial class MainDashboard : Form
     public void NotifyNpcCreated(string npcId)
     {
         _lastCreatedNpcId = npcId;
-    }
-
-    // Helper to switch to Buildings tab and select a building
-    private void ShowBuildingInTab(string buildingId)
-    {
-        for (int i = 0; i < _tabControl.TabPages.Count; i++)
-        {
-            if (_tabControl.TabPages[i].Text == "Buildings")
-            {
-                _tabControl.SelectedIndex = i;
-                ListView buildingsListView = FindControl<ListView>(_tabControl.TabPages[i], "BuildingsListView");
-                if (buildingsListView != null)
-                {
-                    foreach (ListViewItem item in buildingsListView.Items)
-                    {
-                        if ((string)item.Tag == buildingId)
-                        {
-                            item.Selected = true;
-                            item.Focused = true;
-                            buildingsListView.Select();
-                            buildingsListView.EnsureVisible(item.Index);
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    private void CancelConstructionButton_Click(object sender, EventArgs e)
-    {
-        ListView buildingsListView = FindControl<ListView>(((Button)sender).Parent.Parent, "BuildingsListView");
-        if (buildingsListView != null && buildingsListView.SelectedItems.Count > 0)
-        {
-            string buildingId = (string)buildingsListView.SelectedItems[0].Tag;
-            Building selectedBuilding = _stronghold.Buildings.Find(b => b.Id == buildingId);
-            if (selectedBuilding != null && selectedBuilding.ConstructionStatus == BuildingStatus.Planning)
-            {
-                var result = MessageBox.Show($"Are you sure you want to cancel construction of '{selectedBuilding.Name}'? All resources will be refunded.", "Cancel Construction", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result == DialogResult.Yes)
-                {
-                    bool canceled = _gameStateService.CancelBuildingConstruction(buildingId);
-                    if (!canceled)
-                    {
-                        MessageBox.Show("Unable to cancel construction. The building may no longer be in the Planning phase.", "Cancel Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
-                }
-            }
-        }
     }
 
     private void ResourcesListView_SelectedIndexChanged(object sender, EventArgs e)
@@ -1772,48 +1192,23 @@ public partial class MainDashboard : Form
 
     #endregion
 
-    // Helper dialog for input
-    public class InputBoxDialog : Form
+    #endregion
+
+    // Utility method to find a control by tag
+    private T FindControl<T>(Control parent, string tag) where T : Control
     {
-        public string InputText => _textBox.Text;
-        private TextBox _textBox;
-        public InputBoxDialog(string title, string prompt)
+        if (parent == null) return null;
+        
+        if (parent is T && parent.Tag?.ToString() == tag)
+            return (T)parent;
+            
+        foreach (Control control in parent.Controls)
         {
-            this.Text = title;
-            this.Size = new Size(350, 150);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.ShowInTaskbar = false;
-            
-            Label promptLabel = new Label();
-            promptLabel.Text = prompt;
-            promptLabel.Location = new Point(10, 10);
-            promptLabel.Size = new Size(320, 20);
-            
-            _textBox = new TextBox();
-            _textBox.Location = new Point(10, 40);
-            _textBox.Size = new Size(320, 20);
-            
-            Button okButton = new Button();
-            okButton.Text = "OK";
-            okButton.DialogResult = DialogResult.OK;
-            okButton.Location = new Point(170, 80);
-            okButton.Size = new Size(75, 23);
-            
-            Button cancelButton = new Button();
-            cancelButton.Text = "Cancel";
-            cancelButton.DialogResult = DialogResult.Cancel;
-            cancelButton.Location = new Point(255, 80);
-            cancelButton.Size = new Size(75, 23);
-            
-            this.Controls.Add(promptLabel);
-            this.Controls.Add(_textBox);
-            this.Controls.Add(okButton);
-            this.Controls.Add(cancelButton);
-            this.AcceptButton = okButton;
-            this.CancelButton = cancelButton;
+            T found = FindControl<T>(control, tag);
+            if (found != null)
+                return found;
         }
+        
+        return null;
     }
 }

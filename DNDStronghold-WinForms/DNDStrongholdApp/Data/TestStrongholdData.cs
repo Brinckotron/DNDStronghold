@@ -28,7 +28,7 @@ namespace DNDStrongholdApp.Services
                 var status = statuses[statusIdx % statuses.Count];
                 var building = new Building(type)
                 {
-                    Name = $"{type} ({status})",
+                    Name = $"{type}",
                     ConstructionStatus = status,
                     Condition = status == BuildingStatus.Damaged ? 40 : 100,
                     Level = 1 + (statusIdx % 3)
