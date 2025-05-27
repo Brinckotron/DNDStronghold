@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using DNDStrongholdApp.Models;
 using DNDStrongholdApp.Services;
 using System.Linq;
+using DNDStrongholdApp.Forms;
 
 namespace DNDStrongholdApp;
 
@@ -28,6 +29,11 @@ public partial class MainDashboard : Form
     private string _lastCreatedNpcId = null;
 
     private readonly bool _populateTestStronghold;
+
+    // Add these fields at class level
+    private string _selectedBuildingId;
+    private int _lastSortedColumn = -1;
+    private SortOrder _lastSortOrder = SortOrder.None;
 
     public MainDashboard(bool populateTestStronghold = false)
     {
@@ -155,6 +161,7 @@ public partial class MainDashboard : Form
         
         // Create tabs
         TabPage dashboardTab = new TabPage("Dashboard");
+        TabPage buildingsTab = new TabPage("Buildings");
         TabPage npcsTab = new TabPage("NPCs");
         TabPage resourcesTab = new TabPage("Resources");
         TabPage journalTab = new TabPage("Journal");
@@ -162,6 +169,7 @@ public partial class MainDashboard : Form
         
         // Add tabs to tab control
         _tabControl.TabPages.Add(dashboardTab);
+        _tabControl.TabPages.Add(buildingsTab);
         _tabControl.TabPages.Add(npcsTab);
         _tabControl.TabPages.Add(resourcesTab);
         _tabControl.TabPages.Add(journalTab);
@@ -172,6 +180,7 @@ public partial class MainDashboard : Form
         
         // Initialize tab contents
         InitializeDashboardTab(dashboardTab);
+        InitializeBuildingsTab(buildingsTab);
         InitializeNPCsTab(npcsTab);
         InitializeResourcesTab(resourcesTab);
         InitializeJournalTab(journalTab);
@@ -823,6 +832,118 @@ public partial class MainDashboard : Form
         tab.Controls.Add(placeholder);
     }
 
+    private void InitializeBuildingsTab(TabPage tab)
+    {
+        // Create main layout with fixed 65/35 split
+        TableLayoutPanel mainLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(10),
+            BackColor = SystemColors.Control
+        };
+        mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58.5F));
+        mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 41.5F));
+
+        // Left side panel (contains ListView and Add button)
+        TableLayoutPanel leftPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Margin = new Padding(0)
+        };
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // ListView takes all available space
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F)); // Fixed height for button
+
+        // Create and configure ListView
+        ListView buildingsListView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            MultiSelect = false,
+            Tag = "BuildingsListView"
+        };
+        buildingsListView.SelectedIndexChanged += BuildingsListView_SelectedIndexChanged;
+        buildingsListView.ColumnClick += BuildingsListView_ColumnClick;
+
+        // Add columns
+                    buildingsListView.Columns.Add("Name", 150);
+            buildingsListView.Columns.Add("Type", 100);
+            buildingsListView.Columns.Add("Workers", 80);
+            buildingsListView.Columns.Add("State", 210);
+            buildingsListView.Columns.Add("Condition", 80);
+            buildingsListView.Columns.Add("Level", 60);
+
+        // Add items for each building
+        foreach (var building in _stronghold.Buildings)
+        {
+            string stateText = building.ConstructionStatus.ToString();
+            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                building.ConstructionStatus == BuildingStatus.Repairing ||
+                building.ConstructionStatus == BuildingStatus.Upgrading)
+            {
+                stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+            }
+
+            ListViewItem item = new ListViewItem(building.Name);
+            item.SubItems.Add(building.Type.ToString());
+            item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
+            item.SubItems.Add(stateText);
+            item.SubItems.Add($"{building.Condition}%");
+            item.SubItems.Add(building.Level.ToString());
+            item.Tag = building.Id;
+
+            // Set color based on building status
+            switch (building.ConstructionStatus)
+            {
+                case BuildingStatus.Damaged:
+                    item.ForeColor = Color.Red;
+                    break;
+                case BuildingStatus.UnderConstruction:
+                    item.ForeColor = Color.Blue;
+                    break;
+                case BuildingStatus.Repairing:
+                    item.ForeColor = Color.Orange;
+                    break;
+            }
+
+            buildingsListView.Items.Add(item);
+        }
+
+        // Create Add New Building button
+        Button addBuildingButton = new Button
+        {
+            Text = "Add New Building",
+            Height = 30,
+            Width = 120,
+            Margin = new Padding(0, 8, 0, 0),
+            Anchor = AnchorStyles.Left
+        };
+        addBuildingButton.Click += AddBuildingButton_Click;
+
+        // Add controls to left panel
+        leftPanel.Controls.Add(buildingsListView, 0, 0);
+        leftPanel.Controls.Add(addBuildingButton, 0, 1);
+
+        // Right side panel (placeholder for now)
+        Panel rightPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(10, 0, 0, 0)
+        };
+
+        // Add panels to main layout
+        mainLayout.Controls.Add(leftPanel, 0, 0);
+        mainLayout.Controls.Add(rightPanel, 1, 0);
+
+        // Add main layout to tab
+        tab.Controls.Add(mainLayout);
+    }
+
     #endregion
 
     #region Event Handlers
@@ -898,55 +1019,196 @@ public partial class MainDashboard : Form
 
     private void RefreshAllTabs()
     {
-        // Store current selected tab
-        int selectedIndex = _tabControl.SelectedIndex;
-        
-        // Store selected NPC ID (if on NPCs tab)
-        string selectedNpcId = null;
-        if (_tabControl.TabPages.Count > 1 && _tabControl.SelectedTab.Text == "NPCs")
+        RefreshDashboardTab();
+        RefreshBuildingsTab();
+        RefreshNPCsTab();
+        RefreshResourcesTab();
+        RefreshJournalTab();
+        RefreshMissionsTab();
+    }
+
+    private void RefreshDashboardTab()
+    {
+        // Update Stronghold Info Panel
+        var strongholdInfoPanel = FindControl<GroupBox>(_tabControl.TabPages[0], "StrongholdInfoPanel");
+        if (strongholdInfoPanel != null)
         {
-            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[1], "NPCsListView");
-            if (npcsListView != null && npcsListView.SelectedItems.Count > 0)
-            {
-                selectedNpcId = npcsListView.SelectedItems[0].Tag as string;
-            }
+            var nameLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdName");
+            var locationLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLocation");
+            var levelLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLevel");
+            
+            if (nameLabel != null) nameLabel.Text = _stronghold.Name;
+            if (locationLabel != null) locationLabel.Text = _stronghold.Location;
+            if (levelLabel != null) levelLabel.Text = _stronghold.Level.ToString();
         }
-        
-        // Clear and recreate tab control
-        this.Controls.Remove(_tabControl);
-        CreateTabControl();
-        
-        // Restore selected tab
-        if (selectedIndex >= 0 && selectedIndex < _tabControl.TabPages.Count)
-            _tabControl.SelectedIndex = selectedIndex;
-        else
-            _tabControl.SelectedIndex = 0;
-        
-        // Select new NPC if just created
-        if (_lastCreatedNpcId != null && _tabControl.TabPages.Count > 1)
+
+        // Update Building Summary Panel
+        var buildingSummaryPanel = FindControl<GroupBox>(_tabControl.TabPages[0], "BuildingSummaryPanel");
+        if (buildingSummaryPanel != null)
         {
-            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[1], "NPCsListView");
-            if (npcsListView != null)
+            var listView = FindControl<ListView>(buildingSummaryPanel, "BuildingSummaryList");
+            if (listView != null)
             {
-                foreach (ListViewItem item in npcsListView.Items)
+                listView.Items.Clear();
+                foreach (var building in _stronghold.Buildings)
                 {
-                    if ((string)item.Tag == _lastCreatedNpcId)
+                    string statusText = building.ConstructionStatus.ToString();
+                    if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                        building.ConstructionStatus == BuildingStatus.Repairing ||
+                        building.ConstructionStatus == BuildingStatus.Upgrading)
                     {
-                        item.Selected = true;
-                        item.Focused = true;
-                        npcsListView.Select();
-                        npcsListView.EnsureVisible(item.Index);
-                        break;
+                        statusText += $" ({building.ConstructionProgress}%)";
                     }
+                    ListViewItem item = new ListViewItem(building.Name);
+                    item.SubItems.Add(building.Type.ToString());
+                    item.SubItems.Add(statusText);
+                    
+                    if (building.ConstructionStatus == BuildingStatus.Damaged)
+                        item.ForeColor = Color.Red;
+                    else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
+                        item.ForeColor = Color.Blue;
+                    else if (building.ConstructionStatus == BuildingStatus.Repairing)
+                        item.ForeColor = Color.Orange;
+                    
+                    listView.Items.Add(item);
                 }
             }
-            _lastCreatedNpcId = null;
         }
-        // Otherwise, restore selected NPC
-        else if (selectedNpcId != null && _tabControl.TabPages.Count > 1)
+
+        // Update Resource Summary Panel
+        var resourceSummaryPanel = FindControl<GroupBox>(_tabControl.TabPages[0], "ResourceSummaryPanel");
+        if (resourceSummaryPanel != null)
         {
-            ListView npcsListView = FindControl<ListView>(_tabControl.TabPages[1], "NPCsListView");
-            if (npcsListView != null)
+            var listView = FindControl<ListView>(resourceSummaryPanel, "ResourceSummaryList");
+            if (listView != null)
+            {
+                listView.Items.Clear();
+                foreach (var resource in _stronghold.Resources)
+                {
+                    ListViewItem item = new ListViewItem(resource.Type.ToString());
+                    item.SubItems.Add(resource.Amount.ToString());
+                    item.SubItems.Add(resource.NetWeeklyChange.ToString());
+                    listView.Items.Add(item);
+                }
+            }
+        }
+
+        // Update NPC Summary Panel
+        var npcSummaryPanel = FindControl<GroupBox>(_tabControl.TabPages[0], "NPCSummaryPanel");
+        if (npcSummaryPanel != null)
+        {
+            var listView = FindControl<ListView>(npcSummaryPanel, "NPCSummaryList");
+            if (listView != null)
+            {
+                listView.Items.Clear();
+                foreach (var npc in _stronghold.NPCs)
+                {
+                    ListViewItem item = new ListViewItem(npc.Name);
+                    item.SubItems.Add(npc.Type.ToString());
+                    item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
+                    string status = npc.States != null && npc.States.Any()
+                        ? string.Join(", ", npc.States.Select(s => s.Type.ToString()))
+                        : "Healthy";
+                    item.SubItems.Add(status);
+                    item.Tag = npc.Id;
+                    listView.Items.Add(item);
+                }
+            }
+        }
+
+        // Update Recent Events Panel
+        var recentEventsPanel = FindControl<GroupBox>(_tabControl.TabPages[0], "RecentEventsPanel");
+        if (recentEventsPanel != null)
+        {
+            var listView = FindControl<ListView>(recentEventsPanel, "RecentEventsList");
+            if (listView != null)
+            {
+                listView.Items.Clear();
+                foreach (var entry in _stronghold.Journal)
+                {
+                    ListViewItem item = new ListViewItem(entry.Date);
+                    item.SubItems.Add(entry.Title);
+                    listView.Items.Add(item);
+                }
+            }
+        }
+    }
+
+    private void RefreshBuildingsTab()
+    {
+        var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+        if (buildingsListView == null) return;
+
+        buildingsListView.Items.Clear();
+
+        foreach (var building in _stronghold.Buildings)
+        {
+            string stateText = building.ConstructionStatus.ToString();
+            if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                building.ConstructionStatus == BuildingStatus.Repairing ||
+                building.ConstructionStatus == BuildingStatus.Upgrading)
+            {
+                stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+            }
+
+            ListViewItem item = new ListViewItem(building.Name);
+            item.SubItems.Add(building.Type.ToString());
+            item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
+            item.SubItems.Add(stateText);
+            item.SubItems.Add($"{building.Condition}%");
+            item.SubItems.Add(building.Level.ToString());
+            item.Tag = building.Id;
+
+            // Set color based on building status
+            switch (building.ConstructionStatus)
+            {
+                case BuildingStatus.Damaged:
+                    item.ForeColor = Color.Red;
+                    break;
+                case BuildingStatus.UnderConstruction:
+                    item.ForeColor = Color.Blue;
+                    break;
+                case BuildingStatus.Repairing:
+                    item.ForeColor = Color.Orange;
+                    break;
+            }
+
+            buildingsListView.Items.Add(item);
+        }
+
+        // Maintain sorting if a column was previously sorted
+        if (_lastSortedColumn != -1)
+        {
+            buildingsListView.ListViewItemSorter = new BuildingsListViewSorter(_lastSortedColumn, _lastSortOrder);
+        }
+    }
+
+    private void RefreshNPCsTab()
+    {
+        // Store selected NPC ID (if any)
+        string selectedNpcId = null;
+        var npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+        if (npcsListView != null && npcsListView.SelectedItems.Count > 0)
+        {
+            selectedNpcId = npcsListView.SelectedItems[0].Tag as string;
+        }
+
+        // Refresh the ListView
+        if (npcsListView != null)
+        {
+            npcsListView.Items.Clear();
+            foreach (var npc in _stronghold.NPCs)
+            {
+                ListViewItem item = new ListViewItem(npc.Name);
+                item.SubItems.Add(npc.Type.ToString());
+                item.SubItems.Add(npc.Level.ToString());
+                item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
+                item.Tag = npc.Id;
+                npcsListView.Items.Add(item);
+            }
+
+            // Restore selected NPC if it still exists
+            if (selectedNpcId != null)
             {
                 foreach (ListViewItem item in npcsListView.Items)
                 {
@@ -960,12 +1222,86 @@ public partial class MainDashboard : Form
                     }
                 }
             }
+            // Or select newly created NPC if applicable
+            else if (_lastCreatedNpcId != null)
+            {
+                foreach (ListViewItem item in npcsListView.Items)
+                {
+                    if ((string)item.Tag == _lastCreatedNpcId)
+                    {
+                        item.Selected = true;
+                        item.Focused = true;
+                        npcsListView.Select();
+                        npcsListView.EnsureVisible(item.Index);
+                        break;
+                    }
+                }
+                _lastCreatedNpcId = null;
+            }
         }
-        
-        // Ensure proper Z-order of controls
-        this.Controls.SetChildIndex(_tabControl, 0); // Tab control at the back
-        this.Controls.SetChildIndex(_nextTurnButton, 1); // Next turn button above tab control
-        this.Controls.SetChildIndex(_statusStrip, 2); // Status strip on top
+    }
+
+    private void RefreshResourcesTab()
+    {
+        var resourcesListView = FindControl<ListView>(_tabControl.TabPages[3], "ResourcesListView");
+        if (resourcesListView == null) return;
+
+        // Store selected resource
+        Resource selectedResource = null;
+        if (resourcesListView.SelectedItems.Count > 0)
+        {
+            selectedResource = (Resource)resourcesListView.SelectedItems[0].Tag;
+        }
+
+        // Refresh list
+        resourcesListView.Items.Clear();
+        foreach (var resource in _stronghold.Resources)
+        {
+            var item = new ListViewItem(resource.Type.ToString());
+            item.SubItems.Add(resource.Amount.ToString());
+            item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
+            item.Tag = resource;
+            resourcesListView.Items.Add(item);
+
+            // Restore selection if this was the previously selected resource
+            if (selectedResource != null && resource.Type == selectedResource.Type)
+            {
+                item.Selected = true;
+                resourcesListView.EnsureVisible(item.Index);
+            }
+        }
+    }
+
+    private void RefreshJournalTab()
+    {
+        var journalListView = FindControl<ListView>(_tabControl.TabPages[4], "JournalListView");
+        if (journalListView == null) return;
+
+        journalListView.Items.Clear();
+        foreach (var entry in _stronghold.Journal)
+        {
+            ListViewItem item = new ListViewItem(entry.Date);
+            item.SubItems.Add(entry.Title);
+            item.SubItems.Add(entry.Description);
+            item.Tag = entry;
+            journalListView.Items.Add(item);
+        }
+    }
+
+    private void RefreshMissionsTab()
+    {
+        var missionsListView = FindControl<ListView>(_tabControl.TabPages[5], "MissionsListView");
+        if (missionsListView == null) return;
+
+        missionsListView.Items.Clear();
+        foreach (var mission in _stronghold.ActiveMissions)
+        {
+            ListViewItem item = new ListViewItem(mission.Name);
+            item.SubItems.Add(mission.Status.ToString());
+            item.SubItems.Add($"{mission.WeeksRemaining} weeks");
+            item.Tag = mission;
+            missionsListView.Items.Add(item);
+        }
     }
 
     #region NPCs Tab Event Handlers
@@ -1176,7 +1512,7 @@ public partial class MainDashboard : Form
 
     private void RefreshResourcesList()
     {
-        ListView resourcesListView = FindControl<ListView>(_tabControl.TabPages[2], "ResourcesListView");
+        ListView resourcesListView = FindControl<ListView>(_tabControl.TabPages[3], "ResourcesListView");
         if (resourcesListView == null) return;
 
         resourcesListView.Items.Clear();
@@ -1187,6 +1523,159 @@ public partial class MainDashboard : Form
             item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
             item.Tag = resource;
             resourcesListView.Items.Add(item);
+        }
+    }
+
+    private void AddBuildingButton_Click(object sender, EventArgs e)
+    {
+        using (var addBuildingForm = new AddBuildingForm(_stronghold))
+        {
+            if (addBuildingForm.ShowDialog() == DialogResult.OK)
+            {
+                // Get the ListView
+                var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+                if (buildingsListView == null) return;
+
+                // Add the new building to the ListView
+                var building = _stronghold.Buildings.Last(); // Get the newly added building
+                
+                ListViewItem item = new ListViewItem(building.Name);
+                item.SubItems.Add(building.Type.ToString());
+                item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
+                item.SubItems.Add(building.ConstructionStatus.ToString());
+                item.SubItems.Add($"{building.Condition}%");
+                item.SubItems.Add(building.Level.ToString());
+                item.Tag = building.Id;
+
+                buildingsListView.Items.Add(item);
+            }
+        }
+    }
+
+    private void BuildingsListView_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        if (listView.SelectedItems.Count > 0)
+        {
+            string buildingId = (string)listView.SelectedItems[0].Tag;
+            // We'll implement the right panel update in Milestone 3
+            // For now, just store the selected building ID
+            _selectedBuildingId = buildingId;
+        }
+    }
+
+    private void BuildingsListView_ColumnClick(object sender, ColumnClickEventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        
+        // Get the new sorting column
+        ColumnHeader newSortingColumn = listView.Columns[e.Column];
+        
+        // Figure out the new sorting order
+        SortOrder newSortOrder;
+        
+        // If we clicked the same column that was clicked last time,
+        // reverse the sort order. Otherwise, default to ascending.
+        if (_lastSortedColumn == e.Column)
+        {
+            newSortOrder = _lastSortOrder == SortOrder.Ascending ? 
+                          SortOrder.Descending : SortOrder.Ascending;
+        }
+        else
+        {
+            newSortOrder = SortOrder.Ascending;
+        }
+        
+        // Sort the items
+        listView.ListViewItemSorter = new BuildingsListViewSorter(e.Column, newSortOrder);
+        
+        // Remember the new sorting column and order
+        _lastSortedColumn = e.Column;
+        _lastSortOrder = newSortOrder;
+    }
+
+    private class BuildingsListViewSorter : System.Collections.IComparer
+    {
+        private int _column;
+        private SortOrder _sortOrder;
+
+        public BuildingsListViewSorter(int column, SortOrder sortOrder)
+        {
+            _column = column;
+            _sortOrder = sortOrder;
+        }
+
+        public int Compare(object x, object y)
+        {
+            ListViewItem itemX = (ListViewItem)x;
+            ListViewItem itemY = (ListViewItem)y;
+            
+            int compareResult;
+            
+            // Different comparison logic based on column
+            switch (_column)
+            {
+                case 0: // Name
+                case 1: // Type
+                    compareResult = String.Compare(
+                        itemX.SubItems[_column].Text,
+                        itemY.SubItems[_column].Text
+                    );
+                    break;
+                    
+                case 2: // Workers
+                    // Extract current worker count
+                    int workersX = int.Parse(itemX.SubItems[_column].Text.Split('/')[0]);
+                    int workersY = int.Parse(itemY.SubItems[_column].Text.Split('/')[0]);
+                    compareResult = workersX.CompareTo(workersY);
+                    break;
+                    
+                case 3: // State
+                    // Get the status without progress info
+                    string statusX = itemX.SubItems[_column].Text.Split(' ')[0];
+                    string statusY = itemY.SubItems[_column].Text.Split(' ')[0];
+                    
+                    // Convert status to priority number
+                    int priorityX = GetStatusPriority(statusX);
+                    int priorityY = GetStatusPriority(statusY);
+                    
+                    compareResult = priorityX.CompareTo(priorityY);
+                    break;
+                    
+                case 4: // Condition
+                    // Extract percentage value
+                    int conditionX = int.Parse(itemX.SubItems[_column].Text.TrimEnd('%'));
+                    int conditionY = int.Parse(itemY.SubItems[_column].Text.TrimEnd('%'));
+                    compareResult = conditionX.CompareTo(conditionY);
+                    break;
+                    
+                case 5: // Level
+                    int levelX = int.Parse(itemX.SubItems[_column].Text);
+                    int levelY = int.Parse(itemY.SubItems[_column].Text);
+                    compareResult = levelX.CompareTo(levelY);
+                    break;
+                    
+                default:
+                    compareResult = 0;
+                    break;
+            }
+            
+            // Return the result based on sort order
+            return _sortOrder == SortOrder.Ascending ? compareResult : -compareResult;
+        }
+        
+        private int GetStatusPriority(string status)
+        {
+            return status switch
+            {
+                "Complete" => 0,
+                "UnderConstruction" => 1,
+                "Planning" => 2,
+                "Upgrading" => 3,
+                "Repairing" => 4,
+                "Damaged" => 5,
+                _ => 6
+            };
         }
     }
 
