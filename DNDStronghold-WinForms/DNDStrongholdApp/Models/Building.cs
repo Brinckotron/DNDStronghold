@@ -12,6 +12,7 @@ namespace DNDStrongholdApp.Models
         public BuildingType Type { get; set; }
         public string Name { get; set; } = string.Empty;
         public int Level { get; set; } = 1;
+        public int MaxLevel { get; set; } = 1;
         public BuildingStatus ConstructionStatus { get; set; } = BuildingStatus.Planning;
         public int ConstructionProgress { get; set; } = 0; // 0-100%
         public int ConstructionTimeRemaining { get; set; } = 0; // in weeks
@@ -58,6 +59,7 @@ namespace DNDStrongholdApp.Models
                     WorkerSlots = buildingInfo.workerSlots;
                     RequiredConstructionPoints = buildingInfo.requiredConstructionPoints;
                     ConstructionCost = buildingInfo.constructionCost.Select(c => new ResourceCost { ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), c.resourceType), Amount = c.amount }).ToList();
+                    MaxLevel = buildingInfo.maxLevel;
                 }
             }
             else
@@ -89,6 +91,7 @@ namespace DNDStrongholdApp.Models
                     default:
                         WorkerSlots = 1;
                         RequiredConstructionPoints = 20;
+                        MaxLevel = 5;
                         break;
                 }
             }
@@ -182,6 +185,12 @@ namespace DNDStrongholdApp.Models
                 return JsonSerializer.Deserialize<BuildingData>(json);
             }
             return null;
+        }
+
+        // method to get Max Level
+        public int GetMaxLevel()
+        {
+            return MaxLevel;
         }
 
         // Update construction progress based on assigned workers
@@ -485,16 +494,6 @@ namespace DNDStrongholdApp.Models
             return ConstructionStatus == BuildingStatus.Complete;
         }
 
-        public int GetMaxLevel()
-        {
-            switch (Type)
-            {
-                case BuildingType.Quarry:
-                    return 4;
-                default:
-                    return 5; // Default max level for other buildings
-            }
-        }
 
         public int GetWorkerSlots()
         {

@@ -5,6 +5,8 @@ using DNDStrongholdApp.Models;
 using DNDStrongholdApp.Services;
 using System.Linq;
 using DNDStrongholdApp.Forms;
+using System.IO;
+using System.Text.Json;
 
 namespace DNDStrongholdApp;
 
@@ -871,12 +873,12 @@ public partial class MainDashboard : Form
         buildingsListView.ColumnClick += BuildingsListView_ColumnClick;
 
         // Add columns
-                    buildingsListView.Columns.Add("Name", 150);
-            buildingsListView.Columns.Add("Type", 100);
-            buildingsListView.Columns.Add("Workers", 80);
-            buildingsListView.Columns.Add("State", 210);
-            buildingsListView.Columns.Add("Condition", 80);
-            buildingsListView.Columns.Add("Level", 60);
+        buildingsListView.Columns.Add("Name", 150);
+        buildingsListView.Columns.Add("Type", 100);
+        buildingsListView.Columns.Add("Workers", 80);
+        buildingsListView.Columns.Add("State", 210);
+        buildingsListView.Columns.Add("Condition", 80);
+        buildingsListView.Columns.Add("Level", 60);
 
         // Add items for each building
         foreach (var building in _stronghold.Buildings)
@@ -933,14 +935,94 @@ public partial class MainDashboard : Form
         Panel rightPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            Margin = new Padding(10, 0, 0, 0)
+            Margin = new Padding(10, 0, 0, 0),
+            BackColor = SystemColors.Control
         };
+
+        // Basic Information GroupBox
+        GroupBox basicInfoGroup = new GroupBox
+        {
+            Text = "Basic Information",
+            Dock = DockStyle.Top,
+            Height = 200,
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 0, 10)
+        };
+
+        TableLayoutPanel basicInfoLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 5,
+            Padding = new Padding(5)
+        };
+
+        // Set column styles
+        basicInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));  // Labels
+        basicInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));  // Values
+        basicInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));  // Buttons
+
+        // Add rows with equal height
+        for (int i = 0; i < 5; i++)
+        {
+            basicInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+        }
+
+        // Name row
+        Label nameLabel = new Label { Text = "Name:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        TextBox nameValue = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, Tag = "BuildingNameValue" };
+        Button renameButton = new Button { Text = "Rename", Dock = DockStyle.Fill, Tag = "RenameButton" };
+        renameButton.Click += RenameBuilding_Click;
+
+        // Type row
+        Label typeLabel = new Label { Text = "Type:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        Label typeValue = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingTypeValue" };
+
+        // Level row
+        Label levelLabel = new Label { Text = "Level:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        Label levelValue = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingLevelValue" };
+        Button upgradeButton = new Button { Text = "Upgrade", Dock = DockStyle.Fill, Tag = "UpgradeButton" };
+        upgradeButton.Click += UpgradeBuilding_Click;
+
+        // Status row
+        Label statusLabel = new Label { Text = "Status:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        Label statusValue = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingStatusValue" };
+        Button cancelButton = new Button { Text = "Cancel", Dock = DockStyle.Fill, Tag = "CancelButton", Visible = false };
+        cancelButton.Click += CancelBuilding_Click;
+
+        // Condition row
+        Label conditionLabel = new Label { Text = "Condition:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        Label conditionValue = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingConditionValue" };
+        Button repairButton = new Button { Text = "Repair", Dock = DockStyle.Fill, Tag = "RepairButton" };
+        repairButton.Click += RepairBuilding_Click;
+
+        // Add controls to layout
+        basicInfoLayout.Controls.Add(nameLabel, 0, 0);
+        basicInfoLayout.Controls.Add(nameValue, 1, 0);
+        basicInfoLayout.Controls.Add(renameButton, 2, 0);
+
+        basicInfoLayout.Controls.Add(typeLabel, 0, 1);
+        basicInfoLayout.Controls.Add(typeValue, 1, 1);
+
+        basicInfoLayout.Controls.Add(levelLabel, 0, 2);
+        basicInfoLayout.Controls.Add(levelValue, 1, 2);
+        basicInfoLayout.Controls.Add(upgradeButton, 2, 2);
+
+        basicInfoLayout.Controls.Add(statusLabel, 0, 3);
+        basicInfoLayout.Controls.Add(statusValue, 1, 3);
+        basicInfoLayout.Controls.Add(cancelButton, 2, 3);
+
+        basicInfoLayout.Controls.Add(conditionLabel, 0, 4);
+        basicInfoLayout.Controls.Add(conditionValue, 1, 4);
+        basicInfoLayout.Controls.Add(repairButton, 2, 4);
+
+        basicInfoGroup.Controls.Add(basicInfoLayout);
+        rightPanel.Controls.Add(basicInfoGroup);
 
         // Add panels to main layout
         mainLayout.Controls.Add(leftPanel, 0, 0);
         mainLayout.Controls.Add(rightPanel, 1, 0);
 
-        // Add main layout to tab
         tab.Controls.Add(mainLayout);
     }
 
@@ -1558,9 +1640,174 @@ public partial class MainDashboard : Form
         if (listView.SelectedItems.Count > 0)
         {
             string buildingId = (string)listView.SelectedItems[0].Tag;
-            // We'll implement the right panel update in Milestone 3
-            // For now, just store the selected building ID
             _selectedBuildingId = buildingId;
+            
+            // Find the selected building
+            var building = _stronghold.Buildings.Find(b => b.Id == buildingId);
+            if (building == null) return;
+
+            // Update building details in the right panel
+            var buildingNameValue = FindControl<TextBox>(_tabControl.TabPages[1], "BuildingNameValue");
+            var buildingTypeValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingTypeValue");
+            var buildingLevelValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingLevelValue");
+            var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
+            var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
+
+            var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
+            var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
+            var cancelButton = FindControl<Button>(_tabControl.TabPages[1], "CancelButton");
+
+            if (buildingNameValue != null) buildingNameValue.Text = building.Name;
+            if (buildingTypeValue != null) buildingTypeValue.Text = building.Type.ToString();
+            if (buildingLevelValue != null) buildingLevelValue.Text = building.Level.ToString();
+            
+            // Update status with progress and time if applicable
+            if (buildingStatusValue != null)
+            {
+                string statusText = building.ConstructionStatus.ToString();
+                if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                    building.ConstructionStatus == BuildingStatus.Repairing ||
+                    building.ConstructionStatus == BuildingStatus.Upgrading)
+                {
+                    statusText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+                }
+                buildingStatusValue.Text = statusText;
+            }
+
+            if (buildingConditionValue != null)
+                buildingConditionValue.Text = $"{building.Condition}%";
+
+            // Update button states
+            if (upgradeButton != null)
+            {
+                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                if (File.Exists(jsonPath))
+                {
+                    string json = File.ReadAllText(jsonPath);
+                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                    upgradeButton.Enabled = building.ConstructionStatus == BuildingStatus.Complete && building.Level < buildingInfo.maxLevel;
+                }
+            }
+
+            if (repairButton != null)
+                repairButton.Enabled = building.Condition < 100 && building.ConstructionStatus != BuildingStatus.Repairing;
+
+            if (cancelButton != null)
+                cancelButton.Visible = building.ConstructionStatus == BuildingStatus.Planning;
+        }
+        else
+        {
+            _selectedBuildingId = null;
+            ClearBuildingDetails();
+        }
+    }
+
+    private void ClearBuildingDetails()
+    {
+        var buildingNameValue = FindControl<TextBox>(_tabControl.TabPages[1], "BuildingNameValue");
+        var buildingTypeValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingTypeValue");
+        var buildingLevelValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingLevelValue");
+        var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
+        var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
+
+        if (buildingNameValue != null) buildingNameValue.Text = string.Empty;
+        if (buildingTypeValue != null) buildingTypeValue.Text = string.Empty;
+        if (buildingLevelValue != null) buildingLevelValue.Text = string.Empty;
+        if (buildingStatusValue != null) buildingStatusValue.Text = string.Empty;
+        if (buildingConditionValue != null) buildingConditionValue.Text = string.Empty;
+
+        var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
+        var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
+        var cancelButton = FindControl<Button>(_tabControl.TabPages[1], "CancelButton");
+
+        if (upgradeButton != null) upgradeButton.Enabled = false;
+        if (repairButton != null) repairButton.Enabled = false;
+        if (cancelButton != null) cancelButton.Visible = false;
+    }
+
+    private void RenameBuilding_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null) return;
+
+        using (var renameDialog = new TextInputDialog("Rename Building", "Enter new name:", building.Name))
+        {
+            if (renameDialog.ShowDialog() == DialogResult.OK)
+            {
+                string newName = renameDialog.InputText.Trim();
+                if (!string.IsNullOrEmpty(newName))
+                {
+                    building.Name = newName;
+                    RefreshBuildingsTab();
+                }
+            }
+        }
+    }
+
+    private void UpgradeBuilding_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        
+        // Get building info from BuildingData.json
+        string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+        if (File.Exists(jsonPath))
+        {
+            string json = File.ReadAllText(jsonPath);
+            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+            
+            if (building == null || buildingInfo == null || building.Level >= buildingInfo.maxLevel) return;
+
+            using (var confirmDialog = new UpgradeBuildingDialog(building))
+            {
+                if (confirmDialog.ShowDialog() == DialogResult.OK)
+                {
+                    building.StartUpgrade(_stronghold.Resources);
+                    RefreshBuildingsTab();
+                }
+            }
+        }
+    }
+
+    private void RepairBuilding_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null || building.Condition >= 100) return;
+
+        using (var confirmDialog = new RepairBuildingDialog(building))
+        {
+            if (confirmDialog.ShowDialog() == DialogResult.OK)
+            {
+                _gameStateService.StartBuildingRepair(_selectedBuildingId);
+                RefreshBuildingsTab();
+            }
+        }
+    }
+
+    private void CancelBuilding_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null || building.ConstructionStatus != BuildingStatus.Planning) return;
+
+        var result = MessageBox.Show(
+            "Are you sure you want to cancel construction? All resources will be refunded.",
+            "Cancel Construction",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (result == DialogResult.Yes)
+        {
+            _gameStateService.CancelBuildingConstruction(_selectedBuildingId);
+            RefreshBuildingsTab();
         }
     }
 

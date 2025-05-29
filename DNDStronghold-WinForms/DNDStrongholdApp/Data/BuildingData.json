@@ -5,9 +5,6 @@
       "workerSlots": 3,
       "requiredConstructionPoints": 30,
       "maxLevel": 5,
-      "primarySkill": "Farming",
-      "secondarySkill": "Labor",
-      "tertiarySkill": "Survival",
       "workerSlotIncrease": [
         {
           "level": 3,
@@ -118,16 +115,16 @@
           "amount": 20
         }
       ],
-      "availableProjects": []
+      "availableProjects": [],
+      "primarySkill": "Farming",
+      "secondarySkill": "Labor",
+      "tertiarySkill": "Survival"
     },
     {
       "type": "Watchtower",
       "workerSlots": 2,
       "requiredConstructionPoints": 25,
       "maxLevel": 3,
-      "primarySkill": "Perception",
-      "secondarySkill": "Survival",
-      "tertiarySkill": "Combat",
       "workerSlotIncrease": [
         {
           "level": 3,
@@ -201,7 +198,200 @@
           "projectName": "Reconnaissance",
           "minLevel": 3
         }
-      ]
+      ],
+      "primarySkill": "Perception",
+      "secondarySkill": "Survival",
+      "tertiarySkill": "Combat"
+    },
+    {
+      "type": "Smithy",
+      "workerSlots": 2,
+      "requiredConstructionPoints": 40,
+      "maxLevel": 2,
+      "workerSlotIncrease": [
+        {
+          "level": 2,
+          "increase": 1
+        }
+      ],
+      "productionScaling": [
+        {
+          "level": 1,
+          "resources": [
+            {
+              "resourceType": "Gold",
+              "perWorkerValue": 10
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "resources": [
+            {
+              "resourceType": "Gold",
+              "perWorkerValue": 15
+            },
+            {
+              "resourceType": "Luxury",
+              "perWorkerValue": 1
+            }
+          ]
+        }
+      ],
+      "upkeepScaling": [
+        {
+          "level": 1,
+          "resourceType": "Wood",
+          "baseValue": 1
+        },
+        {
+          "level": 1,
+          "resourceType": "Iron",
+          "baseValue": 2
+        },
+        {
+          "level": 2,
+          "resourceType": "Wood",
+          "baseValue": 1
+        },
+        {
+          "level": 2,
+          "resourceType": "Iron",
+          "baseValue": 3
+        }
+      ],
+      "workerProductionBonus": [
+        {
+          "resourceType": "Gold",
+          "skill": "Smithing",
+          "bonusValue": 1
+        },
+        {
+          "resourceType": "Gold",
+          "skill": "Crafting",
+          "bonusValue": 0.2
+        }
+      ],
+      "constructionCost": [
+        {
+          "resourceType": "Gold",
+          "amount": 100
+        },
+        {
+          "resourceType": "Wood",
+          "amount": 30
+        },
+        {
+          "resourceType": "Stone",
+          "amount": 50
+        }
+      ],
+      "availableProjects": [
+        {
+          "projectName": "Craft Equipment",
+          "minLevel": 1
+        }
+      ],
+      "primarySkill": "Smithing",
+      "secondarySkill": "Crafting",
+      "tertiarySkill": "Labor"
+    },
+    {
+      "type": "Laboratory",
+      "workerSlots": 2,
+      "requiredConstructionPoints": 40,
+      "maxLevel": 2,
+      "workerSlotIncrease": [
+        {
+          "level": 2,
+          "increase": 1
+        }
+      ],
+      "productionScaling": [
+        {
+          "level": 1,
+          "resources": [
+            {
+              "resourceType": "Gold",
+              "perWorkerValue": 10
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "resources": [
+            {
+              "resourceType": "Gold",
+              "perWorkerValue": 15
+            },
+            {
+              "resourceType": "Luxury",
+              "perWorkerValue": 1
+            }
+          ]
+        }
+      ],
+      "upkeepScaling": [
+        {
+          "level": 1,
+          "resourceType": "Wood",
+          "baseValue": 1
+        },
+        {
+          "level": 1,
+          "resourceType": "Iron",
+          "baseValue": 2
+        },
+        {
+          "level": 2,
+          "resourceType": "Wood",
+          "baseValue": 1
+        },
+        {
+          "level": 2,
+          "resourceType": "Iron",
+          "baseValue": 3
+        }
+      ],
+      "workerProductionBonus": [
+        {
+          "resourceType": "Gold",
+          "skill": "Smithing",
+          "bonusValue": 1
+        },
+        {
+          "resourceType": "Gold",
+          "skill": "Crafting",
+          "bonusValue": 0.2
+        }
+      ],
+      "constructionCost": [
+        {
+          "resourceType": "Gold",
+          "amount": 100
+        },
+        {
+          "resourceType": "Wood",
+          "amount": 20
+        },
+        {
+          "resourceType": "Stone",
+          "amount": 20
+        },
+        {
+          "resourceType": "Iron",
+          "amount": 10
+        }
+      ],
+      "availableProjects": [
+        {
+          "projectName": "Craft Equipment",
+          "minLevel": 1
+        }
+      ],
+      "primarySkill": "Alchemy",
+      "secondarySkill": "Research",
+      "tertiarySkill": "Crafting"
     }
   ]
 }

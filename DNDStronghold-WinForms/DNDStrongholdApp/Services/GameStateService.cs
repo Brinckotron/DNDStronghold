@@ -489,8 +489,25 @@ namespace DNDStrongholdApp.Services
         }
         
         // Add a new building to the stronghold
-        public void AddBuilding(Building building)
+        public bool AddBuildingAndDeductCosts(Building building)
         {
+            // Check if we have enough resources
+            if (!HasEnoughResources(building.ConstructionCost))
+            {
+                return false;
+            }
+
+            // Deduct resources
+            foreach (var cost in building.ConstructionCost)
+            {
+                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                if (resource != null)
+                {
+                    resource.Amount -= cost.Amount;
+                }
+            }
+
+            // Add the building
             _currentStronghold.Buildings.Add(building);
             
             // Add journal entry
@@ -503,10 +520,18 @@ namespace DNDStrongholdApp.Services
                 _currentStronghold.YearsSinceFoundation,
                 JournalEntryType.BuildingPlanned,
                 title,
-                $"A new building has been planned for construction."
+                $"A new building has been planned for construction. Resources have been allocated."
             ));
             
             OnGameStateChanged();
+            return true;
+        }
+
+        // Existing AddBuilding method marked as obsolete
+        [Obsolete("Use AddBuildingAndDeductCosts instead")]
+        public void AddBuilding(Building building)
+        {
+            AddBuildingAndDeductCosts(building);
         }
         
         // Add a new NPC to the stronghold
@@ -650,6 +675,13 @@ namespace DNDStrongholdApp.Services
                 }
             }
             return true;
+        }
+
+        // Public method to check if we can afford to build a building
+        public bool CanAffordBuilding(BuildingType buildingType)
+        {
+            var building = new Building(buildingType);
+            return HasEnoughResources(building.ConstructionCost);
         }
 
         // Start building repair
