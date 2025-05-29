@@ -1614,22 +1614,9 @@ public partial class MainDashboard : Form
         {
             if (addBuildingForm.ShowDialog() == DialogResult.OK)
             {
-                // Get the ListView
-                var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
-                if (buildingsListView == null) return;
-
-                // Add the new building to the ListView
-                var building = _stronghold.Buildings.Last(); // Get the newly added building
-                
-                ListViewItem item = new ListViewItem(building.Name);
-                item.SubItems.Add(building.Type.ToString());
-                item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
-                item.SubItems.Add(building.ConstructionStatus.ToString());
-                item.SubItems.Add($"{building.Condition}%");
-                item.SubItems.Add(building.Level.ToString());
-                item.Tag = building.Id;
-
-                buildingsListView.Items.Add(item);
+                // The building has been added through GameStateService
+                // which will trigger GameStateChanged event and refresh the UI
+                // No need to manually update the ListView here
             }
         }
     }
@@ -1808,6 +1795,15 @@ public partial class MainDashboard : Form
         {
             _gameStateService.CancelBuildingConstruction(_selectedBuildingId);
             RefreshBuildingsTab();
+            
+            // Get the buildings list view
+            var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+            if (buildingsListView != null && buildingsListView.Items.Count > 0)
+            {
+                // Select the first item
+                buildingsListView.Items[0].Selected = true;
+                buildingsListView.Items[0].Focused = true;
+            }
         }
     }
 

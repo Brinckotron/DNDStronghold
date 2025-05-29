@@ -48,12 +48,22 @@ namespace DNDStrongholdApp.Models
         // Set default properties based on building type
         private void SetDefaultProperties()
         {
-            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-            if (File.Exists(jsonPath))
+            // Try multiple possible locations for the JSON file
+            string[] possiblePaths = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "Data", "BuildingData.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "Data", "BuildingData.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "Data", "BuildingData.json")
+            };
+
+            string jsonPath = possiblePaths.FirstOrDefault(File.Exists);
+            
+            if (!string.IsNullOrEmpty(jsonPath))
             {
                 string json = File.ReadAllText(jsonPath);
                 var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
-                var buildingInfo = buildingData.buildings.Find(b => b.type == Type.ToString());
+                var buildingInfo = buildingData?.buildings.Find(b => b.type == Type.ToString());
                 if (buildingInfo != null)
                 {
                     WorkerSlots = buildingInfo.workerSlots;
@@ -61,39 +71,14 @@ namespace DNDStrongholdApp.Models
                     ConstructionCost = buildingInfo.constructionCost.Select(c => new ResourceCost { ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), c.resourceType), Amount = c.amount }).ToList();
                     MaxLevel = buildingInfo.maxLevel;
                 }
+                else
+                {
+                    SetFallbackProperties();
+                }
             }
             else
             {
-                // Fallback to hardcoded values if JSON file is not found
-                switch (Type)
-                {
-                    case BuildingType.Farm:
-                        WorkerSlots = 3;
-                        RequiredConstructionPoints = 30;
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 50 });
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 30 });
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 10 });
-                        break;
-                    case BuildingType.Watchtower:
-                        WorkerSlots = 2;
-                        RequiredConstructionPoints = 45;
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 40 });
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 20 });
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 30 });
-                        break;
-                    case BuildingType.Quarry:
-                        WorkerSlots = 4;
-                        RequiredConstructionPoints = 60;
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 100 });
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 50 });
-                        ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 20 });
-                        break;
-                    default:
-                        WorkerSlots = 1;
-                        RequiredConstructionPoints = 20;
-                        MaxLevel = 5;
-                        break;
-                }
+                SetFallbackProperties();
             }
             
             // Set repair costs to 50% of construction costs
@@ -110,6 +95,40 @@ namespace DNDStrongholdApp.Models
             RepairTime = (int)(ConstructionTimeRemaining * 0.5f);
             if (RepairTime < 1) RepairTime = 1;
             RepairTimeRemaining = RepairTime;
+        }
+
+        private void SetFallbackProperties()
+        {
+            // Fallback to hardcoded values if JSON file is not found or building type not in JSON
+            switch (Type)
+            {
+                case BuildingType.Farm:
+                    WorkerSlots = 3;
+                    RequiredConstructionPoints = 30;
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 50 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 30 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 10 });
+                    break;
+                case BuildingType.Watchtower:
+                    WorkerSlots = 2;
+                    RequiredConstructionPoints = 45;
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 40 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 20 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 30 });
+                    break;
+                case BuildingType.Quarry:
+                    WorkerSlots = 4;
+                    RequiredConstructionPoints = 60;
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Gold, Amount = 100 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Wood, Amount = 50 });
+                    ConstructionCost.Add(new ResourceCost { ResourceType = ResourceType.Stone, Amount = 20 });
+                    break;
+                default:
+                    WorkerSlots = 1;
+                    RequiredConstructionPoints = 20;
+                    MaxLevel = 5;
+                    break;
+            }
         }
 
         // Get default name based on building type
