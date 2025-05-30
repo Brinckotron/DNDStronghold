@@ -154,17 +154,17 @@
       "upkeepScaling": [
         {
           "level": 1,
-          "resourceType": "",
+          "resourceType": "Gold",
           "baseValue": 5
         },
         {
           "level": 2,
-          "resourceType": "",
+          "resourceType": "Gold",
           "baseValue": 6
         },
         {
           "level": 3,
-          "resourceType": "",
+          "resourceType": "Gold",
           "baseValue": 7
         }
       ],
@@ -284,6 +284,10 @@
         {
           "resourceType": "Stone",
           "amount": 50
+        },
+        {
+          "resourceType": "Iron",
+          "amount": 20
         }
       ],
       "availableProjects": [
@@ -313,7 +317,7 @@
           "resources": [
             {
               "resourceType": "Gold",
-              "perWorkerValue": 10
+              "perWorkerValue": 5
             }
           ]
         },
@@ -322,7 +326,7 @@
           "resources": [
             {
               "resourceType": "Gold",
-              "perWorkerValue": 15
+              "perWorkerValue": 10
             },
             {
               "resourceType": "Luxury",
@@ -339,36 +343,31 @@
         },
         {
           "level": 1,
-          "resourceType": "Iron",
-          "baseValue": 2
-        },
-        {
-          "level": 2,
           "resourceType": "Wood",
           "baseValue": 1
-        },
-        {
-          "level": 2,
-          "resourceType": "Iron",
-          "baseValue": 3
         }
       ],
       "workerProductionBonus": [
         {
           "resourceType": "Gold",
-          "skill": "Smithing",
-          "bonusValue": 1
+          "skill": "Alchemy",
+          "bonusValue": 2
         },
         {
           "resourceType": "Gold",
           "skill": "Crafting",
           "bonusValue": 0.2
+        },
+        {
+          "resourceType": "Luxury",
+          "skill": "Alchemy",
+          "bonusValue": 0.25
         }
       ],
       "constructionCost": [
         {
           "resourceType": "Gold",
-          "amount": 100
+          "amount": 200
         },
         {
           "resourceType": "Wood",
@@ -385,7 +384,7 @@
       ],
       "availableProjects": [
         {
-          "projectName": "Craft Equipment",
+          "projectName": "Craft Alchemical Item",
           "minLevel": 1
         }
       ],

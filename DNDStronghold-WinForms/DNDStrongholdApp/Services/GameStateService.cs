@@ -18,7 +18,23 @@ namespace DNDStrongholdApp.Services
         // Singleton instance
         private static readonly object _lock = new object();
         private static GameStateService _instance;
-        public static GameStateService GetInstance(bool populateTestStronghold = false)
+        
+        // DM Mode flag
+        private bool _dmMode = false;
+        public bool DMMode
+        {
+            get => _dmMode;
+            set
+            {
+                if (_dmMode != value)
+                {
+                    _dmMode = value;
+                    OnGameStateChanged();
+                }
+            }
+        }
+        
+        public static GameStateService GetInstance()
         {
             if (_instance == null)
             {
@@ -26,7 +42,7 @@ namespace DNDStrongholdApp.Services
                 {
                     if (_instance == null)
                     {
-                        _instance = new GameStateService(populateTestStronghold);
+                        _instance = new GameStateService();
                     }
                 }
             }
@@ -34,22 +50,16 @@ namespace DNDStrongholdApp.Services
         }
         
         // Private constructor for singleton
-        private GameStateService(bool populateTestStronghold = false)
+        private GameStateService()
         {
             try
             {
                 if (Program.DebugMode)
                     MessageBox.Show("Starting GameStateService initialization...", "Debug");
-                if (populateTestStronghold)
-                {
-                    // Use the test stronghold data
-                    _currentStronghold = TestStrongholdData.GetTestStronghold();
-                }
-                else
-                {
+                
                 // Initialize with a new stronghold
                 CreateNewStronghold();
-                }
+                
                 if (Program.DebugMode)
                     MessageBox.Show("GameStateService initialization complete.", "Debug");
             }
@@ -479,31 +489,145 @@ namespace DNDStrongholdApp.Services
         // Add initial buildings
         private void AddInitialBuildings()
         {
-            // No default buildings
+            // Add one of each building type from BuildingData.json
+            var farm = new Building(BuildingType.Farm) { 
+                Name = "Central Farm",
+                ConstructionStatus = BuildingStatus.Complete
+            };
+            var watchtower = new Building(BuildingType.Watchtower) { 
+                Name = "North Watchtower",
+                ConstructionStatus = BuildingStatus.Complete
+            };
+            var smithy = new Building(BuildingType.Smithy) { 
+                Name = "Town Smithy",
+                ConstructionStatus = BuildingStatus.Complete
+            };
+            var laboratory = new Building(BuildingType.Laboratory) { 
+                Name = "Research Laboratory",
+                ConstructionStatus = BuildingStatus.Complete
+            };
+
+            // Add buildings to stronghold
+            _currentStronghold.Buildings.Add(farm);
+            _currentStronghold.Buildings.Add(watchtower);
+            _currentStronghold.Buildings.Add(smithy);
+            _currentStronghold.Buildings.Add(laboratory);
         }
         
         // Add initial NPCs
         private void AddInitialNPCs()
         {
-            // No default NPCs
+            // Create 20 NPCs with a mix of types
+            var npcTypes = new[]
+            {
+                NPCType.Peasant, NPCType.Peasant, NPCType.Peasant, NPCType.Peasant, // 4 peasants
+                NPCType.Laborer, NPCType.Laborer, NPCType.Laborer, // 3 laborers
+                NPCType.Farmer, NPCType.Farmer, NPCType.Farmer, // 3 farmers
+                NPCType.Militia, NPCType.Militia, // 2 militia
+                NPCType.Scout, NPCType.Scout, // 2 scouts
+                NPCType.Artisan, NPCType.Artisan, // 2 artisans
+                NPCType.Scholar, NPCType.Scholar, // 2 scholars
+                NPCType.Merchant, NPCType.Merchant // 2 merchants
+            };
+
+            foreach (var type in npcTypes)
+            {
+                var npc = new NPC(type);
+                _currentStronghold.NPCs.Add(npc);
+            }
+
+            // Assign NPCs to buildings
+            var buildings = _currentStronghold.Buildings;
+            
+            // Assign farmers to farm
+            var farm = buildings.Find(b => b.Type == BuildingType.Farm);
+            var farmers = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Farmer).Take(3).ToList();
+            if (farm != null && farmers.Any())
+            {
+                foreach (var farmer in farmers)
+                {
+                    farmer.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Building,
+                        TargetId = farm.Id,
+                        TargetName = farm.Name
+                    };
+                    farm.AssignedWorkers.Add(farmer.Id);
+                }
+            }
+
+            // Assign militia and scouts to watchtower
+            var watchtower = buildings.Find(b => b.Type == BuildingType.Watchtower);
+            var guards = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Militia || n.Type == NPCType.Scout).Take(2).ToList();
+            if (watchtower != null && guards.Any())
+            {
+                foreach (var guard in guards)
+                {
+                    guard.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Building,
+                        TargetId = watchtower.Id,
+                        TargetName = watchtower.Name
+                    };
+                    watchtower.AssignedWorkers.Add(guard.Id);
+                }
+            }
+
+            // Assign artisans to smithy
+            var smithy = buildings.Find(b => b.Type == BuildingType.Smithy);
+            var artisans = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Artisan).Take(2).ToList();
+            if (smithy != null && artisans.Any())
+            {
+                foreach (var artisan in artisans)
+                {
+                    artisan.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Building,
+                        TargetId = smithy.Id,
+                        TargetName = smithy.Name
+                    };
+                    smithy.AssignedWorkers.Add(artisan.Id);
+                }
+            }
+
+            // Assign scholars to laboratory
+            var laboratory = buildings.Find(b => b.Type == BuildingType.Laboratory);
+            var scholars = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Scholar).Take(2).ToList();
+            if (laboratory != null && scholars.Any())
+            {
+                foreach (var scholar in scholars)
+                {
+                    scholar.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Building,
+                        TargetId = laboratory.Id,
+                        TargetName = laboratory.Name
+                    };
+                    laboratory.AssignedWorkers.Add(scholar.Id);
+                }
+            }
         }
         
         // Add a new building to the stronghold
         public bool AddBuildingAndDeductCosts(Building building)
         {
-            // Check if we have enough resources
-            if (!HasEnoughResources(building.ConstructionCost))
+            // In DM Mode, skip resource checks and deductions
+            if (!_dmMode)
             {
-                return false;
-            }
-
-            // Deduct resources
-            foreach (var cost in building.ConstructionCost)
-            {
-                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
-                if (resource != null)
+                // Check if we have enough resources
+                if (!HasEnoughResources(building.ConstructionCost))
                 {
-                    resource.Amount -= cost.Amount;
+                    return false;
+                }
+
+                // Deduct resources
+                foreach (var cost in building.ConstructionCost)
+                {
+                    var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                    if (resource != null)
+                    {
+                        resource.Amount -= cost.Amount;
+                    }
                 }
             }
 
@@ -658,7 +782,7 @@ namespace DNDStrongholdApp.Services
         }
         
         // Notify listeners that the game state has changed
-        private void OnGameStateChanged()
+        public void OnGameStateChanged()
         {
             GameStateChanged?.Invoke(this, EventArgs.Empty);
         }

@@ -238,7 +238,19 @@ namespace DNDStrongholdApp.Models
             if (WeeklyConstructionPoints > 0)
             {
                 int pointsRemaining = RequiredConstructionPoints - CurrentConstructionPoints;
-                ConstructionTimeRemaining = (int)Math.Ceiling((double)pointsRemaining / WeeklyConstructionPoints);
+                // If we'll complete next turn, show 1 week
+                if (CurrentConstructionPoints + WeeklyConstructionPoints >= RequiredConstructionPoints)
+                {
+                    ConstructionTimeRemaining = 1;
+                }
+                else
+                {
+                    ConstructionTimeRemaining = pointsRemaining / WeeklyConstructionPoints;
+                    if (pointsRemaining % WeeklyConstructionPoints != 0)
+                    {
+                        ConstructionTimeRemaining += 1;
+                    }
+                }
             }
             else
             {
@@ -262,11 +274,34 @@ namespace DNDStrongholdApp.Models
             // Update progress percentage
             ConstructionProgress = (int)((float)CurrentConstructionPoints / RequiredConstructionPoints * 100);
 
+            // Update time remaining after this week's progress
+            if (WeeklyConstructionPoints > 0)
+            {
+                int pointsRemaining = RequiredConstructionPoints - CurrentConstructionPoints;
+                if (pointsRemaining <= 0)
+                {
+                    ConstructionTimeRemaining = 0;
+                }
+                else if (pointsRemaining <= WeeklyConstructionPoints)
+                {
+                    ConstructionTimeRemaining = 1;
+                }
+                else
+                {
+                    ConstructionTimeRemaining = pointsRemaining / WeeklyConstructionPoints;
+                    if (pointsRemaining % WeeklyConstructionPoints != 0)
+                    {
+                        ConstructionTimeRemaining += 1;
+                    }
+                }
+            }
+
             // Check if construction is complete
             if (CurrentConstructionPoints >= RequiredConstructionPoints)
             {
                 ConstructionStatus = BuildingStatus.Complete;
                 ConstructionProgress = 100;
+                ConstructionTimeRemaining = 0;
                 return true; // Construction completed
             }
 
@@ -289,11 +324,34 @@ namespace DNDStrongholdApp.Models
             // Update progress percentage
             ConstructionProgress = (int)((float)CurrentConstructionPoints / RequiredConstructionPoints * 100);
 
+            // Update time remaining after this week's progress
+            if (WeeklyConstructionPoints > 0)
+            {
+                int pointsRemaining = RequiredConstructionPoints - CurrentConstructionPoints;
+                if (pointsRemaining <= 0)
+                {
+                    ConstructionTimeRemaining = 0;
+                }
+                else if (pointsRemaining <= WeeklyConstructionPoints)
+                {
+                    ConstructionTimeRemaining = 1;
+                }
+                else
+                {
+                    ConstructionTimeRemaining = pointsRemaining / WeeklyConstructionPoints;
+                    if (pointsRemaining % WeeklyConstructionPoints != 0)
+                    {
+                        ConstructionTimeRemaining += 1;
+                    }
+                }
+            }
+
             // Check if repair is complete
             if (CurrentConstructionPoints >= RequiredConstructionPoints)
             {
                 ConstructionStatus = BuildingStatus.Complete;
                 Condition = 100;
+                ConstructionTimeRemaining = 0;
                 return true;
             }
             
@@ -348,6 +406,27 @@ namespace DNDStrongholdApp.Models
             return true;
         }
 
+        // Update worker slots based on current level
+        private void UpdateWorkerSlotsForLevel()
+        {
+            var buildingData = LoadBuildingData();
+            var buildingInfo = buildingData?.buildings.Find(b => b.type == Type.ToString());
+            if (buildingInfo != null)
+            {
+                // Start with base worker slots
+                WorkerSlots = buildingInfo.workerSlots;
+                
+                // Add any level-based increases
+                foreach (var increase in buildingInfo.workerSlotIncrease)
+                {
+                    if (increase.level <= Level)
+                    {
+                        WorkerSlots += increase.increase;
+                    }
+                }
+            }
+        }
+
         // Progress upgrade by one week
         public bool AdvanceUpgrade()
         {
@@ -364,34 +443,69 @@ namespace DNDStrongholdApp.Models
             // Update progress percentage
             ConstructionProgress = (int)((float)CurrentConstructionPoints / RequiredConstructionPoints * 100);
 
+            // Update time remaining after this week's progress
+            if (WeeklyConstructionPoints > 0)
+            {
+                int pointsRemaining = RequiredConstructionPoints - CurrentConstructionPoints;
+                if (pointsRemaining <= 0)
+                {
+                    ConstructionTimeRemaining = 0;
+                }
+                else if (pointsRemaining <= WeeklyConstructionPoints)
+                {
+                    ConstructionTimeRemaining = 1;
+                }
+                else
+                {
+                    ConstructionTimeRemaining = pointsRemaining / WeeklyConstructionPoints;
+                    if (pointsRemaining % WeeklyConstructionPoints != 0)
+                    {
+                        ConstructionTimeRemaining += 1;
+                    }
+                }
+            }
+
             // Check if upgrade is complete
             if (CurrentConstructionPoints >= RequiredConstructionPoints)
             {
                 ConstructionStatus = BuildingStatus.Complete;
                 Level++;
+                UpdateWorkerSlotsForLevel(); // Update worker slots after level increase
+                ConstructionTimeRemaining = 0;
                 return true;
             }
 
             return false;
         }
 
-        // Start upgrade process
-        public bool StartUpgrade(List<Resource> availableResources)
+        // Calculate upgrade costs without starting the upgrade
+        public List<ResourceCost> CalculateUpgradeCosts()
         {
-            if (ConstructionStatus != BuildingStatus.Complete || Level >= GetMaxLevel())
-                return false;
-
             // Calculate upgrade costs (50% + 10% per level of construction cost)
             float upgradeCostMultiplier = 0.5f + (0.1f * Level);
-            UpgradeCost = new List<ResourceCost>();
+            var costs = new List<ResourceCost>();
             foreach (var cost in ConstructionCost)
             {
-                UpgradeCost.Add(new ResourceCost
+                costs.Add(new ResourceCost
                 {
                     ResourceType = cost.ResourceType,
                     Amount = (int)(cost.Amount * upgradeCostMultiplier)
                 });
             }
+            return costs;
+        }
+
+        public bool StartUpgrade(List<Resource> availableResources)
+        {
+            if (ConstructionStatus != BuildingStatus.Complete || Level >= GetMaxLevel())
+                return false;
+
+            // Check if workers are assigned
+            if (AssignedWorkers.Count == 0)
+                return false;
+
+            // Calculate upgrade costs
+            UpgradeCost = CalculateUpgradeCosts();
 
             // Check if we have enough resources
             foreach (var cost in UpgradeCost)
@@ -414,12 +528,41 @@ namespace DNDStrongholdApp.Models
             }
 
             // Calculate required construction points using the same multiplier as costs
+            float upgradeCostMultiplier = 0.5f + (0.1f * Level);
             RequiredConstructionPoints = (int)(RequiredConstructionPoints * upgradeCostMultiplier);
             CurrentConstructionPoints = 0;
-            WeeklyConstructionPoints = 0; // Will be calculated when workers are assigned
+            WeeklyConstructionPoints = 0; // Will be calculated by UpdateConstructionProgress
 
             // Start upgrade
             ConstructionStatus = BuildingStatus.Upgrading;
+            ConstructionProgress = 0;
+
+            // Calculate initial time remaining based on current workers
+            var buildingData = LoadBuildingData();
+            if (buildingData != null)
+            {
+                // Calculate weekly points from current workers
+                foreach (var workerId in AssignedWorkers)
+                {
+                    // Base 1 point + construction skill level (if we can find the worker)
+                    WeeklyConstructionPoints += 1; // Minimum points even if we can't find worker details yet
+                }
+
+                // Calculate initial time estimate
+                if (WeeklyConstructionPoints > 0)
+                {
+                    ConstructionTimeRemaining = RequiredConstructionPoints / WeeklyConstructionPoints;
+                    if (RequiredConstructionPoints % WeeklyConstructionPoints != 0)
+                    {
+                        ConstructionTimeRemaining += 1;
+                    }
+                }
+                else
+                {
+                    ConstructionTimeRemaining = int.MaxValue;
+                }
+            }
+
             return true;
         }
 

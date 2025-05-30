@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DNDStrongholdApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+465252df4bbb9e792f82cf47c98a9ca24c198fc7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5e2d29c60fee33edb06cc537074cd6c836df3fa9")]
 [assembly: System.Reflection.AssemblyProductAttribute("DNDStrongholdApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DNDStrongholdApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

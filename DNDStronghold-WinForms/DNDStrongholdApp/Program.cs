@@ -12,14 +12,13 @@ static class Program
     {
         // Check for debug flag
         DebugMode = args.Contains("d");
-        bool populateTestStronghold = args.Contains("p");
 
         try
         {
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new MainDashboard(populateTestStronghold));
+            Application.Run(new MainDashboard());
         }
         catch (Exception ex)
         {

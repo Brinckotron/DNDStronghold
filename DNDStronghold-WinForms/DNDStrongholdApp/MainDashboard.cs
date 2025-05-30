@@ -30,16 +30,13 @@ public partial class MainDashboard : Form
     // Track last created building/NPC for selection after refresh
     private string _lastCreatedNpcId = null;
 
-    private readonly bool _populateTestStronghold;
-
     // Add these fields at class level
     private string _selectedBuildingId;
     private int _lastSortedColumn = -1;
     private SortOrder _lastSortOrder = SortOrder.None;
 
-    public MainDashboard(bool populateTestStronghold = false)
+    public MainDashboard()
     {
-        _populateTestStronghold = populateTestStronghold;
         try
         {
             if (Program.DebugMode)
@@ -49,7 +46,7 @@ public partial class MainDashboard : Form
             if (Program.DebugMode)
                 MessageBox.Show("Getting GameStateService instance...", "Debug");
             // Get reference to game state service first
-            _gameStateService = GameStateService.GetInstance(_populateTestStronghold);
+            _gameStateService = GameStateService.GetInstance();
             _gameStateService.GameStateChanged += GameStateService_GameStateChanged;
             
             if (Program.DebugMode)
@@ -132,6 +129,17 @@ public partial class MainDashboard : Form
         };
         
         toolsMenu.DropDownItems.Add(buildingDataEditorItem);
+
+        // Add DM Mode toggle
+        ToolStripMenuItem dmModeItem = new ToolStripMenuItem("DM Mode");
+        dmModeItem.CheckOnClick = true;
+        dmModeItem.Checked = _gameStateService.DMMode;
+        dmModeItem.Click += (s, e) =>
+        {
+            _gameStateService.DMMode = dmModeItem.Checked;
+        };
+        toolsMenu.DropDownItems.Add(new ToolStripSeparator());
+        toolsMenu.DropDownItems.Add(dmModeItem);
 
         menuStrip.Items.Add(fileMenu);
         menuStrip.Items.Add(toolsMenu);
@@ -1673,7 +1681,30 @@ public partial class MainDashboard : Form
                     string json = File.ReadAllText(jsonPath);
                     var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
                     var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                    upgradeButton.Enabled = building.ConstructionStatus == BuildingStatus.Complete && building.Level < buildingInfo.maxLevel;
+                    bool canUpgrade = building.ConstructionStatus == BuildingStatus.Complete && 
+                                    buildingInfo != null && 
+                                    building.Level < buildingInfo.maxLevel &&
+                                    building.AssignedWorkers.Count > 0;
+                    upgradeButton.Enabled = canUpgrade;
+                    if (canUpgrade)
+                    {
+                        upgradeButton.Text = "Upgrade";
+                    }
+                    else if (building.ConstructionStatus == BuildingStatus.Upgrading)
+                    {
+                        upgradeButton.Text = "Upgrading...";
+                        upgradeButton.Enabled = false;
+                    }
+                    else if (buildingInfo != null && building.Level >= buildingInfo.maxLevel)
+                    {
+                        upgradeButton.Text = "Max Level";
+                        upgradeButton.Enabled = false;
+                    }
+                    else if (building.AssignedWorkers.Count == 0)
+                    {
+                        upgradeButton.Text = "Need Workers";
+                        upgradeButton.Enabled = false;
+                    }
                 }
             }
 
@@ -1739,23 +1770,71 @@ public partial class MainDashboard : Form
         if (string.IsNullOrEmpty(_selectedBuildingId)) return;
 
         var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
-        
+        if (building == null) return;
+
         // Get building info from BuildingData.json
         string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-        if (File.Exists(jsonPath))
+        if (!File.Exists(jsonPath))
         {
-            string json = File.ReadAllText(jsonPath);
-            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-            
-            if (building == null || buildingInfo == null || building.Level >= buildingInfo.maxLevel) return;
+            MessageBox.Show(
+                "Building data file not found. Cannot proceed with upgrade.",
+                "Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
 
-            using (var confirmDialog = new UpgradeBuildingDialog(building))
+        string json = File.ReadAllText(jsonPath);
+        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+        
+        if (buildingInfo == null)
+        {
+            MessageBox.Show(
+                "Building type information not found. Cannot proceed with upgrade.",
+                "Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
+
+        if (building.Level >= buildingInfo.maxLevel)
+        {
+            MessageBox.Show(
+                "Building is already at maximum level.",
+                "Cannot Upgrade",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        // Check if workers are assigned
+        if (building.AssignedWorkers.Count == 0)
+        {
+            MessageBox.Show(
+                "Assign workers to the building to start Upgrading",
+                "Workers Required",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        using (var confirmDialog = new UpgradeBuildingDialog(building))
+        {
+            if (confirmDialog.ShowDialog() == DialogResult.OK)
             {
-                if (confirmDialog.ShowDialog() == DialogResult.OK)
+                if (building.StartUpgrade(_stronghold.Resources))
                 {
-                    building.StartUpgrade(_stronghold.Resources);
+                    _gameStateService.OnGameStateChanged();
                     RefreshBuildingsTab();
+                }
+                else
+                {
+                    MessageBox.Show(
+                        "Failed to start upgrade. Please check resource requirements and building status.",
+                        "Upgrade Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
                 }
             }
         }
