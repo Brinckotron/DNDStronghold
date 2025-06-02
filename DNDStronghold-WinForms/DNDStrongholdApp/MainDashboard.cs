@@ -34,7 +34,7 @@ public partial class MainDashboard : Form
     private string _selectedBuildingId;
     private int _lastSortedColumn = -1;
     private SortOrder _lastSortOrder = SortOrder.None;
-    
+
     // Add CurrentProject property to track building projects
     private Building CurrentProject => _stronghold?.Buildings.FirstOrDefault(b => 
         b.ConstructionStatus == BuildingStatus.UnderConstruction || 
@@ -379,8 +379,8 @@ public partial class MainDashboard : Form
                     statusText += " (No Workers)";
                 }
                 else
-                {
-                    statusText += $" ({building.ConstructionProgress}%)";
+            {
+                statusText += $" ({building.ConstructionProgress}%)";
                 }
             }
             ListViewItem item = new ListViewItem(building.Name);
@@ -914,8 +914,8 @@ public partial class MainDashboard : Form
                     stateText += " (No Workers)";
                 }
                 else
-                {
-                    stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+            {
+                stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
                 }
             }
 
@@ -975,7 +975,7 @@ public partial class MainDashboard : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
-            RowCount = 2,
+            RowCount = 4,
             Margin = new Padding(0)
         };
 
@@ -1093,10 +1093,10 @@ public partial class MainDashboard : Form
         Button collapseButton = new Button
         {
             Text = "▼",
+            Font = new Font("Segoe UI", 6),
             Width = 24,
             Height = 24,
             FlatStyle = FlatStyle.Flat,
-            Margin = new Padding(0),
             Tag = "ProductionCollapseButton",
             Anchor = AnchorStyles.Right | AnchorStyles.Top
         };
@@ -1132,7 +1132,7 @@ public partial class MainDashboard : Form
         {
             int totalWidth = productionListView.ClientSize.Width;
             productionListView.Columns[0].Width = (int)(totalWidth * 0.17);
-            productionListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            productionListView.Columns[1].Width = (int)(totalWidth * 0.30);
             productionListView.Columns[2].Width = (int)(totalWidth * 0.11);
             productionListView.Columns[3].Width = (int)(totalWidth * 0.10);
             productionListView.Columns[4].Width = (int)(totalWidth * 0.70);
@@ -1294,8 +1294,8 @@ public partial class MainDashboard : Form
             Text = "▶",
             Width = 24,
             Height = 24,
+            Font = new Font("Segoe UI", 6),
             FlatStyle = FlatStyle.Flat,
-            Margin = new Padding(0),
             Tag = "UpkeepCollapseButton",
             Anchor = AnchorStyles.Right | AnchorStyles.Top
         };
@@ -1329,8 +1329,8 @@ public partial class MainDashboard : Form
         void ResizeUpkeepColumns(object s, EventArgs e)
         {
             int totalWidth = upkeepListView.ClientSize.Width;
-            upkeepListView.Columns[0].Width = (int)(totalWidth * 0.12);
-            upkeepListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            upkeepListView.Columns[0].Width = (int)(totalWidth * 0.17);
+            upkeepListView.Columns[1].Width = (int)(totalWidth * 0.30);
             upkeepListView.Columns[2].Width = (int)(totalWidth * 0.10);
             upkeepListView.Columns[3].Width = (int)(totalWidth * 0.70);
         }
@@ -1405,6 +1405,147 @@ public partial class MainDashboard : Form
         sectionsPanel.Controls.Add(basicInfoGroup, 0, 0);
         sectionsPanel.Controls.Add(productionGroup, 0, 1);
         sectionsPanel.Controls.Add(upkeepGroup, 0, 2);
+
+        // Workforce Section
+        GroupBox workforceGroup = new GroupBox
+        {
+            Text = "Workforce",
+            Dock = DockStyle.Top,
+            Height = 250,
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 0, 10)
+        };
+
+        // Create a header panel for the title and manage button
+        Panel workforceHeaderPanel = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 50,
+            Padding = new Padding(0)
+        };
+
+        // Add workforce summary label
+        Label workforceSummaryLabel = new Label
+        {
+            AutoSize = false,
+            Height = 24,
+            Width = workforceHeaderPanel.Width - 120, // Leave space for the button
+            TextAlign = ContentAlignment.MiddleLeft,
+            Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+            Tag = "WorkforceSummaryLabel"
+        };
+        workforceHeaderPanel.Resize += (s, e) => workforceSummaryLabel.Width = workforceHeaderPanel.Width - 120;
+
+        // Add collapse/expand button
+        Button workforceCollapseButton = new Button
+        {
+            Text = "▼",
+            Font = new Font("Segoe UI", 6),
+            Width = 24,
+            Height = 24,
+            FlatStyle = FlatStyle.Flat,
+            Tag = "WorkforceCollapseButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top
+        };
+        workforceCollapseButton.Location = new Point(workforceHeaderPanel.Width - workforceCollapseButton.Width - 10, 5);
+        workforceHeaderPanel.Resize += (s, e) => workforceCollapseButton.Location = new Point(workforceHeaderPanel.Width - workforceCollapseButton.Width - 10, 5);
+
+
+        // Add manage button
+        Button manageButton = new Button
+        {
+            Text = "Manage",
+            Width = 80,
+            Height = 34,
+            FlatStyle = FlatStyle.Flat,
+            Tag = "WorkforceManageButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top
+        };
+        manageButton.Location = new Point(workforceHeaderPanel.Width - manageButton.Width - workforceCollapseButton.Width - 15, 5);
+        workforceHeaderPanel.Resize += (s, e) => manageButton.Location = new Point(workforceHeaderPanel.Width - manageButton.Width - workforceCollapseButton.Width - 15, 5);
+        manageButton.Click += ManageWorkforce_Click;
+
+        // Create collapsible content panel
+        Panel workforceContentPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Height = 200
+        };
+
+        // Create workers list view
+        ListView workersListView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "WorkersListView"
+        };
+
+        // Add columns with relative sizes
+        workersListView.Columns.Add("Name", 120); // 25%
+        workersListView.Columns.Add("Type", 100); // 20%
+        workersListView.Columns.Add("Lvl", 50);   // 10%
+        workersListView.Columns.Add("Skills", 300); // 70%
+
+        // Dynamic column widths
+        void ResizeWorkforceColumns(object s, EventArgs e)
+        {
+            int totalWidth = workersListView.ClientSize.Width;
+            workersListView.Columns[0].Width = (int)(totalWidth * 0.25);
+            workersListView.Columns[1].Width = (int)(totalWidth * 0.20);
+            workersListView.Columns[2].Width = (int)(totalWidth * 0.10);
+            workersListView.Columns[3].Width = (int)(totalWidth * 0.70);
+        }
+        workersListView.Resize += ResizeWorkforceColumns;
+        ResizeWorkforceColumns(null, null);
+
+        // Add double-click handler for NPC navigation
+        workersListView.DoubleClick += (s, e) =>
+        {
+            var listView = (ListView)s;
+            if (listView.SelectedItems.Count == 0) return;
+
+            var selectedItem = listView.SelectedItems[0];
+            string npcId = selectedItem.Tag?.ToString();
+            if (!string.IsNullOrEmpty(npcId))
+            {
+                ShowNPCInTab(npcId);
+            }
+        };
+
+        // Start collapsed
+        workforceContentPanel.Visible = false;
+        workforceGroup.Height = 90;
+        workforceCollapseButton.Text = "▶";
+
+        workforceCollapseButton.Click += (s, e) =>
+        {
+            Button btn = (Button)s;
+            if (workforceContentPanel.Visible)
+            {
+                workforceContentPanel.Visible = false;
+                workforceGroup.Height = 90;
+                btn.Text = "▶";
+            }
+            else
+            {
+                workforceContentPanel.Visible = true;
+                workforceGroup.Height = 250;
+                btn.Text = "▼";
+            }
+        };
+
+        // Add controls to panels
+        workforceContentPanel.Controls.Add(workersListView);
+        workforceHeaderPanel.Controls.Add(workforceSummaryLabel);
+        workforceHeaderPanel.Controls.Add(manageButton);
+        workforceHeaderPanel.Controls.Add(workforceCollapseButton);
+        workforceGroup.Controls.Add(workforceContentPanel);
+        workforceGroup.Controls.Add(workforceHeaderPanel);
+
+        // Add workforce group to sections panel
+        sectionsPanel.Controls.Add(workforceGroup, 0, 3);
 
         tab.Controls.Add(mainLayout);
     }
@@ -1618,8 +1759,8 @@ public partial class MainDashboard : Form
                     stateText += " (No Workers)";
                 }
                 else
-                {
-                    stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+            {
+                stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
                 }
             }
 
@@ -2117,14 +2258,13 @@ public partial class MainDashboard : Form
                                         // Add worker row
                                         var workerItem = new ListViewItem("");
                                         workerItem.SubItems.Add(worker.Name);
-                                        workerItem.SubItems.Add(((int)totalWorkerProduction).ToString());
+                                        workerItem.SubItems.Add(totalWorkerProduction % 1 == 0 ? 
+                                            ((int)totalWorkerProduction).ToString() : 
+                                            totalWorkerProduction.ToString("0.#"));
                                         workerItem.SubItems.Add(baseProduction.ToString("0.#"));
                                         workerItem.SubItems.Add(bonusBreakdown.TrimEnd(',', ' '));
                                         productionListView.Items.Add(workerItem);
                                     }
-
-                                    // Add empty row for spacing
-                                    productionListView.Items.Add(new ListViewItem(""));
                                 }
                             }
                         }
@@ -2181,15 +2321,26 @@ public partial class MainDashboard : Form
                         // Get all upkeep values for current level
                         var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
                         
+                        // If we have workers but no Gold upkeep entry, add one
+                        if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
+                        {
+                            upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
+                        }
+
+                        // Sort to ensure Gold is always first if present
+                        upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
+                        
                         // Add resource header rows
                         foreach (var upkeep in upkeepAtLevel)
                         {
                             if (upkeep.resourceType == "Gold")
                             {
                                 var headerItem = new ListViewItem("Gold");
-                                headerItem.SubItems.Add("Base Upkeep");
+                                headerItem.SubItems.Add("Total");
                                 headerItem.SubItems.Add((upkeep.baseValue + totalSalaries).ToString());
-                                headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]");
+                                headerItem.SubItems.Add(upkeep.baseValue > 0 ? 
+                                    $"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]" :
+                                    $"Salaries[{totalSalaries}]");
                                 headerItem.BackColor = Color.LightGray;
                                 headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
                                 upkeepListView.Items.Add(headerItem);
@@ -2213,7 +2364,7 @@ public partial class MainDashboard : Form
                             else
                             {
                                 var headerItem = new ListViewItem(upkeep.resourceType);
-                                headerItem.SubItems.Add("Base Upkeep");
+                                headerItem.SubItems.Add("Total");
                                 headerItem.SubItems.Add(upkeep.baseValue.ToString());
                                 headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}]");
                                 headerItem.BackColor = Color.LightGray;
@@ -2247,6 +2398,15 @@ public partial class MainDashboard : Form
 
                         // Get all upkeep values for current level
                         var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                        
+                        // If we have workers but no Gold upkeep entry, add one
+                        if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
+                        {
+                            upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
+                        }
+
+                        // Sort to ensure Gold is always first if present
+                        upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
                         
                         // Add each resource upkeep to summary
                         foreach (var upkeep in upkeepAtLevel)
@@ -2301,6 +2461,121 @@ public partial class MainDashboard : Form
 
             if (buildingConditionValue != null)
                 buildingConditionValue.Text = $"{building.Condition}%";
+
+            // Update workforce section
+            var workforceSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "WorkforceSummaryLabel");
+            var workersListView = FindControl<ListView>(_tabControl.TabPages[1], "WorkersListView");
+            
+            if (workforceSummaryLabel != null)
+            {
+                workforceSummaryLabel.Text = $"{building.AssignedWorkers.Count}/{building.WorkerSlots} Workers";
+            }
+
+            if (workersListView != null)
+            {
+                workersListView.Items.Clear();
+
+                // Get building info for skill relevance
+                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                if (File.Exists(jsonPath))
+                {
+                    string json = File.ReadAllText(jsonPath);
+                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+
+                    // If there's an active project, add a header row for it
+                    if (building.CurrentProject != null)
+                    {
+                        var projectHeader = new ListViewItem(building.CurrentProject.Name);
+                        projectHeader.SubItems.Add("Project");
+                        projectHeader.SubItems.Add($"{building.CurrentProject.TimeRemaining}");
+                        projectHeader.SubItems.Add("Weeks left");
+                        projectHeader.BackColor = Color.LightGray;
+                        projectHeader.Font = new Font(workersListView.Font, FontStyle.Bold);
+                        workersListView.Items.Add(projectHeader);
+
+                        // Add project workers
+                        foreach (var workerId in building.CurrentProject.AssignedWorkers)
+                        {
+                            var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
+                            if (worker == null) continue;
+
+                            var item = new ListViewItem(worker.Name);
+                            item.SubItems.Add(worker.Type.ToString());
+                            item.SubItems.Add(worker.Level.ToString());
+                            
+                            // Get relevant skills
+                            var relevantSkills = new List<string>();
+                            if (buildingInfo != null)
+                            {
+                                // Check primary skill first
+                                var primarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.primarySkill);
+                                if (primarySkill != null)
+                                    relevantSkills.Add($"{primarySkill.Name} ({primarySkill.Level})");
+                                
+                                // Then secondary skill
+                                var secondarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.secondarySkill);
+                                if (secondarySkill != null)
+                                    relevantSkills.Add($"{secondarySkill.Name} ({secondarySkill.Level})");
+                                
+                                // Finally tertiary skill
+                                var tertiarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.tertiarySkill);
+                                if (tertiarySkill != null)
+                                    relevantSkills.Add($"{tertiarySkill.Name} ({tertiarySkill.Level})");
+                            }
+                            item.SubItems.Add(string.Join(", ", relevantSkills));
+                            item.Tag = worker.Id;
+                            item.ForeColor = Color.Gray; // Indicate they're assigned to project
+                            workersListView.Items.Add(item);
+                        }
+
+                        // Add a blank row for separation
+                        var separator = new ListViewItem("");
+                        separator.SubItems.Add("");
+                        separator.SubItems.Add("");
+                        separator.SubItems.Add("");
+                        workersListView.Items.Add(separator);
+                    }
+
+                    // Add regular workers
+                    foreach (var workerId in building.AssignedWorkers)
+                    {
+                        // Skip workers assigned to the current project
+                        if (building.CurrentProject?.AssignedWorkers.Contains(workerId) ?? false)
+                            continue;
+
+                        var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
+                        if (worker == null) continue;
+
+                        var item = new ListViewItem(worker.Name);
+                        item.SubItems.Add(worker.Type.ToString());
+                        item.SubItems.Add(worker.Level.ToString());
+                        
+                        // Get relevant skills
+                        var relevantSkills = new List<string>();
+                        if (buildingInfo != null)
+                        {
+                            // Check primary skill first
+                            var primarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.primarySkill);
+                            if (primarySkill != null)
+                                relevantSkills.Add($"{primarySkill.Name} ({primarySkill.Level})");
+                            
+                            // Then secondary skill
+                            var secondarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.secondarySkill);
+                            if (secondarySkill != null)
+                                relevantSkills.Add($"{secondarySkill.Name} ({secondarySkill.Level})");
+                            
+                            // Finally tertiary skill
+                            var tertiarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.tertiarySkill);
+                            if (tertiarySkill != null)
+                                relevantSkills.Add($"{tertiarySkill.Name} ({tertiarySkill.Level})");
+                        }
+                        item.SubItems.Add(string.Join(", ", relevantSkills));
+                        item.Tag = worker.Id;
+                        workersListView.Items.Add(item);
+                    }
+                }
+            }
 
             // Update button states
             if (upgradeButton != null)
@@ -2372,6 +2647,9 @@ public partial class MainDashboard : Form
         var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
         var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
         var productionListView = FindControl<ListView>(_tabControl.TabPages[1], "ProductionListView");
+        var upkeepListView = FindControl<ListView>(_tabControl.TabPages[1], "UpkeepListView");
+        var productionSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProductionSummaryLabel");
+        var upkeepSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "UpkeepSummaryLabel");
 
         if (buildingNameValue != null) buildingNameValue.Text = string.Empty;
         if (buildingTypeValue != null) buildingTypeValue.Text = string.Empty;
@@ -2379,6 +2657,9 @@ public partial class MainDashboard : Form
         if (buildingStatusValue != null) buildingStatusValue.Text = string.Empty;
         if (buildingConditionValue != null) buildingConditionValue.Text = string.Empty;
         if (productionListView != null) productionListView.Items.Clear();
+        if (upkeepListView != null) upkeepListView.Items.Clear();
+        if (productionSummaryLabel != null) productionSummaryLabel.Text = "Not Producing";
+        if (upkeepSummaryLabel != null) upkeepSummaryLabel.Text = "No Upkeep";
 
         var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
         var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
@@ -2416,7 +2697,7 @@ public partial class MainDashboard : Form
 
         var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
         if (building == null) return;
-
+        
         // Get building info from BuildingData.json
         string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
         if (!File.Exists(jsonPath))
@@ -2429,10 +2710,10 @@ public partial class MainDashboard : Form
             return;
         }
 
-        string json = File.ReadAllText(jsonPath);
-        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-        
+            string json = File.ReadAllText(jsonPath);
+            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+            
         if (buildingInfo == null)
         {
             MessageBox.Show(
@@ -2464,10 +2745,10 @@ public partial class MainDashboard : Form
             return;
         }
 
-        using (var confirmDialog = new UpgradeBuildingDialog(building))
-        {
-            if (confirmDialog.ShowDialog() == DialogResult.OK)
+            using (var confirmDialog = new UpgradeBuildingDialog(building))
             {
+                if (confirmDialog.ShowDialog() == DialogResult.OK)
+                {
                 if (building.StartUpgrade(_stronghold.Resources))
                 {
                     _gameStateService.OnGameStateChanged();
@@ -2527,6 +2808,44 @@ public partial class MainDashboard : Form
                 // Select the first item
                 buildingsListView.Items[0].Selected = true;
                 buildingsListView.Items[0].Focused = true;
+            }
+        }
+    }
+
+    private void ManageWorkforce_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null) return;
+
+        // Create dialog with current building and all NPCs
+        using (var dialog = new WorkerAssignmentDialog(building, _stronghold.NPCs))
+        {
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                // Store the building ID to reselect later
+                string buildingToSelect = _selectedBuildingId;
+                
+                // Update worker assignments through GameStateService
+                _gameStateService.AssignWorkersToBuilding(_selectedBuildingId, dialog.AssignedWorkerIds);
+                RefreshBuildingsTab();
+                
+                // Find and select the building in the list view
+                var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+                if (buildingsListView != null)
+                {
+                    foreach (ListViewItem item in buildingsListView.Items)
+                    {
+                        if ((string)item.Tag == buildingToSelect)
+                        {
+                            item.Selected = true;
+                            item.Focused = true;
+                            buildingsListView.EnsureVisible(item.Index);
+                            break;
+                        }
+                    }
+                }
             }
         }
     }

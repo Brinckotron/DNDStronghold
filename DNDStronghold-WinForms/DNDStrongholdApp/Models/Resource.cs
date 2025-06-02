@@ -50,8 +50,38 @@ namespace DNDStrongholdApp.Models
         Wood,
         Stone,
         Iron,
-        Luxury,
-        Special
+        Luxury
+    }
+
+    public static class ResourceTypeExtensions
+    {
+        public static Color GetColor(this ResourceType resourceType)
+        {
+            return resourceType switch
+            {
+                ResourceType.Gold => Color.FromArgb(255, 215, 0),      // Golden
+                ResourceType.Food => Color.FromArgb(76, 187, 23),      // Green
+                ResourceType.Wood => Color.FromArgb(139, 69, 19),      // Brown
+                ResourceType.Stone => Color.FromArgb(169, 169, 169),   // Gray
+                ResourceType.Iron => Color.FromArgb(176, 196, 222),    // Steel Blue
+                ResourceType.Luxury => Color.FromArgb(106, 90, 205), // Slate Blue
+                _ => Color.Black
+            };
+        }
+
+        public static string GetSymbol(this ResourceType resourceType)
+        {
+            return resourceType switch
+            {
+                ResourceType.Gold => "🪙",      // Coin
+                ResourceType.Food => "🌾",      // Wheat
+                ResourceType.Wood => "🪵",      // Wood
+                ResourceType.Stone => "🪨",     // Rock
+                ResourceType.Iron => "⚒️",      // Hammer and Pick
+                ResourceType.Luxury => "💎",   // Diamond
+                _ => "❓"
+            };
+        }
     }
 
     public class ResourceSource

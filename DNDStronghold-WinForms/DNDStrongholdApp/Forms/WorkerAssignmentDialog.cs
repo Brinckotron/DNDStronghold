@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
+using System.IO;
+using System.Text.Json;
+using System.Linq;
 
 namespace DNDStrongholdApp
 {
@@ -12,12 +15,22 @@ namespace DNDStrongholdApp
         private List<NPC> _availableNPCs;
         private ListView _availableNPCsListView;
         private ListView _assignedNPCsListView;
+        private BuildingInfo _buildingInfo;
         
         public List<string> AssignedWorkerIds { get; private set; } = new List<string>();
         
         public WorkerAssignmentDialog(Building building, List<NPC> allNPCs)
         {
             _building = building;
+            
+            // Load building info for skill relevance
+            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+            if (File.Exists(jsonPath))
+            {
+                string json = File.ReadAllText(jsonPath);
+                var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
+                _buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+            }
             
             // Filter NPCs to only include those that are unassigned or assigned to this building
             _availableNPCs = allNPCs.FindAll(n => 
@@ -31,7 +44,7 @@ namespace DNDStrongholdApp
         private void InitializeComponent()
         {
             this.Text = $"Assign Workers to {_building.Name}";
-            this.Size = new Size(700, 500);
+            this.Size = new Size(800, 500);
             this.StartPosition = FormStartPosition.CenterParent;
             this.MinimizeBox = false;
             this.MaximizeBox = false;
@@ -64,7 +77,7 @@ namespace DNDStrongholdApp
             _availableNPCsListView.Columns.Add("Name", 120);
             _availableNPCsListView.Columns.Add("Type", 80);
             _availableNPCsListView.Columns.Add("Level", 50);
-            _availableNPCsListView.Columns.Add("Skills", 100);
+            _availableNPCsListView.Columns.Add("Skills", 300);
             
             availableGroup.Controls.Add(_availableNPCsListView);
             
@@ -83,7 +96,7 @@ namespace DNDStrongholdApp
             _assignedNPCsListView.Columns.Add("Name", 120);
             _assignedNPCsListView.Columns.Add("Type", 80);
             _assignedNPCsListView.Columns.Add("Level", 50);
-            _assignedNPCsListView.Columns.Add("Skills", 100);
+            _assignedNPCsListView.Columns.Add("Skills", 300);
             
             assignedGroup.Controls.Add(_assignedNPCsListView);
             
@@ -158,12 +171,38 @@ namespace DNDStrongholdApp
                 ListViewItem item = new ListViewItem(npc.Name);
                 item.SubItems.Add(npc.Type.ToString());
                 item.SubItems.Add(npc.Level.ToString());
-                item.SubItems.Add(GetTopSkills(npc));
+                
+                // Get relevant skills
+                var relevantSkills = new List<string>();
+                if (_buildingInfo != null)
+                {
+                    // Check primary skill first
+                                var primarySkill = npc.Skills.FirstOrDefault(s => s.Name == _buildingInfo.primarySkill);
+                                if (primarySkill != null)
+                                    relevantSkills.Add($"{primarySkill.Name} ({primarySkill.Level})");
+                                
+                                // Then secondary skill
+                                var secondarySkill = npc.Skills.FirstOrDefault(s => s.Name == _buildingInfo.secondarySkill);
+                                if (secondarySkill != null)
+                                    relevantSkills.Add($"{secondarySkill.Name} ({secondarySkill.Level})");
+                                
+                                // Finally tertiary skill
+                                var tertiarySkill = npc.Skills.FirstOrDefault(s => s.Name == _buildingInfo.tertiarySkill);
+                                if (tertiarySkill != null)
+                                    relevantSkills.Add($"{tertiarySkill.Name} ({tertiarySkill.Level})");
+                }
+                item.SubItems.Add(string.Join(", ", relevantSkills));
                 item.Tag = npc.Id;
                 
                 // Add to appropriate list
                 if (_building.AssignedWorkers.Contains(npc.Id))
                 {
+                    // If worker is assigned to a project, make them unselectable
+                    if (_building.CurrentProject?.AssignedWorkers.Contains(npc.Id) ?? false)
+                    {
+                        item.ForeColor = Color.Gray;
+                        item.SubItems[0].Text += " (Project)";
+                    }
                     _assignedNPCsListView.Items.Add(item);
                 }
                 else
@@ -174,23 +213,6 @@ namespace DNDStrongholdApp
             
             // Update assigned workers count in group box title
             ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.WorkerSlots})";
-        }
-        
-        private string GetTopSkills(NPC npc)
-        {
-            // Get top 2 skills
-            string skills = "";
-            int count = 0;
-            
-            foreach (var skill in npc.Skills)
-            {
-                skills += $"{skill.Name}: {skill.Level}, ";
-                count++;
-                
-                if (count >= 2) break;
-            }
-            
-            return skills.TrimEnd(',', ' ');
         }
         
         private void AssignButton_Click(object sender, EventArgs e)
@@ -219,8 +241,19 @@ namespace DNDStrongholdApp
         {
             if (_assignedNPCsListView.SelectedItems.Count > 0)
             {
-                // Move selected NPC from assigned to available
                 ListViewItem selectedItem = _assignedNPCsListView.SelectedItems[0];
+                
+                // Check if worker is assigned to a project
+                if (_building.CurrentProject?.AssignedWorkers.Contains((string)selectedItem.Tag) ?? false)
+                {
+                    MessageBox.Show("Cannot unassign workers that are assigned to a project.",
+                        "Worker Assigned to Project",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // Move selected NPC from assigned to available
                 _assignedNPCsListView.Items.Remove(selectedItem);
                 _availableNPCsListView.Items.Add(selectedItem);
                 
@@ -231,12 +264,23 @@ namespace DNDStrongholdApp
         
         private void OkButton_Click(object sender, EventArgs e)
         {
-            // Save assigned worker IDs
+            // Save assigned worker IDs, preserving project workers
             AssignedWorkerIds.Clear();
             
+            // First add project workers if any
+            if (_building.CurrentProject != null)
+            {
+                AssignedWorkerIds.AddRange(_building.CurrentProject.AssignedWorkers);
+            }
+            
+            // Then add other assigned workers
             foreach (ListViewItem item in _assignedNPCsListView.Items)
             {
-                AssignedWorkerIds.Add((string)item.Tag);
+                string workerId = (string)item.Tag;
+                if (!AssignedWorkerIds.Contains(workerId))
+                {
+                    AssignedWorkerIds.Add(workerId);
+                }
             }
         }
     }

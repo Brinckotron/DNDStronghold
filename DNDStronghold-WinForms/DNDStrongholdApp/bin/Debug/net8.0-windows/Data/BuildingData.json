@@ -340,11 +340,6 @@
           "level": 1,
           "resourceType": "Wood",
           "baseValue": 1
-        },
-        {
-          "level": 1,
-          "resourceType": "Wood",
-          "baseValue": 1
         }
       ],
       "workerProductionBonus": [

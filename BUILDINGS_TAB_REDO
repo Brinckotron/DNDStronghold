@@ -57,7 +57,7 @@ Result: Functional tab with styled list view displaying buildings and basic layo
 - Implement Condition and Level sorting (numerical)
 Result: Fully functional list with proper sorting
 
-[INPROGRESS] MILESTONE 3: Right Panel - Basic Information Section
+[COMPLETED] MILESTONE 3: Right Panel - Basic Information Section
 - Create right panel layout structure
 Basic Information
 - Name (with rename button)
@@ -67,19 +67,19 @@ Basic Information
 - Condition (with Repair button if not 100%. Pressing the button opens a small popup show the repair costs, with a cancel button and an repair button that is unclickable if not enough resources)
 Result: Working details display when selecting buildings
 
-MILESTONE 4: Production Section
+[COMPLETED] MILESTONE 4: Production Section
 - Collapsible section
 - Production (listview with resource and amount)
 - Implement double-click navigation to Resources tab
 Result: Resource production visibility
 
-MILESTONE 5: Upkeep Section
+[COMPLETED] MILESTONE 5: Upkeep Section
 - Collapsible section
 - Upkeep (listview, resource and amount)
 - Implement double-click navigation to Resources tab
 Result: Resource production visibility
 
-MILESTONE 6: Workforce Management Section
+[COMPLETED] MILESTONE 6: Workforce Management Section
 - Collapsible section
 - Add Worker Slots display
 - Implement Manage Workers button and dialog
