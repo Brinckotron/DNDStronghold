@@ -34,6 +34,12 @@ public partial class MainDashboard : Form
     private string _selectedBuildingId;
     private int _lastSortedColumn = -1;
     private SortOrder _lastSortOrder = SortOrder.None;
+    
+    // Add CurrentProject property to track building projects
+    private Building CurrentProject => _stronghold?.Buildings.FirstOrDefault(b => 
+        b.ConstructionStatus == BuildingStatus.UnderConstruction || 
+        b.ConstructionStatus == BuildingStatus.Repairing || 
+        b.ConstructionStatus == BuildingStatus.Upgrading);
 
     public MainDashboard()
     {
@@ -368,7 +374,14 @@ public partial class MainDashboard : Form
                 building.ConstructionStatus == BuildingStatus.Repairing ||
                 building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                statusText += $" ({building.ConstructionProgress}%)";
+                if (building.AssignedWorkers.Count == 0)
+                {
+                    statusText += " (No Workers)";
+                }
+                else
+                {
+                    statusText += $" ({building.ConstructionProgress}%)";
+                }
             }
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
@@ -896,7 +909,14 @@ public partial class MainDashboard : Form
                 building.ConstructionStatus == BuildingStatus.Repairing ||
                 building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+                if (building.AssignedWorkers.Count == 0)
+                {
+                    stateText += " (No Workers)";
+                }
+                else
+                {
+                    stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+                }
             }
 
             ListViewItem item = new ListViewItem(building.Name);
@@ -944,7 +964,19 @@ public partial class MainDashboard : Form
         {
             Dock = DockStyle.Fill,
             Margin = new Padding(10, 0, 0, 0),
-            BackColor = SystemColors.Control
+            BackColor = SystemColors.Control,
+            AutoScroll = true
+        };
+
+        // Create a container panel for sections
+        TableLayoutPanel sectionsPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            Margin = new Padding(0)
         };
 
         // Basic Information GroupBox
@@ -1025,11 +1057,354 @@ public partial class MainDashboard : Form
         basicInfoLayout.Controls.Add(repairButton, 2, 4);
 
         basicInfoGroup.Controls.Add(basicInfoLayout);
-        rightPanel.Controls.Add(basicInfoGroup);
+        sectionsPanel.Controls.Add(basicInfoGroup, 0, 0);
+
+        // Production Section
+        GroupBox productionGroup = new GroupBox
+        {
+            Text = "Production",
+            Dock = DockStyle.Top,
+            Height = 250, // Increased from 150 to show more rows
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 0, 10)
+        };
+
+        // Create a header panel for the title and collapse button
+        Panel headerPanel = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 35, // Increased from 30 to fully show the button
+            Padding = new Padding(0)
+        };
+
+        // Add production summary label
+        Label productionSummaryLabel = new Label
+        {
+            AutoSize = false,
+            Height = 24,
+            Width = headerPanel.Width - 40, // Leave space for the button
+            TextAlign = ContentAlignment.MiddleLeft,
+            Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+            Tag = "ProductionSummaryLabel"
+        };
+        headerPanel.Resize += (s, e) => productionSummaryLabel.Width = headerPanel.Width - 40;
+
+        // Add collapse/expand button
+        Button collapseButton = new Button
+        {
+            Text = "▼",
+            Width = 24,
+            Height = 24,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(0),
+            Tag = "ProductionCollapseButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top
+        };
+        collapseButton.Location = new Point(headerPanel.Width - collapseButton.Width - 10, 5); // Added vertical offset
+        headerPanel.Resize += (s, e) => collapseButton.Location = new Point(headerPanel.Width - collapseButton.Width - 10, 5);
+
+        // Create collapsible content panel
+        Panel contentPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Height = 200 // Increased to show more rows
+        };
+
+        // Create production list view
+        ListView productionListView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "ProductionListView"
+        };
+
+        // Add columns in new order with new widths
+        productionListView.Columns.Add("Resource", 120);
+        productionListView.Columns.Add("Workers", 120);
+        productionListView.Columns.Add("Total", 70);
+        productionListView.Columns.Add("Base", 60);
+        productionListView.Columns.Add("Bonus", 250);
+
+        // Dynamic column widths (20%, 20%, 10%, 10%, 40%)
+        void ResizeProductionColumns(object s, EventArgs e)
+        {
+            int totalWidth = productionListView.ClientSize.Width;
+            productionListView.Columns[0].Width = (int)(totalWidth * 0.17);
+            productionListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            productionListView.Columns[2].Width = (int)(totalWidth * 0.11);
+            productionListView.Columns[3].Width = (int)(totalWidth * 0.10);
+            productionListView.Columns[4].Width = (int)(totalWidth * 0.70);
+        }
+        productionListView.Resize += ResizeProductionColumns;
+        ResizeProductionColumns(null, null);
+
+        // Add double-click handler for resource and worker navigation
+        productionListView.DoubleClick += (s, e) =>
+        {
+            var listView = (ListView)s;
+            if (listView.SelectedItems.Count == 0) return;
+
+            var selectedItem = listView.SelectedItems[0];
+            
+            // Skip empty rows (used for spacing)
+            if (selectedItem.SubItems.Cast<ListViewItem.ListViewSubItem>()
+                .All(subItem => string.IsNullOrWhiteSpace(subItem.Text)))
+            {
+                return;
+            }
+
+            try
+            {
+                // If this is a resource header row (has all columns filled and first column is a valid resource type)
+                if (!string.IsNullOrWhiteSpace(selectedItem.SubItems[0].Text) && 
+                    !string.IsNullOrWhiteSpace(selectedItem.SubItems[1].Text) &&
+                    !string.IsNullOrWhiteSpace(selectedItem.SubItems[2].Text) &&
+                    Enum.TryParse<ResourceType>(selectedItem.SubItems[0].Text, out var resourceType))
+                {
+                    ShowResourceInTab(resourceType);
+                }
+                // If this is a worker row (second column has worker name)
+                else if (selectedItem.SubItems.Count > 1 && 
+                       !string.IsNullOrWhiteSpace(selectedItem.SubItems[1].Text))
+                {
+                    var workerName = selectedItem.SubItems[1].Text.Trim();
+                    
+                    // Get the building and its assigned workers to ensure we get the right NPC
+                    var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+                    if (building != null)
+                    {
+                        // Find all NPCs with this name that are assigned to this building
+                        var matchingNPCs = _stronghold.NPCs
+                            .Where(n => n.Name == workerName && 
+                                   building.AssignedWorkers.Contains(n.Id))
+                            .ToList();
+
+                        if (matchingNPCs.Count == 1)
+                        {
+                            // If exactly one match, show that NPC
+                            ShowNPCInTab(matchingNPCs[0].Id);
+                        }
+                        else if (matchingNPCs.Count > 1)
+                        {
+                            // If multiple matches, show a selection dialog
+                            using (var dialog = new SelectNPCDialog(matchingNPCs))
+                            {
+                                if (dialog.ShowDialog() == DialogResult.OK && dialog.SelectedNPC != null)
+                                {
+                                    ShowNPCInTab(dialog.SelectedNPC.Id);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show(
+                                "Could not find the worker in the stronghold's records.",
+                                "Worker Not Found",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"An error occurred while trying to show the details: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        };
+
+        // Start collapsed
+        contentPanel.Visible = false;
+        productionGroup.Height = 70;
+        collapseButton.Text = "▶";
+
+        collapseButton.Click += (s, e) =>
+        {
+            Button btn = (Button)s;
+            if (contentPanel.Visible)
+            {
+                contentPanel.Visible = false;
+                productionGroup.Height = 70;
+                btn.Text = "▶";
+            }
+            else
+            {
+                contentPanel.Visible = true;
+                productionGroup.Height = 250;
+                btn.Text = "▼";
+            }
+        };
+
+        // Add controls to panels
+        contentPanel.Controls.Add(productionListView);
+        headerPanel.Controls.Add(productionSummaryLabel);
+        headerPanel.Controls.Add(collapseButton);
+        productionGroup.Controls.Add(contentPanel);
+        productionGroup.Controls.Add(headerPanel);
+
+        // Add groups to sections panel in order
+        sectionsPanel.Controls.Add(basicInfoGroup, 0, 0);
+        sectionsPanel.Controls.Add(productionGroup, 0, 1);
+
+        // Add sections panel to right panel
+        rightPanel.Controls.Add(sectionsPanel);
 
         // Add panels to main layout
         mainLayout.Controls.Add(leftPanel, 0, 0);
         mainLayout.Controls.Add(rightPanel, 1, 0);
+
+        // Upkeep Section
+        GroupBox upkeepGroup = new GroupBox
+        {
+            Text = "Upkeep",
+            Dock = DockStyle.Top,
+            Height = 250,
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 0, 10)
+        };
+
+        // Create a header panel for the title and collapse button
+        Panel upkeepHeaderPanel = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 35,
+            Padding = new Padding(0)
+        };
+
+        // Add upkeep summary label
+        Label upkeepSummaryLabel = new Label
+        {
+            AutoSize = false,
+            Height = 24,
+            Width = upkeepHeaderPanel.Width - 40,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+            Tag = "UpkeepSummaryLabel"
+        };
+        upkeepHeaderPanel.Resize += (s, e) => upkeepSummaryLabel.Width = upkeepHeaderPanel.Width - 40;
+
+        // Add collapse/expand button
+        Button upkeepCollapseButton = new Button
+        {
+            Text = "▶",
+            Width = 24,
+            Height = 24,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(0),
+            Tag = "UpkeepCollapseButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top
+        };
+        upkeepCollapseButton.Location = new Point(upkeepHeaderPanel.Width - upkeepCollapseButton.Width - 10, 5);
+        upkeepHeaderPanel.Resize += (s, e) => upkeepCollapseButton.Location = new Point(upkeepHeaderPanel.Width - upkeepCollapseButton.Width - 10, 5);
+
+        // Create collapsible content panel
+        Panel upkeepContentPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Height = 200
+        };
+
+        // Create upkeep list view
+        ListView upkeepListView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "UpkeepListView"
+        };
+
+        // Add columns with correct names and initial widths
+        upkeepListView.Columns.Add("Resource", 120);
+        upkeepListView.Columns.Add("Source", 120);
+        upkeepListView.Columns.Add("Amt", 70);
+        upkeepListView.Columns.Add("Info", 250);
+
+        // Dynamic column widths
+        void ResizeUpkeepColumns(object s, EventArgs e)
+        {
+            int totalWidth = upkeepListView.ClientSize.Width;
+            upkeepListView.Columns[0].Width = (int)(totalWidth * 0.12);
+            upkeepListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            upkeepListView.Columns[2].Width = (int)(totalWidth * 0.10);
+            upkeepListView.Columns[3].Width = (int)(totalWidth * 0.70);
+        }
+        upkeepListView.Resize += ResizeUpkeepColumns;
+        ResizeUpkeepColumns(null, null);
+
+        // Add double-click handler for resource navigation
+        upkeepListView.DoubleClick += (s, e) =>
+        {
+            var listView = (ListView)s;
+            if (listView.SelectedItems.Count == 0) return;
+
+            var selectedItem = listView.SelectedItems[0];
+            
+            // Skip empty rows (used for spacing)
+            if (selectedItem.SubItems.Cast<ListViewItem.ListViewSubItem>()
+                .All(subItem => string.IsNullOrWhiteSpace(subItem.Text)))
+            {
+                return;
+            }
+
+            try
+            {
+                // If this is a resource header row (has all columns filled and first column is a valid resource type)
+                if (!string.IsNullOrWhiteSpace(selectedItem.SubItems[0].Text) && 
+                    !string.IsNullOrWhiteSpace(selectedItem.SubItems[1].Text) &&
+                    !string.IsNullOrWhiteSpace(selectedItem.SubItems[2].Text) &&
+                    Enum.TryParse<ResourceType>(selectedItem.SubItems[0].Text, out var resourceType))
+                {
+                    ShowResourceInTab(resourceType);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"An error occurred while trying to show the resource details: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        };
+
+        // Start collapsed
+        upkeepContentPanel.Visible = false;
+        upkeepGroup.Height = 70;
+
+        upkeepCollapseButton.Click += (s, e) =>
+        {
+            Button btn = (Button)s;
+            if (upkeepContentPanel.Visible)
+            {
+                upkeepContentPanel.Visible = false;
+                upkeepGroup.Height = 70;
+                btn.Text = "▶";
+            }
+            else
+            {
+                upkeepContentPanel.Visible = true;
+                upkeepGroup.Height = 250;
+                btn.Text = "▼";
+            }
+        };
+
+        // Add controls to panels
+        upkeepContentPanel.Controls.Add(upkeepListView);
+        upkeepHeaderPanel.Controls.Add(upkeepSummaryLabel);
+        upkeepHeaderPanel.Controls.Add(upkeepCollapseButton);
+        upkeepGroup.Controls.Add(upkeepContentPanel);
+        upkeepGroup.Controls.Add(upkeepHeaderPanel);
+
+        // Add groups to sections panel in order
+        sectionsPanel.Controls.Add(basicInfoGroup, 0, 0);
+        sectionsPanel.Controls.Add(productionGroup, 0, 1);
+        sectionsPanel.Controls.Add(upkeepGroup, 0, 2);
 
         tab.Controls.Add(mainLayout);
     }
@@ -1238,7 +1613,14 @@ public partial class MainDashboard : Form
                 building.ConstructionStatus == BuildingStatus.Repairing ||
                 building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+                if (building.AssignedWorkers.Count == 0)
+                {
+                    stateText += " (No Workers)";
+                }
+                else
+                {
+                    stateText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+                }
             }
 
             ListViewItem item = new ListViewItem(building.Name);
@@ -1641,6 +2023,247 @@ public partial class MainDashboard : Form
             var building = _stronghold.Buildings.Find(b => b.Id == buildingId);
             if (building == null) return;
 
+            // Get assigned NPCs for production calculation
+            var assignedNPCs = building.AssignedWorkers
+                .Select(workerId => _stronghold.NPCs.Find(n => n.Id == workerId))
+                .Where(npc => npc != null)
+                .ToList();
+
+            // Update building's production based on current workers
+            building.UpdateProduction(assignedNPCs);
+
+            // Update production list view with detailed breakdown
+            var productionListView = FindControl<ListView>(_tabControl.TabPages[1], "ProductionListView");
+            if (productionListView != null)
+            {
+                productionListView.Items.Clear();
+                if (building.IsFunctional())
+                {
+                    // Get building info for bonus calculations
+                    string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                    if (File.Exists(jsonPath))
+                    {
+                        string json = File.ReadAllText(jsonPath);
+                        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                        
+                        if (buildingInfo != null)
+                        {
+                            var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == building.Level);
+                            if (prodAtLevel != null)
+                            {
+                                // For each resource type produced
+                                foreach (var resource in prodAtLevel.resources)
+                                {
+                                    var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType);
+                                    var applicableBonuses = buildingInfo.workerProductionBonus
+                                        .Where(b => b.resourceType == resource.resourceType);
+
+                                    // Add a header row for this resource
+                                    var headerItem = new ListViewItem(resourceType.ToString());
+                                    var availableWorkers = assignedNPCs.Where(w => 
+                                        building.CurrentProject == null || !building.CurrentProject.AssignedWorkers.Contains(w.Id)).ToList();
+                                    headerItem.SubItems.Add(availableWorkers.Count.ToString());
+                                    
+                                    // Calculate totals
+                                    decimal totalBase = resource.perWorkerValue * availableWorkers.Count;
+                                    decimal totalBonus = 0m;
+                                    foreach (var worker in availableWorkers)
+                                    {
+                                        foreach (var bonus in applicableBonuses)
+                                        {
+                                            var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                            if (skill != null)
+                                            {
+                                                totalBonus += skill.Level * bonus.bonusValue;
+                                            }
+                                        }
+                                    }
+                                    decimal total = totalBase + totalBonus;
+                                    
+                                    headerItem.SubItems.Add(((int)total).ToString());
+                                    headerItem.SubItems.Add(totalBase.ToString("0.#"));
+                                    headerItem.SubItems.Add(totalBonus.ToString("0.#"));
+                                    
+                                    headerItem.BackColor = Color.LightGray;
+                                    headerItem.Font = new Font(productionListView.Font, FontStyle.Bold);
+                                    productionListView.Items.Add(headerItem);
+
+                                    // For each worker
+                                    foreach (var worker in assignedNPCs)
+                                    {
+                                        // Skip workers assigned to projects
+                                        if (building.CurrentProject?.AssignedWorkers.Contains(worker.Id) ?? false)
+                                            continue;
+
+                                        decimal baseProduction = resource.perWorkerValue;
+                                        decimal bonusProduction = 0m;
+                                        string bonusBreakdown = "";
+
+                                        // Calculate bonuses from skills
+                                        foreach (var bonus in applicableBonuses)
+                                        {
+                                            var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                            if (skill != null)
+                                            {
+                                                decimal skillBonus = skill.Level * bonus.bonusValue;
+                                                bonusProduction += skillBonus;
+                                                bonusBreakdown += $"{bonus.skill}({skill.Level}): +{skillBonus:0.#}, ";
+                                            }
+                                        }
+
+                                        decimal totalWorkerProduction = baseProduction + bonusProduction;
+
+                                        // Add worker row
+                                        var workerItem = new ListViewItem("");
+                                        workerItem.SubItems.Add(worker.Name);
+                                        workerItem.SubItems.Add(((int)totalWorkerProduction).ToString());
+                                        workerItem.SubItems.Add(baseProduction.ToString("0.#"));
+                                        workerItem.SubItems.Add(bonusBreakdown.TrimEnd(',', ' '));
+                                        productionListView.Items.Add(workerItem);
+                                    }
+
+                                    // Add empty row for spacing
+                                    productionListView.Items.Add(new ListViewItem(""));
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    ListViewItem item = new ListViewItem("Not Producing");
+                    item.SubItems.Add("-");
+                    item.SubItems.Add("-");
+                    item.SubItems.Add("-");
+                    item.SubItems.Add("-");
+                    item.ForeColor = Color.Gray;
+                    productionListView.Items.Add(item);
+                }
+            }
+
+            // Update production summary label
+            var productionSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProductionSummaryLabel");
+            if (productionSummaryLabel != null)
+            {
+                if (building.IsFunctional() && building.ActualProduction.Any())
+                {
+                    var summaryText = string.Join("; ", building.ActualProduction
+                        .Select(p => $"{p.ResourceType}: +{p.Amount}/week"));
+                    productionSummaryLabel.Text = summaryText;
+                }
+                else
+                {
+                    productionSummaryLabel.Text = "Not Producing";
+                }
+            }
+
+            // Update upkeep list view with detailed breakdown
+            var upkeepListView = FindControl<ListView>(_tabControl.TabPages[1], "UpkeepListView");
+            if (upkeepListView != null)
+            {
+                upkeepListView.Items.Clear();
+                
+                // Get building info for upkeep calculations
+                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                if (File.Exists(jsonPath))
+                {
+                    string json = File.ReadAllText(jsonPath);
+                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                    
+                    if (buildingInfo != null)
+                    {
+                        // Calculate total worker salaries first
+                        int totalSalaries = assignedNPCs.Sum(worker => 
+                            Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                        // Get all upkeep values for current level
+                        var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                        
+                        // Add resource header rows
+                        foreach (var upkeep in upkeepAtLevel)
+                        {
+                            if (upkeep.resourceType == "Gold")
+                            {
+                                var headerItem = new ListViewItem("Gold");
+                                headerItem.SubItems.Add("Base Upkeep");
+                                headerItem.SubItems.Add((upkeep.baseValue + totalSalaries).ToString());
+                                headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]");
+                                headerItem.BackColor = Color.LightGray;
+                                headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                                upkeepListView.Items.Add(headerItem);
+
+                                // Add worker rows
+                                foreach (var worker in assignedNPCs)
+                                {
+                                    int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                                    var highestSkill = worker.Skills.Any() ? 
+                                        worker.Skills.OrderByDescending(s => s.Level).First() : null;
+
+                                    var salaryItem = new ListViewItem("");  // Empty resource column
+                                    salaryItem.SubItems.Add(worker.Name);
+                                    salaryItem.SubItems.Add(salary.ToString());
+                                    salaryItem.SubItems.Add(highestSkill != null ? 
+                                        $"{highestSkill.Name} ({highestSkill.Level})" : 
+                                        "No Skills (1)");
+                                    upkeepListView.Items.Add(salaryItem);
+                                }
+                            }
+                            else
+                            {
+                                var headerItem = new ListViewItem(upkeep.resourceType);
+                                headerItem.SubItems.Add("Base Upkeep");
+                                headerItem.SubItems.Add(upkeep.baseValue.ToString());
+                                headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}]");
+                                headerItem.BackColor = Color.LightGray;
+                                headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                                upkeepListView.Items.Add(headerItem);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Update upkeep summary label
+            var upkeepSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "UpkeepSummaryLabel");
+            if (upkeepSummaryLabel != null)
+            {
+                var summaryParts = new List<string>();
+
+                // Get building info for upkeep calculations
+                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                if (File.Exists(jsonPath))
+                {
+                    string json = File.ReadAllText(jsonPath);
+                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                    
+                    if (buildingInfo != null)
+                    {
+                        // Calculate total worker salaries
+                        int totalSalaries = assignedNPCs.Sum(worker => 
+                            Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                        // Get all upkeep values for current level
+                        var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                        
+                        // Add each resource upkeep to summary
+                        foreach (var upkeep in upkeepAtLevel)
+                        {
+                            int totalUpkeep = upkeep.baseValue;
+                            if (upkeep.resourceType == "Gold")
+                            {
+                                totalUpkeep += totalSalaries;
+                            }
+                            summaryParts.Add($"{upkeep.resourceType}: -{totalUpkeep}/week");
+                        }
+                    }
+                }
+
+                upkeepSummaryLabel.Text = summaryParts.Any() ? string.Join("; ", summaryParts) : "No Upkeep";
+            }
+
             // Update building details in the right panel
             var buildingNameValue = FindControl<TextBox>(_tabControl.TabPages[1], "BuildingNameValue");
             var buildingTypeValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingTypeValue");
@@ -1664,7 +2287,14 @@ public partial class MainDashboard : Form
                     building.ConstructionStatus == BuildingStatus.Repairing ||
                     building.ConstructionStatus == BuildingStatus.Upgrading)
                 {
-                    statusText += $" ({building.ConstructionProgress}%, {building.ConstructionTimeRemaining}w)";
+                    if (building.AssignedWorkers.Count == 0)
+                    {
+                        statusText += " (No Workers)";
+                    }
+                    else
+                    {
+                        statusText += $" ({building.ConstructionProgress}%)";
+                    }
                 }
                 buildingStatusValue.Text = statusText;
             }
@@ -1681,30 +2311,13 @@ public partial class MainDashboard : Form
                     string json = File.ReadAllText(jsonPath);
                     var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
                     var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                    bool isMaxLevel = buildingInfo != null && building.Level >= buildingInfo.maxLevel;
                     bool canUpgrade = building.ConstructionStatus == BuildingStatus.Complete && 
                                     buildingInfo != null && 
-                                    building.Level < buildingInfo.maxLevel &&
+                                    !isMaxLevel &&
                                     building.AssignedWorkers.Count > 0;
                     upgradeButton.Enabled = canUpgrade;
-                    if (canUpgrade)
-                    {
-                        upgradeButton.Text = "Upgrade";
-                    }
-                    else if (building.ConstructionStatus == BuildingStatus.Upgrading)
-                    {
-                        upgradeButton.Text = "Upgrading...";
-                        upgradeButton.Enabled = false;
-                    }
-                    else if (buildingInfo != null && building.Level >= buildingInfo.maxLevel)
-                    {
-                        upgradeButton.Text = "Max Level";
-                        upgradeButton.Enabled = false;
-                    }
-                    else if (building.AssignedWorkers.Count == 0)
-                    {
-                        upgradeButton.Text = "Need Workers";
-                        upgradeButton.Enabled = false;
-                    }
+                    upgradeButton.Text = isMaxLevel ? "Max Lvl" : "Upgrade";
                 }
             }
 
@@ -1721,6 +2334,36 @@ public partial class MainDashboard : Form
         }
     }
 
+    private void ShowResourceInTab(ResourceType resourceType)
+    {
+        // Find the Resources tab
+        for (int i = 0; i < _tabControl.TabPages.Count; i++)
+        {
+            if (_tabControl.TabPages[i].Text == "Resources")
+            {
+                _tabControl.SelectedIndex = i;
+                // Find the resources list view
+                ListView resourcesListView = FindControl<ListView>(_tabControl.TabPages[i], "ResourcesListView");
+                if (resourcesListView != null)
+                {
+                    foreach (ListViewItem item in resourcesListView.Items)
+                    {
+                        var resource = (Resource)item.Tag;
+                        if (resource.Type == resourceType)
+                        {
+                            item.Selected = true;
+                            item.Focused = true;
+                            resourcesListView.Select();
+                            resourcesListView.EnsureVisible(item.Index);
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     private void ClearBuildingDetails()
     {
         var buildingNameValue = FindControl<TextBox>(_tabControl.TabPages[1], "BuildingNameValue");
@@ -1728,12 +2371,14 @@ public partial class MainDashboard : Form
         var buildingLevelValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingLevelValue");
         var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
         var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
+        var productionListView = FindControl<ListView>(_tabControl.TabPages[1], "ProductionListView");
 
         if (buildingNameValue != null) buildingNameValue.Text = string.Empty;
         if (buildingTypeValue != null) buildingTypeValue.Text = string.Empty;
         if (buildingLevelValue != null) buildingLevelValue.Text = string.Empty;
         if (buildingStatusValue != null) buildingStatusValue.Text = string.Empty;
         if (buildingConditionValue != null) buildingConditionValue.Text = string.Empty;
+        if (productionListView != null) productionListView.Items.Clear();
 
         var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
         var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");

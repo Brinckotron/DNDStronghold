@@ -343,7 +343,7 @@ namespace DNDStrongholdApp.Forms
             
             // Set description
             _descriptionTextBox.Text = GetBuildingDescription(selectedType);
-            
+
             // Create temporary building to get costs
             var tempBuilding = new Building(selectedType);
             

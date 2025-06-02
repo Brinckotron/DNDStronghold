@@ -325,7 +325,21 @@ namespace DNDStrongholdApp
             foreach (var building in Buildings)
             {
                 ListViewItem item = new ListViewItem(building.Type.ToString());
-                item.SubItems.Add(building.ConstructionStatus.ToString());
+                string statusText = building.ConstructionStatus.ToString();
+                if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                    building.ConstructionStatus == BuildingStatus.Repairing ||
+                    building.ConstructionStatus == BuildingStatus.Upgrading)
+                {
+                    if (building.AssignedWorkers.Count == 0)
+                    {
+                        statusText += " (No Workers)";
+                    }
+                    else
+                    {
+                        statusText += $" ({building.ConstructionProgress}%)";
+                    }
+                }
+                item.SubItems.Add(statusText);
                 item.SubItems.Add(building.Condition.ToString() + "%");
                 item.Tag = building;
                 

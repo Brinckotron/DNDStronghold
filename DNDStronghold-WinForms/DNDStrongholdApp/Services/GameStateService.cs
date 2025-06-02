@@ -613,20 +613,20 @@ namespace DNDStrongholdApp.Services
         {
             // In DM Mode, skip resource checks and deductions
             if (!_dmMode)
+        {
+            // Check if we have enough resources
+            if (!HasEnoughResources(building.ConstructionCost))
             {
-                // Check if we have enough resources
-                if (!HasEnoughResources(building.ConstructionCost))
-                {
-                    return false;
-                }
+                return false;
+            }
 
-                // Deduct resources
-                foreach (var cost in building.ConstructionCost)
+            // Deduct resources
+            foreach (var cost in building.ConstructionCost)
+            {
+                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                if (resource != null)
                 {
-                    var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
-                    if (resource != null)
-                    {
-                        resource.Amount -= cost.Amount;
+                    resource.Amount -= cost.Amount;
                     }
                 }
             }

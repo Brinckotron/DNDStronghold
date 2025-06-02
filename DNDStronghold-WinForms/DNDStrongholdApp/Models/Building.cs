@@ -168,7 +168,7 @@ namespace DNDStrongholdApp.Models
                     // Calculate production for each resource type
                     foreach (var resource in prodAtLevel.resources)
                     {
-                        int totalProduction = resource.perWorkerValue * availableWorkers.Count;
+                        decimal totalProduction = resource.perWorkerValue * availableWorkers.Count;
                         
                         // Add worker skill bonuses if applicable
                         var applicableBonuses = buildingInfo.workerProductionBonus.Where(b => b.resourceType == resource.resourceType);
@@ -179,7 +179,7 @@ namespace DNDStrongholdApp.Models
                                 var skill = worker.Skills.Find(s => s.Name == bonus.skill);
                                 if (skill != null)
                                 {
-                                    totalProduction += (int)(skill.Level * bonus.bonusValue);
+                                    totalProduction += skill.Level * bonus.bonusValue;
                                 }
                             }
                         }
@@ -187,7 +187,8 @@ namespace DNDStrongholdApp.Models
                         ActualProduction.Add(new ResourceProduction
                         {
                             ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType),
-                            Amount = totalProduction
+                            Amount = (int)Math.Floor(totalProduction),
+                            ExactAmount = totalProduction
                         });
                     }
                 }
@@ -868,6 +869,7 @@ namespace DNDStrongholdApp.Models
     {
         public ResourceType ResourceType { get; set; }
         public int Amount { get; set; }
+        public decimal ExactAmount { get; set; }
     }
 
     public class Project
