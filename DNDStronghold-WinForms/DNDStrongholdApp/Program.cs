@@ -1,8 +1,13 @@
+using System;
+using System.Linq;
+using System.Windows.Forms;
+
 namespace DNDStrongholdApp;
 
 static class Program
 {
     public static bool DebugMode { get; private set; } = false;
+    public static bool TestMode { get; private set; } = false;
 
     /// <summary>
     ///  The main entry point for the application.
@@ -12,6 +17,7 @@ static class Program
     {
         // Check for debug flag
         DebugMode = args.Contains("d");
+        TestMode = args.Contains("p");
 
         try
         {

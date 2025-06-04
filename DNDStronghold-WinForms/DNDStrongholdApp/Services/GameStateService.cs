@@ -57,8 +57,15 @@ namespace DNDStrongholdApp.Services
                 if (Program.DebugMode)
                     MessageBox.Show("Starting GameStateService initialization...", "Debug");
                 
-                // Initialize with a new stronghold
-                CreateNewStronghold();
+                // Initialize with test data if TestMode is enabled, otherwise create new stronghold
+                if (Program.TestMode)
+                {
+                    LoadTestStrongholdData();
+                }
+                else
+                {
+                    CreateNewStronghold();
+                }
                 
                 if (Program.DebugMode)
                     MessageBox.Show("GameStateService initialization complete.", "Debug");
@@ -105,35 +112,36 @@ namespace DNDStrongholdApp.Services
                         Amount = resource.Value 
                     });
                 }
+                
+                // Set treasury to match gold resource if provided
+                if (initialResources.ContainsKey(ResourceType.Gold))
+                {
+                    _currentStronghold.Treasury = initialResources[ResourceType.Gold];
+                }
             }
             else
             {
-                // Add default resources
-                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Gold, Amount = 500 });
-                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Food, Amount = 100 });
-                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Wood, Amount = 50 });
-                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Stone, Amount = 30 });
-                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Iron, Amount = 10 });
+                // Add default resources with 0 amounts
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Gold, Amount = 0 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Food, Amount = 0 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Wood, Amount = 0 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Stone, Amount = 0 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Iron, Amount = 0 });
+                
+                // Set treasury to 0 as well
+                _currentStronghold.Treasury = 0;
             }
             
-            // Add buildings if provided, otherwise add default buildings
+            // Add buildings if provided
             if (initialBuildings != null && initialBuildings.Count > 0)
             {
                 _currentStronghold.Buildings.AddRange(initialBuildings);
             }
-            else
-            {
-                AddInitialBuildings();
-            }
             
-            // Add NPCs if provided, otherwise add default NPCs
+            // Add NPCs if provided
             if (initialNPCs != null && initialNPCs.Count > 0)
             {
                 _currentStronghold.NPCs.AddRange(initialNPCs);
-            }
-            else
-            {
-                AddInitialNPCs();
             }
             
             // Add initial journal entry
@@ -147,36 +155,6 @@ namespace DNDStrongholdApp.Services
             
             // Notify listeners that the game state has changed
             OnGameStateChanged();
-
-            // Assign farmer to farm
-            var farmer = _currentStronghold.NPCs.Find(n => n.Type == NPCType.Farmer);
-            var farm = _currentStronghold.Buildings.Find(b => b.Type == BuildingType.Farm);
-            
-            if (farmer != null && farm != null)
-            {
-                farmer.Assignment = new NPCAssignment
-                {
-                    Type = AssignmentType.Building,
-                    TargetId = farm.Id,
-                    TargetName = farm.Name
-                };
-                
-                farm.AssignedWorkers.Add(farmer.Id);
-            }
-
-            // Assign one unassigned worker to the Watchtower if it is UnderConstruction
-            var watchtower = _currentStronghold.Buildings.FirstOrDefault(b => b.Type == BuildingType.Watchtower && b.ConstructionStatus == BuildingStatus.UnderConstruction);
-            var unassignedWorker = _currentStronghold.NPCs.FirstOrDefault(n => n.Assignment.Type == AssignmentType.Unassigned);
-            if (watchtower != null && unassignedWorker != null)
-            {
-                unassignedWorker.Assignment = new NPCAssignment
-                {
-                    Type = AssignmentType.Building,
-                    TargetId = watchtower.Id,
-                    TargetName = watchtower.Name
-                };
-                watchtower.AssignedWorkers.Add(unassignedWorker.Id);
-            }
         }
         
         // Advance the game by one week
@@ -485,127 +463,167 @@ namespace DNDStrongholdApp.Services
                 MessageBox.Show($"Error loading game: {ex.Message}", "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        
-        // Add initial buildings
-        private void AddInitialBuildings()
-        {
-            // Add one of each building type from BuildingData.json
-            var farm = new Building(BuildingType.Farm) { 
-                Name = "Central Farm",
-                ConstructionStatus = BuildingStatus.Complete
-            };
-            var watchtower = new Building(BuildingType.Watchtower) { 
-                Name = "North Watchtower",
-                ConstructionStatus = BuildingStatus.Complete
-            };
-            var smithy = new Building(BuildingType.Smithy) { 
-                Name = "Town Smithy",
-                ConstructionStatus = BuildingStatus.Complete
-            };
-            var laboratory = new Building(BuildingType.Laboratory) { 
-                Name = "Research Laboratory",
-                ConstructionStatus = BuildingStatus.Complete
-            };
 
-            // Add buildings to stronghold
-            _currentStronghold.Buildings.Add(farm);
-            _currentStronghold.Buildings.Add(watchtower);
-            _currentStronghold.Buildings.Add(smithy);
-            _currentStronghold.Buildings.Add(laboratory);
+        // Load test stronghold data from JSON file
+        public void LoadTestStrongholdData()
+        {
+            try
+            {
+                string[] possiblePaths = new[]
+                {
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "TestStrongholdData.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "Data", "TestStrongholdData.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "Data", "TestStrongholdData.json"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "Data", "TestStrongholdData.json")
+                };
+
+                string jsonPath = possiblePaths.FirstOrDefault(File.Exists);
+                
+                if (string.IsNullOrEmpty(jsonPath))
+                {
+                    // Fallback to regular stronghold creation if test data file not found
+                    CreateNewStronghold();
+                    return;
+                }
+
+                string json = File.ReadAllText(jsonPath);
+                
+                // Configure JsonSerializer options for case-insensitive deserialization
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                
+                var testData = JsonSerializer.Deserialize<TestStrongholdData>(json, options);
+                
+                if (testData == null)
+                {
+                    CreateNewStronghold();
+                    return;
+                }
+
+                // Create stronghold with test data
+                _currentStronghold = new Stronghold
+                {
+                    Name = testData.StrongholdName,
+                    Location = testData.StrongholdLocation
+                };
+
+                // Clear default resources and add standard starting resources
+                _currentStronghold.Resources.Clear();
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Gold, Amount = 500 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Food, Amount = 100 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Wood, Amount = 50 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Stone, Amount = 30 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Iron, Amount = 10 });
+
+                // Add buildings from test data
+                foreach (var buildingData in testData.Buildings)
+                {
+                    if (Enum.TryParse<BuildingType>(buildingData.Type, out var buildingType) &&
+                        Enum.TryParse<BuildingStatus>(buildingData.ConstructionStatus, out var constructionStatus))
+                    {
+                        var building = new Building(buildingType)
+                        {
+                            Name = buildingData.Name,
+                            ConstructionStatus = constructionStatus
+                        };
+                        _currentStronghold.Buildings.Add(building);
+                    }
+                }
+
+                // Add NPCs from test data
+                foreach (var npcData in testData.NPCs)
+                {
+                    if (Enum.TryParse<NPCType>(npcData.Type, out var npcType))
+                    {
+                        var npc = new NPC(npcType);
+                        _currentStronghold.NPCs.Add(npc);
+                    }
+                }
+
+                // Apply assignments from test data
+                foreach (var assignment in testData.Assignments)
+                {
+                    if (Enum.TryParse<BuildingType>(assignment.BuildingType, out var buildingType))
+                    {
+                        var building = _currentStronghold.Buildings.FirstOrDefault(b => b.Type == buildingType);
+                        if (building != null)
+                        {
+                            var assignedCount = 0;
+                            foreach (var npcTypeName in assignment.NpcTypes)
+                            {
+                                if (assignedCount >= assignment.MaxWorkers) break;
+                                
+                                if (Enum.TryParse<NPCType>(npcTypeName, out var npcType))
+                                {
+                                    var availableNpc = _currentStronghold.NPCs.FirstOrDefault(n => 
+                                        n.Type == npcType && n.Assignment.Type == AssignmentType.Unassigned);
+                                    
+                                    if (availableNpc != null)
+                                    {
+                                        availableNpc.Assignment = new NPCAssignment
+                                        {
+                                            Type = AssignmentType.Building,
+                                            TargetId = building.Id,
+                                            TargetName = building.Name
+                                        };
+                                        building.AssignedWorkers.Add(availableNpc.Id);
+                                        assignedCount++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Add initial journal entry
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    "Stronghold Founded",
+                    $"The stronghold {_currentStronghold.Name} has been founded in {_currentStronghold.Location}."
+                ));
+
+                // Notify listeners that the game state has changed
+                OnGameStateChanged();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading test stronghold data: {ex.Message}\n\nFalling back to default stronghold creation.", 
+                    "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                CreateNewStronghold();
+            }
         }
-        
-        // Add initial NPCs
-        private void AddInitialNPCs()
+
+        // Data classes for test stronghold JSON structure
+        public class TestStrongholdData
         {
-            // Create 20 NPCs with a mix of types
-            var npcTypes = new[]
-            {
-                NPCType.Peasant, NPCType.Peasant, NPCType.Peasant, NPCType.Peasant, // 4 peasants
-                NPCType.Laborer, NPCType.Laborer, NPCType.Laborer, // 3 laborers
-                NPCType.Farmer, NPCType.Farmer, NPCType.Farmer, // 3 farmers
-                NPCType.Militia, NPCType.Militia, // 2 militia
-                NPCType.Scout, NPCType.Scout, // 2 scouts
-                NPCType.Artisan, NPCType.Artisan, // 2 artisans
-                NPCType.Scholar, NPCType.Scholar, // 2 scholars
-                NPCType.Merchant, NPCType.Merchant // 2 merchants
-            };
+            public string StrongholdName { get; set; } = "New Stronghold";
+            public string StrongholdLocation { get; set; } = "Unknown";
+            public List<TestBuildingData> Buildings { get; set; } = new List<TestBuildingData>();
+            public List<TestNPCData> NPCs { get; set; } = new List<TestNPCData>();
+            public List<TestAssignmentData> Assignments { get; set; } = new List<TestAssignmentData>();
+        }
 
-            foreach (var type in npcTypes)
-            {
-                var npc = new NPC(type);
-                _currentStronghold.NPCs.Add(npc);
-            }
+        public class TestBuildingData
+        {
+            public string Type { get; set; } = "";
+            public string Name { get; set; } = "";
+            public string ConstructionStatus { get; set; } = "Complete";
+        }
 
-            // Assign NPCs to buildings
-            var buildings = _currentStronghold.Buildings;
-            
-            // Assign farmers to farm
-            var farm = buildings.Find(b => b.Type == BuildingType.Farm);
-            var farmers = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Farmer).Take(3).ToList();
-            if (farm != null && farmers.Any())
-            {
-                foreach (var farmer in farmers)
-                {
-                    farmer.Assignment = new NPCAssignment
-                    {
-                        Type = AssignmentType.Building,
-                        TargetId = farm.Id,
-                        TargetName = farm.Name
-                    };
-                    farm.AssignedWorkers.Add(farmer.Id);
-                }
-            }
+        public class TestNPCData
+        {
+            public string Type { get; set; } = "";
+        }
 
-            // Assign militia and scouts to watchtower
-            var watchtower = buildings.Find(b => b.Type == BuildingType.Watchtower);
-            var guards = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Militia || n.Type == NPCType.Scout).Take(2).ToList();
-            if (watchtower != null && guards.Any())
-            {
-                foreach (var guard in guards)
-                {
-                    guard.Assignment = new NPCAssignment
-                    {
-                        Type = AssignmentType.Building,
-                        TargetId = watchtower.Id,
-                        TargetName = watchtower.Name
-                    };
-                    watchtower.AssignedWorkers.Add(guard.Id);
-                }
-            }
-
-            // Assign artisans to smithy
-            var smithy = buildings.Find(b => b.Type == BuildingType.Smithy);
-            var artisans = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Artisan).Take(2).ToList();
-            if (smithy != null && artisans.Any())
-            {
-                foreach (var artisan in artisans)
-                {
-                    artisan.Assignment = new NPCAssignment
-                    {
-                        Type = AssignmentType.Building,
-                        TargetId = smithy.Id,
-                        TargetName = smithy.Name
-                    };
-                    smithy.AssignedWorkers.Add(artisan.Id);
-                }
-            }
-
-            // Assign scholars to laboratory
-            var laboratory = buildings.Find(b => b.Type == BuildingType.Laboratory);
-            var scholars = _currentStronghold.NPCs.Where(n => n.Type == NPCType.Scholar).Take(2).ToList();
-            if (laboratory != null && scholars.Any())
-            {
-                foreach (var scholar in scholars)
-                {
-                    scholar.Assignment = new NPCAssignment
-                    {
-                        Type = AssignmentType.Building,
-                        TargetId = laboratory.Id,
-                        TargetName = laboratory.Name
-                    };
-                    laboratory.AssignedWorkers.Add(scholar.Id);
-                }
-            }
+        public class TestAssignmentData
+        {
+            public string BuildingType { get; set; } = "";
+            public List<string> NpcTypes { get; set; } = new List<string>();
+            public int MaxWorkers { get; set; } = 0;
         }
         
         // Add a new building to the stronghold
@@ -651,13 +669,6 @@ namespace DNDStrongholdApp.Services
             return true;
         }
 
-        // Existing AddBuilding method marked as obsolete
-        [Obsolete("Use AddBuildingAndDeductCosts instead")]
-        public void AddBuilding(Building building)
-        {
-            AddBuildingAndDeductCosts(building);
-        }
-        
         // Add a new NPC to the stronghold
         public void AddNPC(NPC npc)
         {

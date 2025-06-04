@@ -617,8 +617,7 @@ namespace DNDStrongholdApp.Models
                 }
             }
 
-            // Assign current workers to the project
-            project.AssignedWorkers = new List<string>(AssignedWorkers);
+            // Don't automatically assign all workers - the project.AssignedWorkers should already be set by the dialog
             CurrentProject = project;
 
             return true;

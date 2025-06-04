@@ -1,0 +1,70 @@
+{
+  "strongholdName": "New Stronghold",
+  "strongholdLocation": "Unknown",
+  "buildings": [
+    {
+      "type": "Farm",
+      "name": "Central Farm",
+      "constructionStatus": "Complete"
+    },
+    {
+      "type": "Watchtower", 
+      "name": "North Watchtower",
+      "constructionStatus": "Complete"
+    },
+    {
+      "type": "Smithy",
+      "name": "Town Smithy", 
+      "constructionStatus": "Complete"
+    },
+    {
+      "type": "Laboratory",
+      "name": "Research Laboratory",
+      "constructionStatus": "Complete"
+    }
+  ],
+  "npcs": [
+    { "type": "Peasant" },
+    { "type": "Peasant" },
+    { "type": "Peasant" },
+    { "type": "Peasant" },
+    { "type": "Laborer" },
+    { "type": "Laborer" },
+    { "type": "Laborer" },
+    { "type": "Farmer" },
+    { "type": "Farmer" },
+    { "type": "Farmer" },
+    { "type": "Militia" },
+    { "type": "Militia" },
+    { "type": "Scout" },
+    { "type": "Scout" },
+    { "type": "Artisan" },
+    { "type": "Artisan" },
+    { "type": "Scholar" },
+    { "type": "Scholar" },
+    { "type": "Merchant" },
+    { "type": "Merchant" }
+  ],
+  "assignments": [
+    {
+      "buildingType": "Farm",
+      "npcTypes": ["Farmer", "Farmer", "Farmer"],
+      "maxWorkers": 3
+    },
+    {
+      "buildingType": "Watchtower", 
+      "npcTypes": ["Militia", "Scout"],
+      "maxWorkers": 2
+    },
+    {
+      "buildingType": "Smithy",
+      "npcTypes": ["Artisan", "Artisan"],
+      "maxWorkers": 2
+    },
+    {
+      "buildingType": "Laboratory",
+      "npcTypes": ["Scholar", "Scholar"],
+      "maxWorkers": 2
+    }
+  ]
+} 

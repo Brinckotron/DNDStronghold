@@ -1547,6 +1547,210 @@ public partial class MainDashboard : Form
         // Add workforce group to sections panel
         sectionsPanel.Controls.Add(workforceGroup, 0, 3);
 
+        // Projects Section
+        GroupBox projectsGroup = new GroupBox
+        {
+            Text = "Projects",
+            Dock = DockStyle.Top,
+            Height = 250,
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 0, 10)
+        };
+
+        // Create a header panel for the title and projects button
+        Panel projectsHeaderPanel = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 50,
+            Padding = new Padding(0)
+        };
+
+        // Add projects summary label
+        Label projectsSummaryLabel = new Label
+        {
+            AutoSize = false,
+            Height = 24,
+            Width = projectsHeaderPanel.Width - 140, // Leave space for buttons
+            TextAlign = ContentAlignment.MiddleLeft,
+            Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+            Tag = "ProjectsSummaryLabel"
+        };
+        projectsHeaderPanel.Resize += (s, e) => projectsSummaryLabel.Width = projectsHeaderPanel.Width - 140;
+
+        // Add collapse/expand button
+        Button projectsCollapseButton = new Button
+        {
+            Text = "▼",
+            Font = new Font("Segoe UI", 6),
+            Width = 24,
+            Height = 24,
+            FlatStyle = FlatStyle.Flat,
+            Tag = "ProjectsCollapseButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top
+        };
+        projectsCollapseButton.Location = new Point(projectsHeaderPanel.Width - projectsCollapseButton.Width - 10, 5);
+        projectsHeaderPanel.Resize += (s, e) => projectsCollapseButton.Location = new Point(projectsHeaderPanel.Width - projectsCollapseButton.Width - 10, 5);
+
+        // Add Available Projects button
+        Button availableProjectsButton = new Button
+        {
+            Text = "Available",
+            Width = 100,
+            Height = 34,
+            FlatStyle = FlatStyle.Flat,
+            Tag = "AvailableProjectsButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top
+        };
+        availableProjectsButton.Location = new Point(projectsHeaderPanel.Width - availableProjectsButton.Width - projectsCollapseButton.Width - 15, 5);
+        projectsHeaderPanel.Resize += (s, e) => availableProjectsButton.Location = new Point(projectsHeaderPanel.Width - availableProjectsButton.Width - projectsCollapseButton.Width - 15, 5);
+        availableProjectsButton.Click += AvailableProjects_Click;
+
+        // Create collapsible content panel
+        Panel projectsContentPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Height = 200
+        };
+
+        // Create projects information panel
+        TableLayoutPanel projectsInfoPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(5)
+        };
+        projectsInfoPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 120F)); // Current project info
+        projectsInfoPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // Project workers list
+
+        // Current project info panel
+        Panel currentProjectPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+
+        Label currentProjectLabel = new Label
+        {
+            Text = "Current Project:",
+            Font = new Font(Font, FontStyle.Bold),
+            Location = new Point(10, 10),
+            AutoSize = true
+        };
+
+        Label projectNameLabel = new Label
+        {
+            Tag = "ProjectNameLabel",
+            Location = new Point(10, 35),
+            Size = new Size(250, 20),
+            Text = "None"
+        };
+
+        Label projectTimeLabel = new Label
+        {
+            Tag = "ProjectTimeLabel",
+            Location = new Point(10, 60),
+            Size = new Size(250, 20),
+            Text = "Time Remaining: N/A"
+        };
+
+        Button cancelProjectButton = new Button
+        {
+            Text = "Cancel",
+            Size = new Size(80, 30),
+            Location = new Point(currentProjectPanel.Width - 90, 45),
+            Anchor = AnchorStyles.Right | AnchorStyles.Top,
+            Tag = "CancelProjectButton",
+            Visible = false
+        };
+        cancelProjectButton.Click += CancelProject_Click;
+
+        currentProjectPanel.Controls.Add(currentProjectLabel);
+        currentProjectPanel.Controls.Add(projectNameLabel);
+        currentProjectPanel.Controls.Add(projectTimeLabel);
+        currentProjectPanel.Controls.Add(cancelProjectButton);
+        projectsInfoPanel.Controls.Add(currentProjectPanel, 0, 0);
+
+        // Project workers list view
+        ListView projectWorkersListView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "ProjectWorkersListView"
+        };
+
+        // Add columns for project workers
+        projectWorkersListView.Columns.Add("Worker", 120);
+        projectWorkersListView.Columns.Add("Type", 100);
+        projectWorkersListView.Columns.Add("Lvl", 50);
+        projectWorkersListView.Columns.Add("Status", 150);
+
+        // Dynamic column widths for project workers
+        void ResizeProjectWorkersColumns(object s, EventArgs e)
+        {
+            int totalWidth = projectWorkersListView.ClientSize.Width;
+            projectWorkersListView.Columns[0].Width = (int)(totalWidth * 0.30);
+            projectWorkersListView.Columns[1].Width = (int)(totalWidth * 0.25);
+            projectWorkersListView.Columns[2].Width = (int)(totalWidth * 0.15);
+            projectWorkersListView.Columns[3].Width = (int)(totalWidth * 0.30);
+        }
+        projectWorkersListView.Resize += ResizeProjectWorkersColumns;
+        ResizeProjectWorkersColumns(null, null);
+
+        // Add double-click handler for NPC navigation
+        projectWorkersListView.DoubleClick += (s, e) =>
+        {
+            var listView = (ListView)s;
+            if (listView.SelectedItems.Count == 0) return;
+
+            var selectedItem = listView.SelectedItems[0];
+            string npcId = selectedItem.Tag?.ToString();
+            if (!string.IsNullOrEmpty(npcId))
+            {
+                ShowNPCInTab(npcId);
+            }
+        };
+
+        projectsInfoPanel.Controls.Add(projectWorkersListView, 0, 1);
+        projectsContentPanel.Controls.Add(projectsInfoPanel);
+
+        // Start collapsed
+        projectsContentPanel.Visible = false;
+        projectsGroup.Height = 90;
+        projectsCollapseButton.Text = "▶";
+
+        projectsCollapseButton.Click += (s, e) =>
+        {
+            Button btn = (Button)s;
+            if (projectsContentPanel.Visible)
+            {
+                projectsContentPanel.Visible = false;
+                projectsGroup.Height = 90;
+                btn.Text = "▶";
+            }
+            else
+            {
+                projectsContentPanel.Visible = true;
+                projectsGroup.Height = 350; // Increased from 250 to 350 to show assigned workers listview properly
+                btn.Text = "▼";
+            }
+        };
+
+        // Add controls to panels
+        projectsHeaderPanel.Controls.Add(projectsSummaryLabel);
+        projectsHeaderPanel.Controls.Add(availableProjectsButton);
+        projectsHeaderPanel.Controls.Add(projectsCollapseButton);
+        projectsGroup.Controls.Add(projectsContentPanel);
+        projectsGroup.Controls.Add(projectsHeaderPanel);
+
+        // Update sections panel to have 5 rows instead of 4
+        sectionsPanel.RowCount = 5;
+        
+        // Add projects group to sections panel
+        sectionsPanel.Controls.Add(projectsGroup, 0, 4);
+
         tab.Controls.Add(mainLayout);
     }
 
@@ -2160,27 +2364,153 @@ public partial class MainDashboard : Form
             string buildingId = (string)listView.SelectedItems[0].Tag;
             _selectedBuildingId = buildingId;
             
-            // Find the selected building
-            var building = _stronghold.Buildings.Find(b => b.Id == buildingId);
-            if (building == null) return;
-
-            // Get assigned NPCs for production calculation
-            var assignedNPCs = building.AssignedWorkers
-                .Select(workerId => _stronghold.NPCs.Find(n => n.Id == workerId))
-                .Where(npc => npc != null)
-                .ToList();
-
-            // Update building's production based on current workers
-            building.UpdateProduction(assignedNPCs);
-
-            // Update production list view with detailed breakdown
-            var productionListView = FindControl<ListView>(_tabControl.TabPages[1], "ProductionListView");
-            if (productionListView != null)
+            try
             {
-                productionListView.Items.Clear();
-                if (building.IsFunctional())
+                // Find the selected building
+                var building = _stronghold.Buildings.Find(b => b.Id == buildingId);
+                if (building == null) return;
+
+                // Get assigned NPCs for production calculation
+                var assignedNPCs = building.AssignedWorkers
+                    .Select(workerId => _stronghold.NPCs.Find(n => n.Id == workerId))
+                    .Where(npc => npc != null)
+                    .ToList();
+
+                // Update building's production based on current workers
+                building.UpdateProduction(assignedNPCs);
+
+                // Update production list view with detailed breakdown
+                var productionListView = FindControl<ListView>(_tabControl.TabPages[1], "ProductionListView");
+                if (productionListView != null)
                 {
-                    // Get building info for bonus calculations
+                    productionListView.Items.Clear();
+                    if (building.IsFunctional())
+                    {
+                        // Get building info for bonus calculations
+                        string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                        if (File.Exists(jsonPath))
+                        {
+                            string json = File.ReadAllText(jsonPath);
+                            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                            
+                            if (buildingInfo != null)
+                            {
+                                var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == building.Level);
+                                if (prodAtLevel != null)
+                                {
+                                    // For each resource type produced
+                                    foreach (var resource in prodAtLevel.resources)
+                                    {
+                                        var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType);
+                                        var applicableBonuses = buildingInfo.workerProductionBonus
+                                            .Where(b => b.resourceType == resource.resourceType);
+
+                                        // Add a header row for this resource
+                                        var headerItem = new ListViewItem(resourceType.ToString());
+                                        var availableWorkers = assignedNPCs.Where(w => 
+                                            building.CurrentProject == null || !building.CurrentProject.AssignedWorkers.Contains(w.Id)).ToList();
+                                        headerItem.SubItems.Add(availableWorkers.Count.ToString());
+                                        
+                                        // Calculate totals
+                                        decimal totalBase = resource.perWorkerValue * availableWorkers.Count;
+                                        decimal totalBonus = 0m;
+                                        foreach (var worker in availableWorkers)
+                                        {
+                                            foreach (var bonus in applicableBonuses)
+                                            {
+                                                var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                                if (skill != null)
+                                                {
+                                                    totalBonus += skill.Level * bonus.bonusValue;
+                                                }
+                                            }
+                                        }
+                                        decimal total = totalBase + totalBonus;
+                                        
+                                        headerItem.SubItems.Add(((int)total).ToString());
+                                        headerItem.SubItems.Add(totalBase.ToString("0.#"));
+                                        headerItem.SubItems.Add(totalBonus.ToString("0.#"));
+                                        
+                                        headerItem.BackColor = Color.LightGray;
+                                        headerItem.Font = new Font(productionListView.Font, FontStyle.Bold);
+                                        productionListView.Items.Add(headerItem);
+
+                                        // For each worker
+                                        foreach (var worker in assignedNPCs)
+                                        {
+                                            // Skip workers assigned to projects
+                                            if (building.CurrentProject?.AssignedWorkers.Contains(worker.Id) ?? false)
+                                                continue;
+
+                                            decimal baseProduction = resource.perWorkerValue;
+                                            decimal bonusProduction = 0m;
+                                            string bonusBreakdown = "";
+
+                                            // Calculate bonuses from skills
+                                            foreach (var bonus in applicableBonuses)
+                                            {
+                                                var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                                if (skill != null)
+                                                {
+                                                    decimal skillBonus = skill.Level * bonus.bonusValue;
+                                                    bonusProduction += skillBonus;
+                                                    bonusBreakdown += $"{bonus.skill}({skill.Level}): +{skillBonus:0.#}, ";
+                                                }
+                                            }
+
+                                            decimal totalWorkerProduction = baseProduction + bonusProduction;
+
+                                            // Add worker row
+                                            var workerItem = new ListViewItem("");
+                                            workerItem.SubItems.Add(worker.Name);
+                                            workerItem.SubItems.Add(totalWorkerProduction % 1 == 0 ? 
+                                                ((int)totalWorkerProduction).ToString() : 
+                                                totalWorkerProduction.ToString("0.#"));
+                                            workerItem.SubItems.Add(baseProduction.ToString("0.#"));
+                                            workerItem.SubItems.Add(bonusBreakdown.TrimEnd(',', ' '));
+                                            productionListView.Items.Add(workerItem);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ListViewItem item = new ListViewItem("Not Producing");
+                        item.SubItems.Add("-");
+                        item.SubItems.Add("-");
+                        item.SubItems.Add("-");
+                        item.SubItems.Add("-");
+                        item.ForeColor = Color.Gray;
+                        productionListView.Items.Add(item);
+                    }
+                }
+
+                // Update production summary label
+                var productionSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProductionSummaryLabel");
+                if (productionSummaryLabel != null)
+                {
+                    if (building.IsFunctional() && building.ActualProduction.Any())
+                    {
+                        var summaryText = string.Join("; ", building.ActualProduction
+                            .Select(p => $"{p.ResourceType}: +{p.Amount}/week"));
+                        productionSummaryLabel.Text = summaryText;
+                    }
+                    else
+                    {
+                        productionSummaryLabel.Text = "Not Producing";
+                    }
+                }
+
+                // Update upkeep list view with detailed breakdown
+                var upkeepListView = FindControl<ListView>(_tabControl.TabPages[1], "UpkeepListView");
+                if (upkeepListView != null)
+                {
+                    upkeepListView.Items.Clear();
+                    
+                    // Get building info for upkeep calculations
                     string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
                     if (File.Exists(jsonPath))
                     {
@@ -2190,313 +2520,182 @@ public partial class MainDashboard : Form
                         
                         if (buildingInfo != null)
                         {
-                            var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == building.Level);
-                            if (prodAtLevel != null)
+                            // Calculate total worker salaries first
+                            int totalSalaries = assignedNPCs.Sum(worker => 
+                                Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                            // Get all upkeep values for current level
+                            var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                            
+                            // If we have workers but no Gold upkeep entry, add one
+                            if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
                             {
-                                // For each resource type produced
-                                foreach (var resource in prodAtLevel.resources)
+                                upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
+                            }
+
+                            // Sort to ensure Gold is always first if present
+                            upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
+                            
+                            // Add resource header rows
+                            foreach (var upkeep in upkeepAtLevel)
+                            {
+                                if (upkeep.resourceType == "Gold")
                                 {
-                                    var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType);
-                                    var applicableBonuses = buildingInfo.workerProductionBonus
-                                        .Where(b => b.resourceType == resource.resourceType);
-
-                                    // Add a header row for this resource
-                                    var headerItem = new ListViewItem(resourceType.ToString());
-                                    var availableWorkers = assignedNPCs.Where(w => 
-                                        building.CurrentProject == null || !building.CurrentProject.AssignedWorkers.Contains(w.Id)).ToList();
-                                    headerItem.SubItems.Add(availableWorkers.Count.ToString());
-                                    
-                                    // Calculate totals
-                                    decimal totalBase = resource.perWorkerValue * availableWorkers.Count;
-                                    decimal totalBonus = 0m;
-                                    foreach (var worker in availableWorkers)
-                                    {
-                                        foreach (var bonus in applicableBonuses)
-                                        {
-                                            var skill = worker.Skills.Find(s => s.Name == bonus.skill);
-                                            if (skill != null)
-                                            {
-                                                totalBonus += skill.Level * bonus.bonusValue;
-                                            }
-                                        }
-                                    }
-                                    decimal total = totalBase + totalBonus;
-                                    
-                                    headerItem.SubItems.Add(((int)total).ToString());
-                                    headerItem.SubItems.Add(totalBase.ToString("0.#"));
-                                    headerItem.SubItems.Add(totalBonus.ToString("0.#"));
-                                    
+                                    var headerItem = new ListViewItem("Gold");
+                                    headerItem.SubItems.Add("Total");
+                                    headerItem.SubItems.Add((upkeep.baseValue + totalSalaries).ToString());
+                                    headerItem.SubItems.Add(upkeep.baseValue > 0 ? 
+                                        $"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]" :
+                                        $"Salaries[{totalSalaries}]");
                                     headerItem.BackColor = Color.LightGray;
-                                    headerItem.Font = new Font(productionListView.Font, FontStyle.Bold);
-                                    productionListView.Items.Add(headerItem);
+                                    headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                                    upkeepListView.Items.Add(headerItem);
 
-                                    // For each worker
+                                    // Add worker rows
                                     foreach (var worker in assignedNPCs)
                                     {
-                                        // Skip workers assigned to projects
-                                        if (building.CurrentProject?.AssignedWorkers.Contains(worker.Id) ?? false)
-                                            continue;
+                                        int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                                        var highestSkill = worker.Skills.Any() ? 
+                                            worker.Skills.OrderByDescending(s => s.Level).First() : null;
 
-                                        decimal baseProduction = resource.perWorkerValue;
-                                        decimal bonusProduction = 0m;
-                                        string bonusBreakdown = "";
-
-                                        // Calculate bonuses from skills
-                                        foreach (var bonus in applicableBonuses)
-                                        {
-                                            var skill = worker.Skills.Find(s => s.Name == bonus.skill);
-                                            if (skill != null)
-                                            {
-                                                decimal skillBonus = skill.Level * bonus.bonusValue;
-                                                bonusProduction += skillBonus;
-                                                bonusBreakdown += $"{bonus.skill}({skill.Level}): +{skillBonus:0.#}, ";
-                                            }
-                                        }
-
-                                        decimal totalWorkerProduction = baseProduction + bonusProduction;
-
-                                        // Add worker row
-                                        var workerItem = new ListViewItem("");
-                                        workerItem.SubItems.Add(worker.Name);
-                                        workerItem.SubItems.Add(totalWorkerProduction % 1 == 0 ? 
-                                            ((int)totalWorkerProduction).ToString() : 
-                                            totalWorkerProduction.ToString("0.#"));
-                                        workerItem.SubItems.Add(baseProduction.ToString("0.#"));
-                                        workerItem.SubItems.Add(bonusBreakdown.TrimEnd(',', ' '));
-                                        productionListView.Items.Add(workerItem);
+                                        var salaryItem = new ListViewItem("");  // Empty resource column
+                                        salaryItem.SubItems.Add(worker.Name);
+                                        salaryItem.SubItems.Add(salary.ToString());
+                                        salaryItem.SubItems.Add(highestSkill != null ? 
+                                            $"{highestSkill.Name} ({highestSkill.Level})" : 
+                                            "No Skills (1)");
+                                        upkeepListView.Items.Add(salaryItem);
                                     }
                                 }
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    ListViewItem item = new ListViewItem("Not Producing");
-                    item.SubItems.Add("-");
-                    item.SubItems.Add("-");
-                    item.SubItems.Add("-");
-                    item.SubItems.Add("-");
-                    item.ForeColor = Color.Gray;
-                    productionListView.Items.Add(item);
-                }
-            }
-
-            // Update production summary label
-            var productionSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProductionSummaryLabel");
-            if (productionSummaryLabel != null)
-            {
-                if (building.IsFunctional() && building.ActualProduction.Any())
-                {
-                    var summaryText = string.Join("; ", building.ActualProduction
-                        .Select(p => $"{p.ResourceType}: +{p.Amount}/week"));
-                    productionSummaryLabel.Text = summaryText;
-                }
-                else
-                {
-                    productionSummaryLabel.Text = "Not Producing";
-                }
-            }
-
-            // Update upkeep list view with detailed breakdown
-            var upkeepListView = FindControl<ListView>(_tabControl.TabPages[1], "UpkeepListView");
-            if (upkeepListView != null)
-            {
-                upkeepListView.Items.Clear();
-                
-                // Get building info for upkeep calculations
-                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-                if (File.Exists(jsonPath))
-                {
-                    string json = File.ReadAllText(jsonPath);
-                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                    
-                    if (buildingInfo != null)
-                    {
-                        // Calculate total worker salaries first
-                        int totalSalaries = assignedNPCs.Sum(worker => 
-                            Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-
-                        // Get all upkeep values for current level
-                        var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
-                        
-                        // If we have workers but no Gold upkeep entry, add one
-                        if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
-                        {
-                            upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
-                        }
-
-                        // Sort to ensure Gold is always first if present
-                        upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
-                        
-                        // Add resource header rows
-                        foreach (var upkeep in upkeepAtLevel)
-                        {
-                            if (upkeep.resourceType == "Gold")
-                            {
-                                var headerItem = new ListViewItem("Gold");
-                                headerItem.SubItems.Add("Total");
-                                headerItem.SubItems.Add((upkeep.baseValue + totalSalaries).ToString());
-                                headerItem.SubItems.Add(upkeep.baseValue > 0 ? 
-                                    $"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]" :
-                                    $"Salaries[{totalSalaries}]");
-                                headerItem.BackColor = Color.LightGray;
-                                headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
-                                upkeepListView.Items.Add(headerItem);
-
-                                // Add worker rows
-                                foreach (var worker in assignedNPCs)
+                                else
                                 {
-                                    int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
-                                    var highestSkill = worker.Skills.Any() ? 
-                                        worker.Skills.OrderByDescending(s => s.Level).First() : null;
-
-                                    var salaryItem = new ListViewItem("");  // Empty resource column
-                                    salaryItem.SubItems.Add(worker.Name);
-                                    salaryItem.SubItems.Add(salary.ToString());
-                                    salaryItem.SubItems.Add(highestSkill != null ? 
-                                        $"{highestSkill.Name} ({highestSkill.Level})" : 
-                                        "No Skills (1)");
-                                    upkeepListView.Items.Add(salaryItem);
+                                    var headerItem = new ListViewItem(upkeep.resourceType);
+                                    headerItem.SubItems.Add("Total");
+                                    headerItem.SubItems.Add(upkeep.baseValue.ToString());
+                                    headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}]");
+                                    headerItem.BackColor = Color.LightGray;
+                                    headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                                    upkeepListView.Items.Add(headerItem);
                                 }
                             }
-                            else
+                        }
+                    }
+                }
+
+                // Update upkeep summary label
+                var upkeepSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "UpkeepSummaryLabel");
+                if (upkeepSummaryLabel != null)
+                {
+                    var summaryParts = new List<string>();
+
+                    // Get building info for upkeep calculations
+                    string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                    if (File.Exists(jsonPath))
+                    {
+                        string json = File.ReadAllText(jsonPath);
+                        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                        
+                        if (buildingInfo != null)
+                        {
+                            // Calculate total worker salaries
+                            int totalSalaries = assignedNPCs.Sum(worker => 
+                                Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                            // Get all upkeep values for current level
+                            var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                            
+                            // If we have workers but no Gold upkeep entry, add one
+                            if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
                             {
-                                var headerItem = new ListViewItem(upkeep.resourceType);
-                                headerItem.SubItems.Add("Total");
-                                headerItem.SubItems.Add(upkeep.baseValue.ToString());
-                                headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}]");
-                                headerItem.BackColor = Color.LightGray;
-                                headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
-                                upkeepListView.Items.Add(headerItem);
+                                upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
+                            }
+
+                            // Sort to ensure Gold is always first if present
+                            upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
+                            
+                            // Add each resource upkeep to summary
+                            foreach (var upkeep in upkeepAtLevel)
+                            {
+                                int totalUpkeep = upkeep.baseValue;
+                                if (upkeep.resourceType == "Gold")
+                                {
+                                    totalUpkeep += totalSalaries;
+                                }
+                                summaryParts.Add($"{upkeep.resourceType}: -{totalUpkeep}/week");
                             }
                         }
                     }
+
+                    upkeepSummaryLabel.Text = summaryParts.Any() ? string.Join("; ", summaryParts) : "No Upkeep";
                 }
-            }
 
-            // Update upkeep summary label
-            var upkeepSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "UpkeepSummaryLabel");
-            if (upkeepSummaryLabel != null)
-            {
-                var summaryParts = new List<string>();
+                // Update building details in the right panel
+                var buildingNameValue = FindControl<TextBox>(_tabControl.TabPages[1], "BuildingNameValue");
+                var buildingTypeValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingTypeValue");
+                var buildingLevelValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingLevelValue");
+                var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
+                var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
 
-                // Get building info for upkeep calculations
-                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-                if (File.Exists(jsonPath))
+                var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
+                var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
+                var cancelButton = FindControl<Button>(_tabControl.TabPages[1], "CancelButton");
+
+                if (buildingNameValue != null) buildingNameValue.Text = building.Name;
+                if (buildingTypeValue != null) buildingTypeValue.Text = building.Type.ToString();
+                if (buildingLevelValue != null) buildingLevelValue.Text = building.Level.ToString();
+                
+                // Update status with progress and time if applicable
+                if (buildingStatusValue != null)
                 {
-                    string json = File.ReadAllText(jsonPath);
-                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                    
-                    if (buildingInfo != null)
+                    string statusText = building.ConstructionStatus.ToString();
+                    if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                        building.ConstructionStatus == BuildingStatus.Repairing ||
+                        building.ConstructionStatus == BuildingStatus.Upgrading)
                     {
-                        // Calculate total worker salaries
-                        int totalSalaries = assignedNPCs.Sum(worker => 
-                            Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-
-                        // Get all upkeep values for current level
-                        var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
-                        
-                        // If we have workers but no Gold upkeep entry, add one
-                        if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
+                        if (building.AssignedWorkers.Count == 0)
                         {
-                            upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
+                            statusText += " (No Workers)";
                         }
-
-                        // Sort to ensure Gold is always first if present
-                        upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
-                        
-                        // Add each resource upkeep to summary
-                        foreach (var upkeep in upkeepAtLevel)
+                        else
                         {
-                            int totalUpkeep = upkeep.baseValue;
-                            if (upkeep.resourceType == "Gold")
-                            {
-                                totalUpkeep += totalSalaries;
-                            }
-                            summaryParts.Add($"{upkeep.resourceType}: -{totalUpkeep}/week");
+                            statusText += $" ({building.ConstructionProgress}%)";
                         }
                     }
+                    buildingStatusValue.Text = statusText;
                 }
 
-                upkeepSummaryLabel.Text = summaryParts.Any() ? string.Join("; ", summaryParts) : "No Upkeep";
-            }
+                if (buildingConditionValue != null)
+                    buildingConditionValue.Text = $"{building.Condition}%";
 
-            // Update building details in the right panel
-            var buildingNameValue = FindControl<TextBox>(_tabControl.TabPages[1], "BuildingNameValue");
-            var buildingTypeValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingTypeValue");
-            var buildingLevelValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingLevelValue");
-            var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
-            var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
-
-            var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
-            var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
-            var cancelButton = FindControl<Button>(_tabControl.TabPages[1], "CancelButton");
-
-            if (buildingNameValue != null) buildingNameValue.Text = building.Name;
-            if (buildingTypeValue != null) buildingTypeValue.Text = building.Type.ToString();
-            if (buildingLevelValue != null) buildingLevelValue.Text = building.Level.ToString();
-            
-            // Update status with progress and time if applicable
-            if (buildingStatusValue != null)
-            {
-                string statusText = building.ConstructionStatus.ToString();
-                if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
-                    building.ConstructionStatus == BuildingStatus.Repairing ||
-                    building.ConstructionStatus == BuildingStatus.Upgrading)
+                // Update workforce section
+                var workforceSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "WorkforceSummaryLabel");
+                var workersListView = FindControl<ListView>(_tabControl.TabPages[1], "WorkersListView");
+                
+                if (workforceSummaryLabel != null)
                 {
-                    if (building.AssignedWorkers.Count == 0)
-                    {
-                        statusText += " (No Workers)";
-                    }
-                    else
-                    {
-                        statusText += $" ({building.ConstructionProgress}%)";
-                    }
+                    workforceSummaryLabel.Text = $"{building.AssignedWorkers.Count}/{building.WorkerSlots} Workers";
                 }
-                buildingStatusValue.Text = statusText;
-            }
 
-            if (buildingConditionValue != null)
-                buildingConditionValue.Text = $"{building.Condition}%";
-
-            // Update workforce section
-            var workforceSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "WorkforceSummaryLabel");
-            var workersListView = FindControl<ListView>(_tabControl.TabPages[1], "WorkersListView");
-            
-            if (workforceSummaryLabel != null)
-            {
-                workforceSummaryLabel.Text = $"{building.AssignedWorkers.Count}/{building.WorkerSlots} Workers";
-            }
-
-            if (workersListView != null)
-            {
-                workersListView.Items.Clear();
-
-                // Get building info for skill relevance
-                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-                if (File.Exists(jsonPath))
+                if (workersListView != null)
                 {
-                    string json = File.ReadAllText(jsonPath);
-                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                    workersListView.Items.Clear();
 
-                    // If there's an active project, add a header row for it
-                    if (building.CurrentProject != null)
+                    // Get building info for skill relevance
+                    string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                    if (File.Exists(jsonPath))
                     {
-                        var projectHeader = new ListViewItem(building.CurrentProject.Name);
-                        projectHeader.SubItems.Add("Project");
-                        projectHeader.SubItems.Add($"{building.CurrentProject.TimeRemaining}");
-                        projectHeader.SubItems.Add("Weeks left");
-                        projectHeader.BackColor = Color.LightGray;
-                        projectHeader.Font = new Font(workersListView.Font, FontStyle.Bold);
-                        workersListView.Items.Add(projectHeader);
+                        string json = File.ReadAllText(jsonPath);
+                        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
 
-                        // Add project workers
-                        foreach (var workerId in building.CurrentProject.AssignedWorkers)
+                        // Add regular workers first (workers not assigned to current project)
+                        foreach (var workerId in building.AssignedWorkers)
                         {
+                            // Skip workers assigned to the current project - we'll add them below
+                            if (building.CurrentProject?.AssignedWorkers.Contains(workerId) ?? false)
+                                continue;
+
                             var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
                             if (worker == null) continue;
 
@@ -2525,82 +2724,197 @@ public partial class MainDashboard : Form
                             }
                             item.SubItems.Add(string.Join(", ", relevantSkills));
                             item.Tag = worker.Id;
-                            item.ForeColor = Color.Gray; // Indicate they're assigned to project
                             workersListView.Items.Add(item);
                         }
 
-                        // Add a blank row for separation
-                        var separator = new ListViewItem("");
-                        separator.SubItems.Add("");
-                        separator.SubItems.Add("");
-                        separator.SubItems.Add("");
-                        workersListView.Items.Add(separator);
-                    }
-
-                    // Add regular workers
-                    foreach (var workerId in building.AssignedWorkers)
-                    {
-                        // Skip workers assigned to the current project
-                        if (building.CurrentProject?.AssignedWorkers.Contains(workerId) ?? false)
-                            continue;
-
-                        var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
-                        if (worker == null) continue;
-
-                        var item = new ListViewItem(worker.Name);
-                        item.SubItems.Add(worker.Type.ToString());
-                        item.SubItems.Add(worker.Level.ToString());
-                        
-                        // Get relevant skills
-                        var relevantSkills = new List<string>();
-                        if (buildingInfo != null)
+                        // If there's an active project, add project section below regular workers
+                        if (building.CurrentProject != null)
                         {
-                            // Check primary skill first
-                            var primarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.primarySkill);
-                            if (primarySkill != null)
-                                relevantSkills.Add($"{primarySkill.Name} ({primarySkill.Level})");
-                            
-                            // Then secondary skill
-                            var secondarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.secondarySkill);
-                            if (secondarySkill != null)
-                                relevantSkills.Add($"{secondarySkill.Name} ({secondarySkill.Level})");
-                            
-                            // Finally tertiary skill
-                            var tertiarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.tertiarySkill);
-                            if (tertiarySkill != null)
-                                relevantSkills.Add($"{tertiarySkill.Name} ({tertiarySkill.Level})");
+                            // Add a blank row for separation
+                            var separator = new ListViewItem("");
+                            separator.SubItems.Add("");
+                            separator.SubItems.Add("");
+                            separator.SubItems.Add("");
+                            workersListView.Items.Add(separator);
+
+                            // Add project header row
+                            var projectHeader = new ListViewItem(building.CurrentProject.Name);
+                            projectHeader.SubItems.Add("Project");
+                            projectHeader.SubItems.Add(""); // Empty level column
+                            projectHeader.SubItems.Add($"{building.CurrentProject.TimeRemaining} weeks left"); // Info column with full text
+                            projectHeader.BackColor = Color.LightGray;
+                            projectHeader.Font = new Font(workersListView.Font, FontStyle.Bold);
+                            workersListView.Items.Add(projectHeader);
+
+                            // Add project workers
+                            foreach (var workerId in building.CurrentProject.AssignedWorkers)
+                            {
+                                var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
+                                if (worker == null) continue;
+
+                                var item = new ListViewItem(worker.Name);
+                                item.SubItems.Add(worker.Type.ToString());
+                                item.SubItems.Add(worker.Level.ToString());
+                                
+                                // Get relevant skills
+                                var relevantSkills = new List<string>();
+                                if (buildingInfo != null)
+                                {
+                                    // Check primary skill first
+                                    var primarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.primarySkill);
+                                    if (primarySkill != null)
+                                        relevantSkills.Add($"{primarySkill.Name} ({primarySkill.Level})");
+                                    
+                                    // Then secondary skill
+                                    var secondarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.secondarySkill);
+                                    if (secondarySkill != null)
+                                        relevantSkills.Add($"{secondarySkill.Name} ({secondarySkill.Level})");
+                                    
+                                    // Finally tertiary skill
+                                    var tertiarySkill = worker.Skills.FirstOrDefault(s => s.Name == buildingInfo.tertiarySkill);
+                                    if (tertiarySkill != null)
+                                        relevantSkills.Add($"{tertiarySkill.Name} ({tertiarySkill.Level})");
+                                }
+                                item.SubItems.Add(string.Join(", ", relevantSkills));
+                                item.Tag = worker.Id;
+                                item.ForeColor = Color.Gray; // Indicate they're assigned to project
+                                workersListView.Items.Add(item);
+                            }
                         }
-                        item.SubItems.Add(string.Join(", ", relevantSkills));
-                        item.Tag = worker.Id;
-                        workersListView.Items.Add(item);
                     }
                 }
-            }
 
-            // Update button states
-            if (upgradeButton != null)
-            {
-                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-                if (File.Exists(jsonPath))
+                // Update button states
+                if (upgradeButton != null)
                 {
-                    string json = File.ReadAllText(jsonPath);
-                    var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                    var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                    bool isMaxLevel = buildingInfo != null && building.Level >= buildingInfo.maxLevel;
-                    bool canUpgrade = building.ConstructionStatus == BuildingStatus.Complete && 
-                                    buildingInfo != null && 
-                                    !isMaxLevel &&
-                                    building.AssignedWorkers.Count > 0;
-                    upgradeButton.Enabled = canUpgrade;
-                    upgradeButton.Text = isMaxLevel ? "Max Lvl" : "Upgrade";
+                    string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                    if (File.Exists(jsonPath))
+                    {
+                        string json = File.ReadAllText(jsonPath);
+                        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                        bool isMaxLevel = buildingInfo != null && building.Level >= buildingInfo.maxLevel;
+                        bool canUpgrade = building.ConstructionStatus == BuildingStatus.Complete && 
+                                        buildingInfo != null && 
+                                        !isMaxLevel &&
+                                        building.AssignedWorkers.Count > 0;
+                        upgradeButton.Enabled = canUpgrade;
+                        upgradeButton.Text = isMaxLevel ? "Max Lvl" : "Upgrade";
+                    }
                 }
+
+                if (repairButton != null)
+                    repairButton.Enabled = building.Condition < 100 && building.ConstructionStatus != BuildingStatus.Repairing;
+
+                if (cancelButton != null)
+                    cancelButton.Visible = building.ConstructionStatus == BuildingStatus.Planning;
+
+                // Update Projects section
+                var projectsSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectsSummaryLabel");
+                var projectNameLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectNameLabel");
+                var projectTimeLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectTimeLabel");
+                var cancelProjectButton = FindControl<Button>(_tabControl.TabPages[1], "CancelProjectButton");
+                var availableProjectsButton = FindControl<Button>(_tabControl.TabPages[1], "AvailableProjectsButton");
+                var projectWorkersListView = FindControl<ListView>(_tabControl.TabPages[1], "ProjectWorkersListView");
+
+                // Add null check for building to prevent crashes when expanding sections without a building selected
+                if (building == null)
+                {
+                    if (projectsSummaryLabel != null) projectsSummaryLabel.Text = "No building selected";
+                    if (projectNameLabel != null) projectNameLabel.Text = "None";
+                    if (projectTimeLabel != null) projectTimeLabel.Text = "Time Remaining: N/A";
+                    if (cancelProjectButton != null) cancelProjectButton.Visible = false;
+                    if (availableProjectsButton != null) availableProjectsButton.Enabled = false;
+                    if (projectWorkersListView != null) projectWorkersListView.Items.Clear();
+                    return;
+                }
+
+                if (building.CurrentProject != null)
+                {
+                    // Building has an active project
+                    if (projectsSummaryLabel != null)
+                        projectsSummaryLabel.Text = $"Active Project: {building.CurrentProject.Name}";
+                    
+                    if (projectNameLabel != null)
+                        projectNameLabel.Text = building.CurrentProject.Name;
+                    
+                    if (projectTimeLabel != null)
+                        projectTimeLabel.Text = $"Time Remaining: {building.CurrentProject.TimeRemaining} weeks";
+                    
+                    if (cancelProjectButton != null)
+                        cancelProjectButton.Visible = true;
+
+                    if (availableProjectsButton != null)
+                        availableProjectsButton.Enabled = false;
+
+                    // Update project workers list
+                    if (projectWorkersListView != null)
+                    {
+                        projectWorkersListView.Items.Clear();
+                        
+                        foreach (var workerId in building.CurrentProject.AssignedWorkers)
+                        {
+                            var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
+                            if (worker == null) continue;
+
+                            var item = new ListViewItem(worker.Name);
+                            item.SubItems.Add(worker.Type.ToString());
+                            item.SubItems.Add(worker.Level.ToString());
+                            item.SubItems.Add("Working on Project");
+                            item.Tag = worker.Id;
+                            projectWorkersListView.Items.Add(item);
+                        }
+                    }
+                }
+                else
+                {
+                    // No active project
+                    if (projectsSummaryLabel != null)
+                        projectsSummaryLabel.Text = "No active project";
+                    
+                    if (projectNameLabel != null)
+                        projectNameLabel.Text = "None";
+                    
+                    if (projectTimeLabel != null)
+                        projectTimeLabel.Text = "Time Remaining: N/A";
+                    
+                    if (cancelProjectButton != null)
+                        cancelProjectButton.Visible = false;
+
+                    // Check if projects are available - add null check for building
+                    bool hasAvailableProjects = false;
+                    if (building != null)
+                    {
+                        var availableProjects = GetAvailableProjectsForBuilding(building);
+                        hasAvailableProjects = availableProjects.Any() && building.ConstructionStatus == BuildingStatus.Complete;
+                    }
+                    
+                    if (availableProjectsButton != null)
+                        availableProjectsButton.Enabled = hasAvailableProjects;
+
+                    // Clear project workers list
+                    if (projectWorkersListView != null)
+                    {
+                        projectWorkersListView.Items.Clear();
+                        
+                        if (!hasAvailableProjects)
+                        {
+                            var noProjectsItem = new ListViewItem("No projects available");
+                            noProjectsItem.SubItems.Add("at current level");
+                            noProjectsItem.SubItems.Add("");
+                            noProjectsItem.SubItems.Add("");
+                            noProjectsItem.ForeColor = Color.Gray;
+                            projectWorkersListView.Items.Add(noProjectsItem);
+                        }
+                    }
+                }
+
+                // Update button states
             }
-
-            if (repairButton != null)
-                repairButton.Enabled = building.Condition < 100 && building.ConstructionStatus != BuildingStatus.Repairing;
-
-            if (cancelButton != null)
-                cancelButton.Visible = building.ConstructionStatus == BuildingStatus.Planning;
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred while updating building details: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
         else
         {
@@ -2650,6 +2964,16 @@ public partial class MainDashboard : Form
         var upkeepListView = FindControl<ListView>(_tabControl.TabPages[1], "UpkeepListView");
         var productionSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProductionSummaryLabel");
         var upkeepSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "UpkeepSummaryLabel");
+        var workforceSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "WorkforceSummaryLabel");
+        var workersListView = FindControl<ListView>(_tabControl.TabPages[1], "WorkersListView");
+
+        // Projects section controls
+        var projectsSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectsSummaryLabel");
+        var projectNameLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectNameLabel");
+        var projectTimeLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectTimeLabel");
+        var cancelProjectButton = FindControl<Button>(_tabControl.TabPages[1], "CancelProjectButton");
+        var availableProjectsButton = FindControl<Button>(_tabControl.TabPages[1], "AvailableProjectsButton");
+        var projectWorkersListView = FindControl<ListView>(_tabControl.TabPages[1], "ProjectWorkersListView");
 
         if (buildingNameValue != null) buildingNameValue.Text = string.Empty;
         if (buildingTypeValue != null) buildingTypeValue.Text = string.Empty;
@@ -2660,6 +2984,16 @@ public partial class MainDashboard : Form
         if (upkeepListView != null) upkeepListView.Items.Clear();
         if (productionSummaryLabel != null) productionSummaryLabel.Text = "Not Producing";
         if (upkeepSummaryLabel != null) upkeepSummaryLabel.Text = "No Upkeep";
+        if (workforceSummaryLabel != null) workforceSummaryLabel.Text = "0/0 Workers";
+        if (workersListView != null) workersListView.Items.Clear();
+
+        // Clear projects section
+        if (projectsSummaryLabel != null) projectsSummaryLabel.Text = "No building selected";
+        if (projectNameLabel != null) projectNameLabel.Text = "None";
+        if (projectTimeLabel != null) projectTimeLabel.Text = "Time Remaining: N/A";
+        if (cancelProjectButton != null) cancelProjectButton.Visible = false;
+        if (availableProjectsButton != null) availableProjectsButton.Enabled = false;
+        if (projectWorkersListView != null) projectWorkersListView.Items.Clear();
 
         var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
         var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
@@ -2819,35 +3153,223 @@ public partial class MainDashboard : Form
         var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
         if (building == null) return;
 
-        // Create dialog with current building and all NPCs
+        // Get currently assigned workers to this building
+        var assignedWorkers = building.AssignedWorkers
+            .Select(workerId => _stronghold.NPCs.Find(n => n.Id == workerId))
+            .Where(npc => npc != null)
+            .ToList();
+
         using (var dialog = new WorkerAssignmentDialog(building, _stronghold.NPCs))
         {
             if (dialog.ShowDialog() == DialogResult.OK)
             {
-                // Store the building ID to reselect later
-                string buildingToSelect = _selectedBuildingId;
-                
-                // Update worker assignments through GameStateService
-                _gameStateService.AssignWorkersToBuilding(_selectedBuildingId, dialog.AssignedWorkerIds);
+                // The dialog handles the worker assignment internally
+                // Just refresh the display
                 RefreshBuildingsTab();
                 
-                // Find and select the building in the list view
+                // Re-select the same building to update the details
                 var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
                 if (buildingsListView != null)
                 {
                     foreach (ListViewItem item in buildingsListView.Items)
                     {
-                        if ((string)item.Tag == buildingToSelect)
+                        if ((string)item.Tag == _selectedBuildingId)
                         {
                             item.Selected = true;
-                            item.Focused = true;
-                            buildingsListView.EnsureVisible(item.Index);
                             break;
                         }
                     }
                 }
             }
         }
+    }
+
+    private void AvailableProjects_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null || building.ConstructionStatus != BuildingStatus.Complete) return;
+
+        // Check if there's already a project running
+        if (building.CurrentProject != null)
+        {
+            MessageBox.Show("This building already has an active project. Please cancel it first.", 
+                "Project Already Active", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Get available projects from building data
+        var availableProjects = GetAvailableProjectsForBuilding(building);
+        if (!availableProjects.Any())
+        {
+            MessageBox.Show("No projects are available for this building at its current level.", 
+                "No Projects Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Show available projects dialog
+        using (var projectDialog = new AvailableProjectsDialog(building, availableProjects, _stronghold.NPCs, _stronghold.Resources))
+        {
+            if (projectDialog.ShowDialog() == DialogResult.OK)
+            {
+                // Project was started, refresh the display
+                RefreshBuildingsTab();
+                
+                // Re-select the same building to update the details
+                var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+                if (buildingsListView != null)
+                {
+                    foreach (ListViewItem item in buildingsListView.Items)
+                    {
+                        if ((string)item.Tag == _selectedBuildingId)
+                        {
+                            item.Selected = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void CancelProject_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null || building.CurrentProject == null) return;
+
+        var result = MessageBox.Show(
+            $"Are you sure you want to cancel the project '{building.CurrentProject.Name}'?\n\nThis will stop all progress on the project.",
+            "Cancel Project",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (result == DialogResult.Yes)
+        {
+            building.CancelProject();
+            _gameStateService.OnGameStateChanged();
+            
+            // Re-select the same building to refresh the details
+            var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+            if (buildingsListView != null)
+            {
+                foreach (ListViewItem item in buildingsListView.Items)
+                {
+                    if ((string)item.Tag == _selectedBuildingId)
+                    {
+                        item.Selected = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private List<Project> GetAvailableProjectsForBuilding(Building building)
+    {
+        var availableProjects = new List<Project>();
+        
+        try
+        {
+            // Try to load building data to get available projects
+            string[] possiblePaths = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "Data", "BuildingData.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "Data", "BuildingData.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "Data", "BuildingData.json")
+            };
+
+            string jsonPath = possiblePaths.FirstOrDefault(File.Exists);
+            if (string.IsNullOrEmpty(jsonPath)) return availableProjects;
+
+            string json = File.ReadAllText(jsonPath);
+            var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
+            var buildingInfo = buildingData?.buildings.Find(b => b.type == building.Type.ToString());
+            
+            if (buildingInfo != null)
+            {
+                var availableProjectInfos = buildingInfo.availableProjects
+                    .Where(p => p.minLevel <= building.Level)
+                    .ToList();
+
+                foreach (var projectInfo in availableProjectInfos)
+                {
+                    var project = new Project
+                    {
+                        Name = projectInfo.projectName,
+                        Description = GetProjectDescription(projectInfo.projectName),
+                        Duration = GetProjectDuration(projectInfo.projectName),
+                        TimeRemaining = GetProjectDuration(projectInfo.projectName),
+                        InitialCost = GetProjectCosts(projectInfo.projectName),
+                        AssignedWorkers = new List<string>()
+                    };
+                    availableProjects.Add(project);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't show dialog to prevent crashes during UI updates
+            System.Diagnostics.Debug.WriteLine($"Error loading project data: {ex.Message}");
+        }
+
+        return availableProjects;
+    }
+
+    private string GetProjectDescription(string projectName)
+    {
+        // Default descriptions for common projects
+        return projectName switch
+        {
+            "Patrol" => "Send workers to patrol the surrounding area, increasing security and providing early warning of threats.",
+            "Reconnaissance" => "Conduct detailed scouting of distant areas to gather intelligence and identify opportunities.",
+            "Craft Equipment" => "Produce specialized equipment and tools to improve stronghold efficiency.",
+            "Craft Alchemical Item" => "Create potions, reagents, and other alchemical items for the stronghold.",
+            _ => $"Execute the {projectName} project to benefit the stronghold."
+        };
+    }
+
+    private int GetProjectDuration(string projectName)
+    {
+        // Default durations for common projects (in weeks)
+        return projectName switch
+        {
+            "Patrol" => 2,
+            "Reconnaissance" => 4,
+            "Craft Equipment" => 3,
+            "Craft Alchemical Item" => 2,
+            _ => 3 // Default duration
+        };
+    }
+
+    private List<ResourceCost> GetProjectCosts(string projectName)
+    {
+        // Default costs for common projects
+        return projectName switch
+        {
+            "Patrol" => new List<ResourceCost>
+            {
+                new ResourceCost { ResourceType = ResourceType.Food, Amount = 5 }
+            },
+            "Reconnaissance" => new List<ResourceCost>
+            {
+                new ResourceCost { ResourceType = ResourceType.Food, Amount = 10 },
+                new ResourceCost { ResourceType = ResourceType.Gold, Amount = 20 }
+            },
+            "Craft Equipment" => new List<ResourceCost>
+            {
+                new ResourceCost { ResourceType = ResourceType.Iron, Amount = 5 },
+                new ResourceCost { ResourceType = ResourceType.Wood, Amount = 3 }
+            },
+            "Craft Alchemical Item" => new List<ResourceCost>
+            {
+                new ResourceCost { ResourceType = ResourceType.Gold, Amount = 15 }
+            },
+            _ => new List<ResourceCost>() // No cost by default
+        };
     }
 
     private void BuildingsListView_ColumnClick(object sender, ColumnClickEventArgs e)
