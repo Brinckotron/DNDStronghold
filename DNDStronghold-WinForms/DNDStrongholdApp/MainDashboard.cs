@@ -909,7 +909,7 @@ public partial class MainDashboard : Form
                 building.ConstructionStatus == BuildingStatus.Repairing ||
                 building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                if (building.AssignedWorkers.Count == 0)
+                if (building.GetTotalAssignedWorkers() == 0)
                 {
                     stateText += " (No Workers)";
                 }
@@ -921,7 +921,16 @@ public partial class MainDashboard : Form
 
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
-            item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
+            
+            // Show total workers (regular + construction crew)
+            int totalWorkers = building.GetTotalAssignedWorkers();
+            string workerText = $"{totalWorkers}/{building.WorkerSlots}";
+            if (building.DedicatedConstructionCrew.Count > 0)
+            {
+                workerText += $" (+{building.DedicatedConstructionCrew.Count} crew)";
+            }
+            item.SubItems.Add(workerText);
+            
             item.SubItems.Add(stateText);
             item.SubItems.Add($"{building.Condition}%");
             item.SubItems.Add(building.Level.ToString());
@@ -1429,12 +1438,12 @@ public partial class MainDashboard : Form
         {
             AutoSize = false,
             Height = 24,
-            Width = workforceHeaderPanel.Width - 120, // Leave space for the button
+            Width = workforceHeaderPanel.Width - 200, // Leave space for both buttons
             TextAlign = ContentAlignment.MiddleLeft,
             Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
             Tag = "WorkforceSummaryLabel"
         };
-        workforceHeaderPanel.Resize += (s, e) => workforceSummaryLabel.Width = workforceHeaderPanel.Width - 120;
+        workforceHeaderPanel.Resize += (s, e) => workforceSummaryLabel.Width = workforceHeaderPanel.Width - 200;
 
         // Add collapse/expand button
         Button workforceCollapseButton = new Button
@@ -1451,6 +1460,19 @@ public partial class MainDashboard : Form
         workforceHeaderPanel.Resize += (s, e) => workforceCollapseButton.Location = new Point(workforceHeaderPanel.Width - workforceCollapseButton.Width - 10, 5);
 
 
+        // Add manage crew button (for construction/repair/upgrade)
+        Button manageCrewButton = new Button
+        {
+            Text = "Crew",
+            Width = 70,
+            Height = 34,
+            FlatStyle = FlatStyle.Flat,
+            Tag = "ManageCrewButton",
+            Anchor = AnchorStyles.Right | AnchorStyles.Top,
+            Visible = false
+        };
+        manageCrewButton.Click += ManageConstructionCrew_Click;
+
         // Add manage button
         Button manageButton = new Button
         {
@@ -1461,8 +1483,17 @@ public partial class MainDashboard : Form
             Tag = "WorkforceManageButton",
             Anchor = AnchorStyles.Right | AnchorStyles.Top
         };
+        
+        // Position buttons: crew button first, then manage button, then collapse button
         manageButton.Location = new Point(workforceHeaderPanel.Width - manageButton.Width - workforceCollapseButton.Width - 15, 5);
-        workforceHeaderPanel.Resize += (s, e) => manageButton.Location = new Point(workforceHeaderPanel.Width - manageButton.Width - workforceCollapseButton.Width - 15, 5);
+        manageCrewButton.Location = new Point(workforceHeaderPanel.Width - manageCrewButton.Width - manageButton.Width - workforceCollapseButton.Width - 20, 5);
+        
+        workforceHeaderPanel.Resize += (s, e) => 
+        {
+            manageButton.Location = new Point(workforceHeaderPanel.Width - manageButton.Width - workforceCollapseButton.Width - 15, 5);
+            manageCrewButton.Location = new Point(workforceHeaderPanel.Width - manageCrewButton.Width - manageButton.Width - workforceCollapseButton.Width - 20, 5);
+        };
+        
         manageButton.Click += ManageWorkforce_Click;
 
         // Create collapsible content panel
@@ -1539,6 +1570,7 @@ public partial class MainDashboard : Form
         // Add controls to panels
         workforceContentPanel.Controls.Add(workersListView);
         workforceHeaderPanel.Controls.Add(workforceSummaryLabel);
+        workforceHeaderPanel.Controls.Add(manageCrewButton);
         workforceHeaderPanel.Controls.Add(manageButton);
         workforceHeaderPanel.Controls.Add(workforceCollapseButton);
         workforceGroup.Controls.Add(workforceContentPanel);
@@ -1958,7 +1990,7 @@ public partial class MainDashboard : Form
                 building.ConstructionStatus == BuildingStatus.Repairing ||
                 building.ConstructionStatus == BuildingStatus.Upgrading)
             {
-                if (building.AssignedWorkers.Count == 0)
+                if (building.GetTotalAssignedWorkers() == 0)
                 {
                     stateText += " (No Workers)";
                 }
@@ -1970,7 +2002,16 @@ public partial class MainDashboard : Form
 
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
-            item.SubItems.Add($"{building.AssignedWorkers.Count}/{building.WorkerSlots}");
+            
+            // Show total workers (regular + construction crew)
+            int totalWorkers = building.GetTotalAssignedWorkers();
+            string workerText = $"{totalWorkers}/{building.WorkerSlots}";
+            if (building.DedicatedConstructionCrew.Count > 0)
+            {
+                workerText += $" (+{building.DedicatedConstructionCrew.Count} crew)";
+            }
+            item.SubItems.Add(workerText);
+            
             item.SubItems.Add(stateText);
             item.SubItems.Add($"{building.Condition}%");
             item.SubItems.Add(building.Level.ToString());
@@ -2640,6 +2681,7 @@ public partial class MainDashboard : Form
                 var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
                 var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
                 var cancelButton = FindControl<Button>(_tabControl.TabPages[1], "CancelButton");
+                var manageCrewButton = FindControl<Button>(_tabControl.TabPages[1], "ManageCrewButton");
 
                 if (buildingNameValue != null) buildingNameValue.Text = building.Name;
                 if (buildingTypeValue != null) buildingTypeValue.Text = building.Type.ToString();
@@ -2653,7 +2695,7 @@ public partial class MainDashboard : Form
                         building.ConstructionStatus == BuildingStatus.Repairing ||
                         building.ConstructionStatus == BuildingStatus.Upgrading)
                     {
-                        if (building.AssignedWorkers.Count == 0)
+                        if (building.GetTotalAssignedWorkers() == 0)
                         {
                             statusText += " (No Workers)";
                         }
@@ -2674,7 +2716,24 @@ public partial class MainDashboard : Form
                 
                 if (workforceSummaryLabel != null)
                 {
-                    workforceSummaryLabel.Text = $"{building.AssignedWorkers.Count}/{building.WorkerSlots} Workers";
+                    int totalWorkers = building.GetTotalAssignedWorkers();
+                    string summaryText = $"{totalWorkers}/{building.WorkerSlots} Workers";
+                    if (building.DedicatedConstructionCrew.Count > 0)
+                    {
+                        summaryText += $" ({building.DedicatedConstructionCrew.Count} construction crew)";
+                    }
+                    workforceSummaryLabel.Text = summaryText;
+                }
+
+                // Update construction crew button visibility
+                bool showConstructionCrew = building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                                          building.ConstructionStatus == BuildingStatus.Repairing ||
+                                          building.ConstructionStatus == BuildingStatus.Upgrading;
+
+                if (manageCrewButton != null)
+                {
+                    manageCrewButton.Visible = showConstructionCrew;
+                    manageCrewButton.Enabled = showConstructionCrew;
                 }
 
                 if (workersListView != null)
@@ -2781,6 +2840,52 @@ public partial class MainDashboard : Form
                                 workersListView.Items.Add(item);
                             }
                         }
+                        
+                        // Add construction crew section if there are construction crew workers
+                        if (building.DedicatedConstructionCrew.Count > 0)
+                        {
+                            // Add a blank row for separation
+                            var separator = new ListViewItem("");
+                            separator.SubItems.Add("");
+                            separator.SubItems.Add("");
+                            separator.SubItems.Add("");
+                            workersListView.Items.Add(separator);
+
+                            // Add construction crew header row
+                            var crewHeader = new ListViewItem("Construction Crew");
+                            crewHeader.SubItems.Add("Dedicated");
+                            crewHeader.SubItems.Add(""); // Empty level column
+                            crewHeader.SubItems.Add($"{building.DedicatedConstructionCrew.Count} workers");
+                            crewHeader.BackColor = Color.LightBlue;
+                            crewHeader.Font = new Font(workersListView.Font, FontStyle.Bold);
+                            workersListView.Items.Add(crewHeader);
+
+                            // Add construction crew workers
+                            foreach (var workerId in building.DedicatedConstructionCrew)
+                            {
+                                var worker = _stronghold.NPCs.Find(n => n.Id == workerId);
+                                if (worker == null) continue;
+
+                                var item = new ListViewItem(worker.Name);
+                                item.SubItems.Add(worker.Type.ToString());
+                                item.SubItems.Add(worker.Level.ToString());
+                                
+                                // Show construction-related skills for crew members
+                                var relevantSkills = new List<string>();
+                                var constructionSkill = worker.Skills.FirstOrDefault(s => s.Name == "Construction");
+                                if (constructionSkill != null)
+                                    relevantSkills.Add($"Construction ({constructionSkill.Level})");
+                                
+                                var laborSkill = worker.Skills.FirstOrDefault(s => s.Name == "Labor");
+                                if (laborSkill != null)
+                                    relevantSkills.Add($"Labor ({laborSkill.Level})");
+                                
+                                item.SubItems.Add(string.Join(", ", relevantSkills));
+                                item.Tag = worker.Id;
+                                item.BackColor = Color.LightBlue; // Distinguish construction crew
+                                workersListView.Items.Add(item);
+                            }
+                        }
                     }
                 }
 
@@ -2797,7 +2902,7 @@ public partial class MainDashboard : Form
                         bool canUpgrade = building.ConstructionStatus == BuildingStatus.Complete && 
                                         buildingInfo != null && 
                                         !isMaxLevel &&
-                                        building.AssignedWorkers.Count > 0;
+                                        building.GetTotalAssignedWorkers() > 0;
                         upgradeButton.Enabled = canUpgrade;
                         upgradeButton.Text = isMaxLevel ? "Max Lvl" : "Upgrade";
                     }
@@ -2998,10 +3103,12 @@ public partial class MainDashboard : Form
         var upgradeButton = FindControl<Button>(_tabControl.TabPages[1], "UpgradeButton");
         var repairButton = FindControl<Button>(_tabControl.TabPages[1], "RepairButton");
         var cancelButton = FindControl<Button>(_tabControl.TabPages[1], "CancelButton");
+        var manageCrewButton = FindControl<Button>(_tabControl.TabPages[1], "ManageCrewButton");
 
         if (upgradeButton != null) upgradeButton.Enabled = false;
         if (repairButton != null) repairButton.Enabled = false;
         if (cancelButton != null) cancelButton.Visible = false;
+        if (manageCrewButton != null) manageCrewButton.Visible = false;
     }
 
     private void RenameBuilding_Click(object sender, EventArgs e)
@@ -3083,21 +3190,44 @@ public partial class MainDashboard : Form
             {
                 if (confirmDialog.ShowDialog() == DialogResult.OK)
                 {
-                if (building.StartUpgrade(_stronghold.Resources))
-                {
-                    _gameStateService.OnGameStateChanged();
-                    RefreshBuildingsTab();
-                }
-                else
-                {
-                    MessageBox.Show(
-                        "Failed to start upgrade. Please check resource requirements and building status.",
-                        "Upgrade Failed",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
+                    if (building.StartUpgrade(_stronghold.Resources))
+                    {
+                        // Show construction crew assignment dialog for upgrade
+                        using (var crewDialog = new ConstructionCrewAssignmentDialog(_stronghold.NPCs, building, "Upgrade"))
+                        {
+                            if (crewDialog.ShowDialog() == DialogResult.OK && crewDialog.AssignedCrewIds.Count > 0)
+                            {
+                                _gameStateService.AssignConstructionCrewToBuilding(building.Id, crewDialog.AssignedCrewIds);
+                            }
+                        }
+                        
+                        _gameStateService.OnGameStateChanged();
+                        RefreshBuildingsTab();
+                        
+                        // Re-select the same building to update the details
+                        var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+                        if (buildingsListView != null)
+                        {
+                            foreach (ListViewItem item in buildingsListView.Items)
+                            {
+                                if ((string)item.Tag == _selectedBuildingId)
+                                {
+                                    item.Selected = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show(
+                            "Failed to start upgrade. Please check resource requirements and building status.",
+                            "Upgrade Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
                 }
             }
-        }
     }
 
     private void RepairBuilding_Click(object sender, EventArgs e)
@@ -3111,7 +3241,17 @@ public partial class MainDashboard : Form
         {
             if (confirmDialog.ShowDialog() == DialogResult.OK)
             {
-                _gameStateService.StartBuildingRepair(_selectedBuildingId);
+                if (_gameStateService.StartBuildingRepair(_selectedBuildingId))
+                {
+                    // Show construction crew assignment dialog for repair
+                    using (var crewDialog = new ConstructionCrewAssignmentDialog(_stronghold.NPCs, building, "Repair"))
+                    {
+                        if (crewDialog.ShowDialog() == DialogResult.OK && crewDialog.AssignedCrewIds.Count > 0)
+                        {
+                            _gameStateService.AssignConstructionCrewToBuilding(building.Id, crewDialog.AssignedCrewIds);
+                        }
+                    }
+                }
                 RefreshBuildingsTab();
             }
         }
@@ -3163,8 +3303,53 @@ public partial class MainDashboard : Form
         {
             if (dialog.ShowDialog() == DialogResult.OK)
             {
-                // The dialog handles the worker assignment internally
-                // Just refresh the display
+                // Actually assign the workers selected in the dialog
+                _gameStateService.AssignWorkersToBuilding(building.Id, dialog.AssignedWorkerIds);
+                
+                // Refresh the display
+                RefreshBuildingsTab();
+                
+                // Re-select the same building to update the details
+                var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
+                if (buildingsListView != null)
+                {
+                    foreach (ListViewItem item in buildingsListView.Items)
+                    {
+                        if ((string)item.Tag == _selectedBuildingId)
+                        {
+                            item.Selected = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void ManageConstructionCrew_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null) return;
+
+        // Determine operation type based on building status
+        string operationType = building.ConstructionStatus switch
+        {
+            BuildingStatus.UnderConstruction => "Construction",
+            BuildingStatus.Repairing => "Repair",
+            BuildingStatus.Upgrading => "Upgrade",
+            _ => "Construction"
+        };
+
+        using (var crewDialog = new ConstructionCrewAssignmentDialog(_stronghold.NPCs, building, operationType))
+        {
+            if (crewDialog.ShowDialog() == DialogResult.OK)
+            {
+                // Assign the selected construction crew
+                _gameStateService.AssignConstructionCrewToBuilding(building.Id, crewDialog.AssignedCrewIds);
+                
+                // Refresh the display
                 RefreshBuildingsTab();
                 
                 // Re-select the same building to update the details

@@ -19,6 +19,7 @@ namespace DNDStrongholdApp.Models
         public List<ResourceCost> ConstructionCost { get; set; } = new List<ResourceCost>();
         public int WorkerSlots { get; set; }
         public List<string> AssignedWorkers { get; set; } = new List<string>(); // NPC IDs
+        public List<string> DedicatedConstructionCrew { get; set; } = new List<string>(); // NPC IDs temporarily assigned for construction
         public List<ResourceProduction> BaseProduction { get; set; } = new List<ResourceProduction>();
         public List<ResourceProduction> ActualProduction { get; set; } = new List<ResourceProduction>();
         public List<ResourceCost> BaseUpkeep { get; set; } = new List<ResourceCost>();
@@ -223,7 +224,22 @@ namespace DNDStrongholdApp.Models
 
             // Calculate weekly construction points from workers
             WeeklyConstructionPoints = 0;
+            
+            // Add points from regular assigned workers
             foreach (var workerId in AssignedWorkers)
+            {
+                var worker = assignedNPCs.Find(n => n.Id == workerId);
+                if (worker != null)
+                {
+                    // Base 1 point + construction skill level
+                    var constructionSkill = worker.Skills.Find(s => s.Name == "Construction");
+                    int skillLevel = constructionSkill?.Level ?? 0;
+                    WeeklyConstructionPoints += 1 + skillLevel;
+                }
+            }
+            
+            // Add points from dedicated construction crew
+            foreach (var workerId in DedicatedConstructionCrew)
             {
                 var worker = assignedNPCs.Find(n => n.Id == workerId);
                 if (worker != null)
@@ -303,6 +319,7 @@ namespace DNDStrongholdApp.Models
                 ConstructionStatus = BuildingStatus.Complete;
                 ConstructionProgress = 100;
                 ConstructionTimeRemaining = 0;
+                ClearConstructionCrew(); // Automatically unassign construction crew
                 return true; // Construction completed
             }
 
@@ -353,6 +370,7 @@ namespace DNDStrongholdApp.Models
                 ConstructionStatus = BuildingStatus.Complete;
                 Condition = 100;
                 ConstructionTimeRemaining = 0;
+                ClearConstructionCrew(); // Automatically unassign construction crew
                 return true;
             }
             
@@ -473,6 +491,7 @@ namespace DNDStrongholdApp.Models
                 Level++;
                 UpdateWorkerSlotsForLevel(); // Update worker slots after level increase
                 ConstructionTimeRemaining = 0;
+                ClearConstructionCrew(); // Automatically unassign construction crew
                 return true;
             }
 
@@ -759,6 +778,8 @@ namespace DNDStrongholdApp.Models
             {
                 // Unassign all workers
                 AssignedWorkers.Clear();
+                // Unassign dedicated construction crew
+                DedicatedConstructionCrew.Clear();
                 
                 // Reset construction status
                 ConstructionStatus = BuildingStatus.Planning;
@@ -769,22 +790,50 @@ namespace DNDStrongholdApp.Models
                 // Note: Resource refunding is handled by GameStateService
             }
         }
+        
+        // Assign workers to dedicated construction crew (up to 3)
+        public void AssignConstructionCrew(List<string> npcIds)
+        {
+            DedicatedConstructionCrew.Clear();
+            // Limit to 3 workers maximum
+            int maxCrew = Math.Min(3, npcIds.Count);
+            for (int i = 0; i < maxCrew; i++)
+            {
+                DedicatedConstructionCrew.Add(npcIds[i]);
+            }
+        }
+        
+        // Clear dedicated construction crew (called when construction/repair/upgrade completes or is cancelled)
+        public void ClearConstructionCrew()
+        {
+            DedicatedConstructionCrew.Clear();
+        }
+        
+        // Get total workers (regular + construction crew) for UI display
+        public int GetTotalAssignedWorkers()
+        {
+            return AssignedWorkers.Count + DedicatedConstructionCrew.Count;
+        }
 
         // Award XP to assigned workers for building skills (to be called on Next Turn)
         public void AwardWorkerSkillXP(List<NPC> allNPCs)
         {
-            // Construction/repair/upgrade XP
-            if ((ConstructionStatus == BuildingStatus.UnderConstruction ||
-                 ConstructionStatus == BuildingStatus.Repairing ||
-                 ConstructionStatus == BuildingStatus.Upgrading) &&
-                AssignedWorkers != null && AssignedWorkers.Count > 0)
+            // Construction/repair/upgrade XP - override normal building skills
+            if (ConstructionStatus == BuildingStatus.UnderConstruction ||
+                ConstructionStatus == BuildingStatus.Repairing ||
+                ConstructionStatus == BuildingStatus.Upgrading)
             {
-                foreach (var workerId in AssignedWorkers)
+                // Award XP to all workers (regular assigned workers + dedicated construction crew)
+                var allWorkers = new List<string>();
+                if (AssignedWorkers != null) allWorkers.AddRange(AssignedWorkers);
+                if (DedicatedConstructionCrew != null) allWorkers.AddRange(DedicatedConstructionCrew);
+                
+                foreach (var workerId in allWorkers)
                 {
                     var npc = allNPCs.Find(n => n.Id == workerId);
                     if (npc == null) continue;
-                    int constructionXP = Random.Shared.Next(5, 11); // 5-10
-                    int laborXP = Random.Shared.Next(0, 6); // 0-5
+                    int constructionXP = Random.Shared.Next(5, 11); // 5-10 (Primary skill)
+                    int laborXP = Random.Shared.Next(3, 8); // 3-7 (Secondary skill)
                     npc.AddSkillExperience("Construction", constructionXP);
                     npc.AddSkillExperience("Labor", laborXP);
                 }

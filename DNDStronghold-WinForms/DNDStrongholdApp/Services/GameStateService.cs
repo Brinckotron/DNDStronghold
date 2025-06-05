@@ -212,21 +212,33 @@ namespace DNDStrongholdApp.Services
                 else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
                 {
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
-                    building.AdvanceConstruction();
+                    if (building.AdvanceConstruction())
+                    {
+                        // Construction completed, clear construction crew
+                        ClearConstructionCrewFromBuilding(building.Id);
+                    }
                 }
                 
                 // Process repairs
                 if (building.ConstructionStatus == BuildingStatus.Repairing)
                 {
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
-                    building.AdvanceRepair();
+                    if (building.AdvanceRepair())
+                    {
+                        // Repair completed, clear construction crew
+                        ClearConstructionCrewFromBuilding(building.Id);
+                    }
                 }
                 
                 // Process upgrades
                 if (building.ConstructionStatus == BuildingStatus.Upgrading)
                 {
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
-                    building.AdvanceUpgrade();
+                    if (building.AdvanceUpgrade())
+                    {
+                        // Upgrade completed, clear construction crew
+                        ClearConstructionCrewFromBuilding(building.Id);
+                    }
                 }
             }
         }
@@ -689,17 +701,16 @@ namespace DNDStrongholdApp.Services
         // Assign workers to a building
         public void AssignWorkersToBuilding(string buildingId, List<string> npcIds)
         {
-            // Find the building
             var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
             if (building == null)
             {
                 return;
             }
             
-            // First, unassign any workers currently assigned to this building
+            // First, unassign any regular workers currently assigned to this building (but not construction crew)
             foreach (var npc in _currentStronghold.NPCs)
             {
-                if (npc.Assignment.Type == AssignmentType.Building && npc.Assignment.TargetId == buildingId)
+                if (npc.Assignment.Type == AssignmentType.Building && npc.Assignment.TargetId == buildingId && !building.DedicatedConstructionCrew.Contains(npc.Id))
                 {
                     npc.Assignment = new NPCAssignment
                     {
@@ -750,6 +761,87 @@ namespace DNDStrongholdApp.Services
                 $"{building.AssignedWorkers.Count} workers have been assigned to {building.Name}."
             ));
             
+            OnGameStateChanged();
+        }
+        
+        // Assign construction crew to a building
+        public void AssignConstructionCrewToBuilding(string buildingId, List<string> npcIds)
+        {
+            var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
+            if (building == null) return;
+            
+            // Clear existing construction crew assignments from NPCs
+            foreach (var npc in _currentStronghold.NPCs)
+            {
+                if (building.DedicatedConstructionCrew.Contains(npc.Id))
+                {
+                    npc.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Unassigned,
+                        TargetId = string.Empty,
+                        TargetName = string.Empty
+                    };
+                }
+            }
+            
+            // Assign new construction crew
+            building.AssignConstructionCrew(npcIds);
+            
+            // Update NPC assignments
+            foreach (var npcId in building.DedicatedConstructionCrew)
+            {
+                var npc = _currentStronghold.NPCs.Find(n => n.Id == npcId);
+                if (npc != null)
+                {
+                    npc.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Building,
+                        TargetId = buildingId,
+                        TargetName = building.Name + " (Construction Crew)"
+                    };
+                }
+            }
+            
+            // Update construction progress
+            building.UpdateConstructionProgress(_currentStronghold.NPCs);
+            
+            // Add journal entry if crew was assigned
+            if (building.DedicatedConstructionCrew.Count > 0)
+            {
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    $"Construction Crew Assigned to {building.Name}",
+                    $"{building.DedicatedConstructionCrew.Count} workers have been assigned to the dedicated construction crew for {building.Name}."
+                ));
+            }
+            
+            OnGameStateChanged();
+        }
+        
+        // Clear construction crew from a building (automatically called when construction completes)
+        public void ClearConstructionCrewFromBuilding(string buildingId)
+        {
+            var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
+            if (building == null) return;
+            
+            // Unassign construction crew NPCs
+            foreach (var npcId in building.DedicatedConstructionCrew)
+            {
+                var npc = _currentStronghold.NPCs.Find(n => n.Id == npcId);
+                if (npc != null)
+                {
+                    npc.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Unassigned,
+                        TargetId = string.Empty,
+                        TargetName = string.Empty
+                    };
+                }
+            }
+            
+            building.ClearConstructionCrew();
             OnGameStateChanged();
         }
         

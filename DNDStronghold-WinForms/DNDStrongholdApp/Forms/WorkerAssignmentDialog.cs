@@ -32,10 +32,10 @@ namespace DNDStrongholdApp
                 _buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
             }
             
-            // Filter NPCs to only include those that are unassigned or assigned to this building
+            // Filter NPCs to only include those that are unassigned or assigned to this building (but not construction crew)
             _availableNPCs = allNPCs.FindAll(n => 
                 n.Assignment.Type == AssignmentType.Unassigned || 
-                (n.Assignment.Type == AssignmentType.Building && n.Assignment.TargetId == building.Id));
+                (n.Assignment.Type == AssignmentType.Building && n.Assignment.TargetId == building.Id && !building.DedicatedConstructionCrew.Contains(n.Id)));
             
             InitializeComponent();
             LoadNPCs();

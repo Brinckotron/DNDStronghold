@@ -5,6 +5,7 @@ using System.Linq;
 using DNDStrongholdApp.Services;
 using System.Drawing;
 using System.Collections.Generic;
+using DNDStrongholdApp.Forms;
 
 namespace DNDStrongholdApp.Forms
 {
@@ -323,7 +324,7 @@ namespace DNDStrongholdApp.Forms
             {
                 _addButton.Enabled = false;
                 _descriptionTextBox.Text = string.Empty;
-                _costLabel.Text = string.Empty;
+                _costLabel.Clear();
                 if (_gameStateService.DMMode && _constructionPointsCostLabel != null)
                 {
                     _constructionPointsCostLabel.Text = string.Empty;
@@ -347,13 +348,19 @@ namespace DNDStrongholdApp.Forms
             // Create temporary building to get costs
             var tempBuilding = new Building(selectedType);
             
-            // Update cost display
-            string costText = "Construction Costs:\n";
+            // Update cost display with color coding and current amounts
+            _costLabel.Clear();
+            _costLabel.AppendText("Construction Costs:\n");
+            
             foreach (var cost in tempBuilding.ConstructionCost)
             {
-                costText += $"{cost.ResourceType}: {cost.Amount}\n";
+                var resource = _stronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                bool hasEnough = resource != null && resource.Amount >= cost.Amount;
+                
+                // Set color based on availability
+                _costLabel.SelectionColor = hasEnough ? Color.Green : Color.Red;
+                _costLabel.AppendText($"{cost.ResourceType}: {cost.Amount} ({resource?.Amount ?? 0})\n");
             }
-            _costLabel.Text = costText;
 
             // Update construction points cost label if in DM Mode
             if (_gameStateService.DMMode && _constructionPointsCostLabel != null)
@@ -459,6 +466,18 @@ namespace DNDStrongholdApp.Forms
             {
                 MessageBox.Show("Failed to add building: Insufficient resources", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
+            }
+
+            // Show construction crew assignment dialog for new buildings in Planning state
+            if (building.ConstructionStatus == BuildingStatus.Planning)
+            {
+                using (var crewDialog = new ConstructionCrewAssignmentDialog(_stronghold.NPCs, building, "Construction"))
+                {
+                    if (crewDialog.ShowDialog() == DialogResult.OK && crewDialog.AssignedCrewIds.Count > 0)
+                    {
+                        _gameStateService.AssignConstructionCrewToBuilding(building.Id, crewDialog.AssignedCrewIds);
+                    }
+                }
             }
 
             this.DialogResult = DialogResult.OK;
