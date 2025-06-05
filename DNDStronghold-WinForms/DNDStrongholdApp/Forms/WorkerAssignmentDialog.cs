@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
+using DNDStrongholdApp.Commands;
 using System.IO;
 using System.Text.Json;
 using System.Linq;
@@ -23,19 +24,16 @@ namespace DNDStrongholdApp
         {
             _building = building;
             
-            // Load building info for skill relevance
-            string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-            if (File.Exists(jsonPath))
-            {
-                string json = File.ReadAllText(jsonPath);
-                var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
-                _buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-            }
+            // Load building info for skill relevance using command
+            var loadDataCommand = new LoadBuildingDataCommand();
+            var buildingData = loadDataCommand.Execute();
+            _buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
             
-            // Filter NPCs to only include those that are unassigned or assigned to this building (but not construction crew)
-            _availableNPCs = allNPCs.FindAll(n => 
+            // Filter NPCs using command
+            var filterCommand = new FilterNPCsCommand(allNPCs, n => 
                 n.Assignment.Type == AssignmentType.Unassigned || 
                 (n.Assignment.Type == AssignmentType.Building && n.Assignment.TargetId == building.Id && !building.DedicatedConstructionCrew.Contains(n.Id)));
+            _availableNPCs = filterCommand.Execute();
             
             InitializeComponent();
             LoadNPCs();

@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
+using DNDStrongholdApp.Commands;
 using System.Linq;
 
 namespace DNDStrongholdApp.Services
@@ -18,6 +19,9 @@ namespace DNDStrongholdApp.Services
         // Singleton instance
         private static readonly object _lock = new object();
         private static GameStateService _instance;
+        
+        // Command invoker for managing operations
+        private readonly CommandInvoker _commandInvoker = new CommandInvoker();
         
         // DM Mode flag
         private bool _dmMode = false;
@@ -82,6 +86,12 @@ namespace DNDStrongholdApp.Services
         public Stronghold GetCurrentStronghold()
         {
             return _currentStronghold;
+        }
+        
+        // Get command invoker for undo/redo operations
+        public CommandInvoker GetCommandInvoker()
+        {
+            return _commandInvoker;
         }
         
         // Create a new stronghold
@@ -159,6 +169,13 @@ namespace DNDStrongholdApp.Services
         
         // Advance the game by one week
         public void AdvanceWeek()
+        {
+            var command = new AdvanceWeekCommand(this);
+            _commandInvoker.ExecuteCommand(command);
+        }
+        
+        // Internal method called by AdvanceWeekCommand
+        internal void ExecuteAdvanceWeek()
         {
             // Store previous resource amounts for reporting
             Dictionary<ResourceType, int> previousResourceAmounts = new Dictionary<ResourceType, int>();
@@ -444,6 +461,13 @@ namespace DNDStrongholdApp.Services
         // Save game to file
         public void SaveGame(string filePath)
         {
+            var command = new SaveGameCommand(this, filePath);
+            _commandInvoker.ExecuteCommand(command);
+        }
+        
+        // Internal method called by SaveGameCommand
+        internal void ExecuteSaveGame(string filePath)
+        {
             try
             {
                 string json = JsonSerializer.Serialize(_currentStronghold, new JsonSerializerOptions
@@ -461,6 +485,13 @@ namespace DNDStrongholdApp.Services
         
         // Load game from file
         public void LoadGame(string filePath)
+        {
+            var command = new LoadGameCommand(this, filePath);
+            _commandInvoker.ExecuteCommand(command);
+        }
+        
+        // Internal method called by LoadGameCommand
+        internal void ExecuteLoadGame(string filePath)
         {
             try
             {
@@ -641,22 +672,28 @@ namespace DNDStrongholdApp.Services
         // Add a new building to the stronghold
         public bool AddBuildingAndDeductCosts(Building building)
         {
+            var command = new AddBuildingCommand(this, building);
+            if (command.CanExecute())
+            {
+                _commandInvoker.ExecuteCommand(command);
+                return true;
+            }
+            return false;
+        }
+        
+        // Internal method called by AddBuildingCommand
+        internal void ExecuteAddBuildingAndDeductCosts(Building building)
+        {
             // In DM Mode, skip resource checks and deductions
             if (!_dmMode)
-        {
-            // Check if we have enough resources
-            if (!HasEnoughResources(building.ConstructionCost))
             {
-                return false;
-            }
-
-            // Deduct resources
-            foreach (var cost in building.ConstructionCost)
-            {
-                var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
-                if (resource != null)
+                // Deduct resources
+                foreach (var cost in building.ConstructionCost)
                 {
-                    resource.Amount -= cost.Amount;
+                    var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                    if (resource != null)
+                    {
+                        resource.Amount -= cost.Amount;
                     }
                 }
             }
@@ -678,11 +715,17 @@ namespace DNDStrongholdApp.Services
             ));
             
             OnGameStateChanged();
-            return true;
         }
 
         // Add a new NPC to the stronghold
         public void AddNPC(NPC npc)
+        {
+            var command = new AddNPCCommand(this, npc);
+            _commandInvoker.ExecuteCommand(command);
+        }
+        
+        // Internal method called by AddNPCCommand
+        internal void ExecuteAddNPC(NPC npc)
         {
             _currentStronghold.NPCs.Add(npc);
             
@@ -700,6 +743,13 @@ namespace DNDStrongholdApp.Services
         
         // Assign workers to a building
         public void AssignWorkersToBuilding(string buildingId, List<string> npcIds)
+        {
+            var command = new AssignWorkersCommand(this, buildingId, npcIds);
+            _commandInvoker.ExecuteCommand(command);
+        }
+        
+        // Internal method called by AssignWorkersCommand
+        internal void ExecuteAssignWorkersToBuilding(string buildingId, List<string> npcIds)
         {
             var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
             if (building == null)
@@ -743,8 +793,6 @@ namespace DNDStrongholdApp.Services
                 }
             }
 
-
-            
             // Update construction progress
             building.UpdateConstructionProgress(_currentStronghold.NPCs);
             
@@ -762,6 +810,13 @@ namespace DNDStrongholdApp.Services
         
         // Assign construction crew to a building
         public void AssignConstructionCrewToBuilding(string buildingId, List<string> npcIds)
+        {
+            var command = new AssignConstructionCrewCommand(this, buildingId, npcIds);
+            _commandInvoker.ExecuteCommand(command);
+        }
+        
+        // Internal method called by AssignConstructionCrewCommand
+        internal void ExecuteAssignConstructionCrewToBuilding(string buildingId, List<string> npcIds)
         {
             var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
             if (building == null) return;

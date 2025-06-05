@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
+using DNDStrongholdApp.Commands;
 using System.Linq;
 
 namespace DNDStrongholdApp.Forms
@@ -20,15 +21,16 @@ namespace DNDStrongholdApp.Forms
         {
             _building = building;
             
-            // Filter NPCs to include unassigned NPCs AND currently assigned construction crew members for this building
-            _availableNPCs = allNPCs.FindAll(n => 
+            // Filter NPCs using command
+            var filterCommand = new FilterNPCsCommand(allNPCs, n => 
                 n.Assignment.Type == AssignmentType.Unassigned || 
                 (n.Assignment.Type == AssignmentType.Building && 
                  n.Assignment.TargetId == building.Id && 
                  building.DedicatedConstructionCrew.Contains(n.Id)));
+            _availableNPCs = filterCommand.Execute();
             
-            // Sort by Construction skill level (descending), then by NPC type (Laborers first)
-            _availableNPCs.Sort((a, b) =>
+            // Sort NPCs using command
+            var sortCommand = new SortNPCsCommand(_availableNPCs, (a, b) =>
             {
                 // First priority: Laborers
                 if (a.Type == NPCType.Laborer && b.Type != NPCType.Laborer) return -1;
@@ -45,6 +47,7 @@ namespace DNDStrongholdApp.Forms
                 var bLabor = b.Skills.Find(s => s.Name == "Labor")?.Level ?? 0;
                 return bLabor.CompareTo(aLabor); // Descending
             });
+            _availableNPCs = sortCommand.Execute();
             
             InitializeComponent(operationType);
             LoadNPCs();

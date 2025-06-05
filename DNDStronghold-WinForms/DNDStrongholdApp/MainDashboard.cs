@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
 using DNDStrongholdApp.Services;
+using DNDStrongholdApp.Commands;
 using System.Linq;
 using DNDStrongholdApp.Forms;
 using System.IO;
@@ -2476,7 +2477,10 @@ public partial class MainDashboard : Form
         {
             if (dialog.ShowDialog() == DialogResult.OK)
             {
-                selectedResource.Amount = dialog.Value;
+                // Use command to modify resource
+                int difference = dialog.Value - selectedResource.Amount;
+                var command = new ModifyResourceCommand(_gameStateService, selectedResource.Type, difference);
+                _gameStateService.GetCommandInvoker().ExecuteCommand(command);
                 RefreshResourcesList();
             }
         }
@@ -2548,15 +2552,15 @@ public partial class MainDashboard : Form
                             string json = File.ReadAllText(jsonPath);
                             var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
                             var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                            
-                            if (buildingInfo != null)
+                        
+                        if (buildingInfo != null)
+                        {
+                            var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == building.Level);
+                            if (prodAtLevel != null)
                             {
-                                var prodAtLevel = buildingInfo.productionScaling.FirstOrDefault(p => p.level == building.Level);
-                                if (prodAtLevel != null)
+                                // For each resource type produced
+                                foreach (var resource in prodAtLevel.resources)
                                 {
-                                    // For each resource type produced
-                                    foreach (var resource in prodAtLevel.resources)
-                                    {
                                         var resourceType = (ResourceType)Enum.Parse(typeof(ResourceType), resource.resourceType);
                                         var applicableBonuses = buildingInfo.workerProductionBonus
                                             .Where(b => b.resourceType == resource.resourceType);
@@ -3104,7 +3108,8 @@ public partial class MainDashboard : Form
                     bool hasAvailableProjects = false;
                     if (building != null)
                     {
-                        var availableProjects = GetAvailableProjectsForBuilding(building);
+                        var getProjectsCommand = new GetAvailableProjectsCommand(building);
+                        var availableProjects = getProjectsCommand.Execute();
                         hasAvailableProjects = availableProjects.Any() && building.ConstructionStatus == BuildingStatus.Complete;
                     }
                     
@@ -3265,9 +3270,9 @@ public partial class MainDashboard : Form
             return;
         }
 
-            string json = File.ReadAllText(jsonPath);
-            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+        string json = File.ReadAllText(jsonPath);
+        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
             
         if (buildingInfo == null)
         {
@@ -3300,8 +3305,8 @@ public partial class MainDashboard : Form
             return;
         }
 
-            using (var confirmDialog = new UpgradeBuildingDialog(building))
-            {
+        using (var confirmDialog = new UpgradeBuildingDialog(building))
+        {
                 if (confirmDialog.ShowDialog() == DialogResult.OK)
                 {
                     if (building.StartUpgrade(_stronghold.Resources))
@@ -3499,7 +3504,8 @@ public partial class MainDashboard : Form
         }
 
         // Get available projects from building data
-        var availableProjects = GetAvailableProjectsForBuilding(building);
+        var getProjectsCommand = new GetAvailableProjectsCommand(building);
+        var availableProjects = getProjectsCommand.Execute();
         if (!availableProjects.Any())
         {
             MessageBox.Show("No projects are available for this building at its current level.", 
@@ -3568,54 +3574,8 @@ public partial class MainDashboard : Form
 
     private List<Project> GetAvailableProjectsForBuilding(Building building)
     {
-        var availableProjects = new List<Project>();
-        
-        try
-        {
-            // Try to load building data to get available projects
-            string[] possiblePaths = new[]
-            {
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "Data", "BuildingData.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "Data", "BuildingData.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "Data", "BuildingData.json")
-            };
-
-            string jsonPath = possiblePaths.FirstOrDefault(File.Exists);
-            if (string.IsNullOrEmpty(jsonPath)) return availableProjects;
-
-            string json = File.ReadAllText(jsonPath);
-            var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
-            var buildingInfo = buildingData?.buildings.Find(b => b.type == building.Type.ToString());
-            
-            if (buildingInfo != null)
-            {
-                var availableProjectInfos = buildingInfo.availableProjects
-                    .Where(p => p.minLevel <= building.Level)
-                    .ToList();
-
-                foreach (var projectInfo in availableProjectInfos)
-                {
-                    var project = new Project
-                    {
-                        Name = projectInfo.projectName,
-                        Description = GetProjectDescription(projectInfo.projectName),
-                        Duration = GetProjectDuration(projectInfo.projectName),
-                        TimeRemaining = GetProjectDuration(projectInfo.projectName),
-                        InitialCost = GetProjectCosts(projectInfo.projectName),
-                        AssignedWorkers = new List<string>()
-                    };
-                    availableProjects.Add(project);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            // Log error but don't show dialog to prevent crashes during UI updates
-            System.Diagnostics.Debug.WriteLine($"Error loading project data: {ex.Message}");
-        }
-
-        return availableProjects;
+        var command = new GetAvailableProjectsCommand(building);
+        return command.Execute();
     }
 
     private string GetProjectDescription(string projectName)
