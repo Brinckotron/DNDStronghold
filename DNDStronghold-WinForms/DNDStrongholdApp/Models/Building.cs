@@ -281,8 +281,8 @@ namespace DNDStrongholdApp.Models
             if (ConstructionStatus != BuildingStatus.UnderConstruction)
                 return false;
 
-            // No progress if no workers are assigned
-            if (AssignedWorkers.Count == 0)
+            // No progress if no workers are assigned (regular workers or construction crew)
+            if (GetTotalAssignedWorkers() == 0)
                 return false;
 
             // Add weekly construction points
@@ -332,8 +332,8 @@ namespace DNDStrongholdApp.Models
             if (ConstructionStatus != BuildingStatus.Repairing)
                 return false;
 
-            // No progress if no workers are assigned
-            if (AssignedWorkers.Count == 0)
+            // No progress if no workers are assigned (regular workers or construction crew)
+            if (GetTotalAssignedWorkers() == 0)
                 return false;
 
             // Add weekly construction points
@@ -452,8 +452,8 @@ namespace DNDStrongholdApp.Models
             if (ConstructionStatus != BuildingStatus.Upgrading)
                 return false;
 
-            // No progress if no workers are assigned
-            if (AssignedWorkers.Count == 0)
+            // No progress if no workers are assigned (regular workers or construction crew)
+            if (GetTotalAssignedWorkers() == 0)
                 return false;
 
             // Add weekly construction points
@@ -520,8 +520,8 @@ namespace DNDStrongholdApp.Models
             if (ConstructionStatus != BuildingStatus.Complete || Level >= GetMaxLevel())
                 return false;
 
-            // Check if workers are assigned
-            if (AssignedWorkers.Count == 0)
+            // Check if workers are assigned (regular workers or construction crew)
+            if (GetTotalAssignedWorkers() == 0)
                 return false;
 
             // Calculate upgrade costs
@@ -749,7 +749,7 @@ namespace DNDStrongholdApp.Models
         // Start construction if workers are assigned
         public bool StartConstruction()
         {
-            if (ConstructionStatus != BuildingStatus.Planning || AssignedWorkers.Count == 0)
+            if (ConstructionStatus != BuildingStatus.Planning || GetTotalAssignedWorkers() == 0)
                 return false;
 
             ConstructionStatus = BuildingStatus.UnderConstruction;

@@ -195,19 +195,19 @@ namespace DNDStrongholdApp.Services
         // Process construction and repairs
         private void ProcessConstructionAndRepairs()
         {
-            foreach (var building in _currentStronghold.Buildings)
+                    foreach (var building in _currentStronghold.Buildings)
+        {
+            // Check if building in Planning state has workers assigned (regular workers or construction crew)
+            if (building.ConstructionStatus == BuildingStatus.Planning && building.GetTotalAssignedWorkers() > 0)
             {
-                // Check if building in Planning state has workers assigned
-                if (building.ConstructionStatus == BuildingStatus.Planning && building.AssignedWorkers.Any())
-                {
-                    // Start construction if workers are assigned
-                    if (building.StartConstruction())
-                        {
-                        // Calculate and apply first week's construction points
-                        building.UpdateConstructionProgress(_currentStronghold.NPCs);
-                        building.AdvanceConstruction();
-                    }
+                // Start construction if workers are assigned
+                if (building.StartConstruction())
+                    {
+                    // Calculate and apply first week's construction points
+                    building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    building.AdvanceConstruction();
                 }
+            }
                 // Update construction progress for buildings already under construction
                 else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
                 {
@@ -743,11 +743,7 @@ namespace DNDStrongholdApp.Services
                 }
             }
 
-            // If building is in Planning state and has workers assigned, start construction
-            if (building.ConstructionStatus == BuildingStatus.Planning && building.AssignedWorkers.Count > 0)
-            {
-                building.StartConstruction();
-            }
+
             
             // Update construction progress
             building.UpdateConstructionProgress(_currentStronghold.NPCs);

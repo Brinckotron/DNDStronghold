@@ -174,6 +174,7 @@ public partial class MainDashboard : Form
         _tabControl = new TabControl();
         _tabControl.Dock = DockStyle.Fill;
         _tabControl.Visible = true; // Ensure tab control is visible
+        _tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
         
         // Create tabs
         TabPage dashboardTab = new TabPage("Dashboard");
@@ -287,6 +288,7 @@ public partial class MainDashboard : Form
         groupBox.Text = "Stronghold Information";
         groupBox.Dock = DockStyle.Fill;
         groupBox.Margin = new Padding(5);
+        groupBox.Tag = "StrongholdInfoPanel";
         
         TableLayoutPanel layout = new TableLayoutPanel();
         layout.Dock = DockStyle.Fill;
@@ -295,13 +297,13 @@ public partial class MainDashboard : Form
         
         // Add labels
         layout.Controls.Add(new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight }, 0, 0);
-        layout.Controls.Add(new Label { Text = _stronghold.Name, TextAlign = ContentAlignment.MiddleLeft }, 1, 0);
+        layout.Controls.Add(new Label { Text = _stronghold.Name, TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdName" }, 1, 0);
         
         layout.Controls.Add(new Label { Text = "Location:", TextAlign = ContentAlignment.MiddleRight }, 0, 1);
-        layout.Controls.Add(new Label { Text = _stronghold.Location, TextAlign = ContentAlignment.MiddleLeft }, 1, 1);
+        layout.Controls.Add(new Label { Text = _stronghold.Location, TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLocation" }, 1, 1);
         
         layout.Controls.Add(new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight }, 0, 2);
-        layout.Controls.Add(new Label { Text = _stronghold.Level.ToString(), TextAlign = ContentAlignment.MiddleLeft }, 1, 2);
+        layout.Controls.Add(new Label { Text = _stronghold.Level.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLevel" }, 1, 2);
         
         groupBox.Controls.Add(layout);
         return groupBox;
@@ -355,16 +357,33 @@ public partial class MainDashboard : Form
         groupBox.Text = "Buildings";
         groupBox.Dock = DockStyle.Fill;
         groupBox.Margin = new Padding(5);
+        groupBox.Tag = "BuildingSummaryPanel";
         
         ListView listView = new ListView();
         listView.Dock = DockStyle.Fill;
         listView.View = View.Details;
         listView.FullRowSelect = true;
+        listView.Tag = "BuildingSummaryList";
         
         // Add columns
-        listView.Columns.Add("Name", 150);
-        listView.Columns.Add("Type", 100);
-        listView.Columns.Add("Status", 150);
+        listView.Columns.Add("Name", 120);
+        listView.Columns.Add("Type", 80);
+        listView.Columns.Add("Workers", 70);
+        listView.Columns.Add("Level", 50);
+        listView.Columns.Add("Status", 130);
+        
+        // Dynamic column widths (25%, 17%, 15%, 10%, 33%)
+        void ResizeBuildingColumns(object s, EventArgs e)
+        {
+            int totalWidth = listView.ClientSize.Width;
+            listView.Columns[0].Width = (int)(totalWidth * 0.25);
+            listView.Columns[1].Width = (int)(totalWidth * 0.17);
+            listView.Columns[2].Width = (int)(totalWidth * 0.15);
+            listView.Columns[3].Width = (int)(totalWidth * 0.10);
+            listView.Columns[4].Width = (int)(totalWidth * 0.33);
+        }
+        listView.Resize += ResizeBuildingColumns;
+        ResizeBuildingColumns(null, null);
         
         // Add items for each building
         foreach (var building in _stronghold.Buildings)
@@ -385,7 +404,19 @@ public partial class MainDashboard : Form
             }
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
+            
+            // Show regular workers (not including construction crew)
+            int regularWorkers = building.AssignedWorkers.Count;
+            string workerText = $"{regularWorkers}/{building.WorkerSlots}";
+            if (building.DedicatedConstructionCrew.Count > 0)
+            {
+                workerText += $" (+{building.DedicatedConstructionCrew.Count})";
+            }
+            item.SubItems.Add(workerText);
+            
+            item.SubItems.Add(building.Level.ToString());
             item.SubItems.Add(statusText);
+            item.Tag = building.Id; // Add building ID as Tag
             
             // Set color based on building status
             if (building.ConstructionStatus == BuildingStatus.Damaged)
@@ -403,6 +434,15 @@ public partial class MainDashboard : Form
             
             listView.Items.Add(item);
         }
+        
+        // Double-click to open in Buildings tab
+        listView.DoubleClick += (s, e) => {
+            if (listView.SelectedItems.Count > 0)
+            {
+                string buildingId = (string)listView.SelectedItems[0].Tag;
+                ShowBuildingInTab(buildingId);
+            }
+        };
         
         groupBox.Controls.Add(listView);
         return groupBox;
@@ -922,12 +962,12 @@ public partial class MainDashboard : Form
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
             
-            // Show total workers (regular + construction crew)
-            int totalWorkers = building.GetTotalAssignedWorkers();
-            string workerText = $"{totalWorkers}/{building.WorkerSlots}";
+            // Show regular workers (not including construction crew)
+            int regularWorkers = building.AssignedWorkers.Count;
+            string workerText = $"{regularWorkers}/{building.WorkerSlots}";
             if (building.DedicatedConstructionCrew.Count > 0)
             {
-                workerText += $" (+{building.DedicatedConstructionCrew.Count} crew)";
+                workerText += $" (+{building.DedicatedConstructionCrew.Count})";
             }
             item.SubItems.Add(workerText);
             
@@ -1851,6 +1891,12 @@ public partial class MainDashboard : Form
         RefreshAllTabs();
     }
 
+    private void TabControl_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        // Refresh the selected tab when switching tabs
+        RefreshSelectedTab();
+    }
+
     private void UpdateStatusBar()
     {
         _weekLabel.Text = $"Week: {_stronghold.CurrentWeek}";
@@ -1867,6 +1913,33 @@ public partial class MainDashboard : Form
         RefreshResourcesTab();
         RefreshJournalTab();
         RefreshMissionsTab();
+    }
+
+    private void RefreshSelectedTab()
+    {
+        if (_tabControl == null || _stronghold == null) return;
+
+        switch (_tabControl.SelectedIndex)
+        {
+            case 0: // Dashboard
+                RefreshDashboardTab();
+                break;
+            case 1: // Buildings
+                RefreshBuildingsTab();
+                break;
+            case 2: // NPCs
+                RefreshNPCsTab();
+                break;
+            case 3: // Resources
+                RefreshResourcesTab();
+                break;
+            case 4: // Journal
+                RefreshJournalTab();
+                break;
+            case 5: // Missions
+                RefreshMissionsTab();
+                break;
+        }
     }
 
     private void RefreshDashboardTab()
@@ -1903,7 +1976,19 @@ public partial class MainDashboard : Form
                     }
                     ListViewItem item = new ListViewItem(building.Name);
                     item.SubItems.Add(building.Type.ToString());
+                    
+                    // Show regular workers (not including construction crew)
+                    int regularWorkers = building.AssignedWorkers.Count;
+                    string workerText = $"{regularWorkers}/{building.WorkerSlots}";
+                    if (building.DedicatedConstructionCrew.Count > 0)
+                    {
+                        workerText += $" (+{building.DedicatedConstructionCrew.Count})";
+                    }
+                    item.SubItems.Add(workerText);
+                    
+                    item.SubItems.Add(building.Level.ToString());
                     item.SubItems.Add(statusText);
+                    item.Tag = building.Id; // Add building ID as Tag
                     
                     if (building.ConstructionStatus == BuildingStatus.Damaged)
                         item.ForeColor = Color.Red;
@@ -2003,12 +2088,12 @@ public partial class MainDashboard : Form
             ListViewItem item = new ListViewItem(building.Name);
             item.SubItems.Add(building.Type.ToString());
             
-            // Show total workers (regular + construction crew)
-            int totalWorkers = building.GetTotalAssignedWorkers();
-            string workerText = $"{totalWorkers}/{building.WorkerSlots}";
+            // Show regular workers (not including construction crew)
+            int regularWorkers = building.AssignedWorkers.Count;
+            string workerText = $"{regularWorkers}/{building.WorkerSlots}";
             if (building.DedicatedConstructionCrew.Count > 0)
             {
-                workerText += $" (+{building.DedicatedConstructionCrew.Count} crew)";
+                workerText += $" (+{building.DedicatedConstructionCrew.Count})";
             }
             item.SubItems.Add(workerText);
             
@@ -2252,6 +2337,35 @@ public partial class MainDashboard : Form
                             item.Focused = true;
                             npcsListView.Select();
                             npcsListView.EnsureVisible(item.Index);
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    private void ShowBuildingInTab(string buildingId)
+    {
+        // Find the Buildings tab
+        for (int i = 0; i < _tabControl.TabPages.Count; i++)
+        {
+            if (_tabControl.TabPages[i].Text == "Buildings")
+            {
+                _tabControl.SelectedIndex = i;
+                // Find the Buildings list view
+                ListView buildingsListView = FindControl<ListView>(_tabControl.TabPages[i], "BuildingsListView");
+                if (buildingsListView != null)
+                {
+                    foreach (ListViewItem item in buildingsListView.Items)
+                    {
+                        if ((string)item.Tag == buildingId)
+                        {
+                            item.Selected = true;
+                            item.Focused = true;
+                            buildingsListView.Select();
+                            buildingsListView.EnsureVisible(item.Index);
                             break;
                         }
                     }
@@ -2716,11 +2830,11 @@ public partial class MainDashboard : Form
                 
                 if (workforceSummaryLabel != null)
                 {
-                    int totalWorkers = building.GetTotalAssignedWorkers();
-                    string summaryText = $"{totalWorkers}/{building.WorkerSlots} Workers";
+                    int regularWorkers = building.AssignedWorkers.Count;
+                    string summaryText = $"{regularWorkers}/{building.WorkerSlots} Workers";
                     if (building.DedicatedConstructionCrew.Count > 0)
                     {
-                        summaryText += $" ({building.DedicatedConstructionCrew.Count} construction crew)";
+                        summaryText += $" (+{building.DedicatedConstructionCrew.Count} construction crew)";
                     }
                     workforceSummaryLabel.Text = summaryText;
                 }
