@@ -1,0 +1,38 @@
+{
+  "maleNames": [
+    "Alasdair", "Angus", "Broderick", "Callum", "Duncan", "Ewan", "Finlay", "Gregor", "Hamish", "Iain",
+    "Jock", "Kenneth", "Lachlan", "Magnus", "Niall", "Oran", "Padraig", "Ruaridh", "Seamus", "Torquil",
+    "Uisdean", "Wallace", "Alistair", "Blair", "Colin", "Dougal", "Fraser", "Gavin", "Harris", "Innes",
+    "Kieran", "Logan", "Murray", "Neil", "Rory", "Stewart", "Tavish", "William", "James", "Robert",
+    "Aelred", "Beren", "Caelum", "Darian", "Elowen", "Faelan", "Gareth", "Hadrian", "Idris", "Jareth",
+    "Kael", "Lucian", "Miren", "Niven", "Orion", "Peregrin", "Quentin", "Rowan", "Soren", "Theron",
+    "Ulric", "Varian", "Wren", "Xander", "Yorick", "Zephyr", "Aldric", "Bastian", "Caspian", "Draven",
+    "Evander", "Fenris", "Gideon", "Hawthorne", "Isador", "Joren", "Lysander", "Mordecai", "Oberon",
+    "Percival", "Ragnar", "Silvain", "Tristan", "Valdris", "Wolfram", "Alaric", "Brannoc", "Cedric",
+    "Dorian", "Emrys", "Faolan", "Galahad", "Hector", "Ivan", "Jasper", "Knox", "Leander", "Maximus"
+  ],
+  "femaleNames": [
+    "Aileas", "Bonnie", "Caoimhe", "Deirdre", "Eilidh", "Fiona", "Greer", "Heather", "Isla", "Jenna",
+    "Kenna", "Lesley", "Mairi", "Nessa", "Oona", "Paisley", "Quinn", "Rhona", "Shona", "Tessa",
+    "Una", "Vivienne", "Wynne", "Aileen", "Bridget", "Caitlin", "Dara", "Effie", "Flora", "Gillian",
+    "Iona", "Kirsty", "Lorna", "Morag", "Nairne", "Rosalind", "Sìne", "Tavie", "Moira", "Skye",
+    "Astra", "Brenna", "Cordelia", "Delphine", "Elysia", "Freya", "Gwendolyn", "Hestia", "Iris", "Juniper",
+    "Kira", "Luna", "Mira", "Nyx", "Ophelia", "Persephone", "Raven", "Seraphina", "Thalassa", "Ursula",
+    "Vera", "Willow", "Xylia", "Yara", "Zara", "Ariana", "Belinda", "Celeste", "Daphne", "Evangeline",
+    "Felicity", "Gwyneth", "Helena", "Imogen", "Jade", "Kinara", "Liora", "Morgana", "Nerida", "Octavia",
+    "Phaedra", "Rhiannon", "Sabrina", "Thalia", "Valeria", "Wisteria", "Xenia", "Ysabel", "Zinnia",
+    "Amara", "Briony", "Calista", "Daria", "Elara", "Fiora", "Ginevra", "Halina", "Isobel", "Jessamine"
+  ],
+  "surnames": [
+    "MacLeod", "MacDonald", "MacKenzie", "MacPherson", "MacGregor", "MacLean", "MacIntyre", "MacBride", "MacDougall", "MacFarlane",
+    "Campbell", "Stewart", "Fraser", "Robertson", "Thomson", "Anderson", "Wilson", "MacMillan", "Hamilton", "Gordon",
+    "Murray", "Ross", "Grant", "Ferguson", "MacKay", "MacLennan", "MacRae", "MacInnes", "MacIver", "MacAulay",
+    "Bruce", "Wallace", "Douglas", "Graham", "Reid", "MacArthur", "MacNeil", "MacQueen", "MacCormack", "MacLachlan",
+    "Dragonbane", "Stormwind", "Ironforge", "Goldleaf", "Silverbrook", "Thornfield", "Ravencrest", "Starweaver", "Moonwhisper", "Sunblade",
+    "Shadowmere", "Brightflame", "Mistral", "Emberpeak", "Frostborn", "Wildrun", "Earthshaker", "Skyrender", "Firehand", "Icehart",
+    "Blackthorn", "Whitehawk", "Greycloak", "Redstone", "Bluewater", "Goldmane", "Silverwing", "Ironhart", "Steelwind", "Brightbane",
+    "Darkbane", "Lightbringer", "Soulforge", "Mindbreaker", "Spellweaver", "Runekeeper", "Oathbound", "Bloodmoon", "Starhunter", "Voidwalker",
+    "Ashworth", "Blackwood", "Brightwater", "Clearwater", "Deepwood", "Fairfax", "Greenhill", "Hartwell", "Ironwood", "Kingsley",
+    "Lockwood", "Merriweather", "Northwood", "Rosewood", "Southwell", "Thornton", "Underwood", "Westbrook", "Whitmore", "Yorkstone"
+  ]
+} 

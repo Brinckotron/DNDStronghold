@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DNDStrongholdApp.Models
 {
@@ -280,6 +283,45 @@ namespace DNDStrongholdApp.Models
         // Generate a random name for the NPC
         private string GenerateRandomName()
         {
+            try
+            {
+                // Load names from JSON file
+                string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Names.json");
+                if (!File.Exists(jsonPath))
+                {
+                    // Fallback to simple names if file doesn't exist
+                    return GenerateFallbackName();
+                }
+
+                string json = File.ReadAllText(jsonPath);
+                var nameData = JsonSerializer.Deserialize<NameData>(json);
+                
+                if (nameData == null || nameData.MaleNames == null || nameData.FemaleNames == null || nameData.Surnames == null)
+                {
+                    return GenerateFallbackName();
+                }
+
+                Random random = new Random();
+                bool isMale = random.Next(2) == 0;
+                
+                string firstName = isMale 
+                    ? nameData.MaleNames[random.Next(nameData.MaleNames.Count)] 
+                    : nameData.FemaleNames[random.Next(nameData.FemaleNames.Count)];
+                    
+                string lastName = nameData.Surnames[random.Next(nameData.Surnames.Count)];
+                
+                return $"{firstName} {lastName}";
+            }
+            catch (Exception)
+            {
+                // If anything goes wrong, use fallback names
+                return GenerateFallbackName();
+            }
+        }
+
+        // Fallback name generation if JSON file is unavailable
+        private string GenerateFallbackName()
+        {
             string[] maleNames = { "John", "William", "James", "Robert", "Michael", "Thomas", "David", "Richard", "Charles", "Joseph" };
             string[] femaleNames = { "Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen" };
             string[] surnames = { "Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor" };
@@ -460,5 +502,18 @@ namespace DNDStrongholdApp.Models
         Training,         // NPC is in training
         OnMission,        // NPC is on a mission
         Unavailable       // NPC is unavailable due to health conditions
+    }
+
+    // Class to hold name data from JSON file
+    public class NameData
+    {
+        [JsonPropertyName("maleNames")]
+        public List<string> MaleNames { get; set; } = new List<string>();
+        
+        [JsonPropertyName("femaleNames")]
+        public List<string> FemaleNames { get; set; } = new List<string>();
+        
+        [JsonPropertyName("surnames")]
+        public List<string> Surnames { get; set; } = new List<string>();
     }
 } 

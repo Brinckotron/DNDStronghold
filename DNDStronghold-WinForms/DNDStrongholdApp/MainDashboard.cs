@@ -35,6 +35,12 @@ public partial class MainDashboard : Form
     private string _selectedBuildingId;
     private int _lastSortedColumn = -1;
     private SortOrder _lastSortOrder = SortOrder.None;
+    
+    // Dashboard sorting state
+    private int _dashboardBuildingsSortedColumn = -1;
+    private SortOrder _dashboardBuildingsSortOrder = SortOrder.None;
+    private int _dashboardNPCsSortedColumn = -1;
+    private SortOrder _dashboardNPCsSortOrder = SortOrder.None;
 
     // Add CurrentProject property to track building projects
     private Building CurrentProject => _stronghold?.Buildings.FirstOrDefault(b => 
@@ -445,6 +451,9 @@ public partial class MainDashboard : Form
             }
         };
         
+        // Add column click handler for sorting
+        listView.ColumnClick += DashboardBuildingsListView_ColumnClick;
+        
         groupBox.Controls.Add(listView);
         return groupBox;
     }
@@ -460,6 +469,7 @@ public partial class MainDashboard : Form
         listView.Dock = DockStyle.Fill;
         listView.View = View.Details;
         listView.FullRowSelect = true;
+        listView.Tag = "NPCSummaryList";
         
         // Add columns
         listView.Columns.Add("Name", 150);
@@ -501,6 +511,9 @@ public partial class MainDashboard : Form
                 ShowNPCInTab(npcId);
             }
         };
+        
+        // Add column click handler for sorting
+        listView.ColumnClick += DashboardNPCsListView_ColumnClick;
         
         groupBox.Controls.Add(listView);
         return groupBox;
@@ -827,29 +840,63 @@ public partial class MainDashboard : Form
         GroupBox detailsGroupBox = new GroupBox();
         detailsGroupBox.Text = "NPC Details";
         detailsGroupBox.Dock = DockStyle.Fill;
+        detailsGroupBox.Padding = new Padding(10);
         
         TableLayoutPanel detailsLayout = new TableLayoutPanel();
         detailsLayout.Dock = DockStyle.Fill;
         detailsLayout.ColumnCount = 2;
-        detailsLayout.RowCount = 5;
+        detailsLayout.RowCount = 6;
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Name
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Type
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Level
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // State
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Assignment
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // Skills ListView
         
         // Labels for details
-        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight };
-        Label nameValueLabel = new Label { Text = "", Tag = "NPCName" };
-        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight };
-        Label typeValueLabel = new Label { Text = "", Tag = "NPCType" };
-        Label levelLabel = new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight };
-        Label levelValueLabel = new Label { Text = "", Tag = "NPCLevel" };
-        Label expLabel = new Label { Text = "Experience:", TextAlign = ContentAlignment.MiddleRight };
-        Label expValueLabel = new Label { Text = "", Tag = "NPCExperience" };
-        Label happinessLabel = new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight };
-        Label happinessValueLabel = new Label { Text = "", Tag = "NPCHappiness" };
-        Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.MiddleRight };
-        Label skillsValueLabel = new Label { Text = "", Tag = "NPCSkills" };
-        Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight };
-        Label assignmentValueLabel = new Label { Text = "", Tag = "NPCAssignment" };
+        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        Label nameValueLabel = new Label { Text = "", Tag = "NPCName", AutoSize = true, Margin = new Padding(0, 5, 0, 5) };
+        
+        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        Label typeValueLabel = new Label { Text = "", Tag = "NPCType", AutoSize = true, Margin = new Padding(0, 5, 0, 5) };
+        
+        Label levelLabel = new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        Label levelValueLabel = new Label { Text = "", Tag = "NPCLevel", AutoSize = true, Margin = new Padding(0, 5, 0, 5) };
+        
+        Label stateLabel = new Label { Text = "State:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        Label stateValueLabel = new Label { Text = "", Tag = "NPCState", AutoSize = true, Margin = new Padding(0, 5, 0, 5) };
+        
+        Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        Label assignmentValueLabel = new Label { Text = "", Tag = "NPCAssignment", AutoSize = true, Margin = new Padding(0, 5, 0, 5) };
+        
+        Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.TopRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        
+        // Skills ListView
+        ListView skillsListView = new ListView();
+        skillsListView.Dock = DockStyle.Fill;
+        skillsListView.View = View.Details;
+        skillsListView.FullRowSelect = true;
+        skillsListView.GridLines = true;
+        skillsListView.Tag = "NPCSkillsListView";
+        skillsListView.Margin = new Padding(0, 5, 0, 0);
+        
+        // Add columns for skills
+        skillsListView.Columns.Add("Skill", 100);
+        skillsListView.Columns.Add("Level", 50);
+        skillsListView.Columns.Add("XP", 80);
+        
+        // Dynamic column widths for skills (50%, 20%, 30%)
+        void ResizeSkillsColumns(object s, EventArgs e)
+        {
+            int totalWidth = skillsListView.ClientSize.Width;
+            skillsListView.Columns[0].Width = (int)(totalWidth * 0.50);
+            skillsListView.Columns[1].Width = (int)(totalWidth * 0.20);
+            skillsListView.Columns[2].Width = (int)(totalWidth * 0.30);
+        }
+        skillsListView.Resize += ResizeSkillsColumns;
+        ResizeSkillsColumns(null, null);
         
         // Add to details layout
         detailsLayout.Controls.Add(nameLabel, 0, 0);
@@ -858,14 +905,12 @@ public partial class MainDashboard : Form
         detailsLayout.Controls.Add(typeValueLabel, 1, 1);
         detailsLayout.Controls.Add(levelLabel, 0, 2);
         detailsLayout.Controls.Add(levelValueLabel, 1, 2);
-        detailsLayout.Controls.Add(expLabel, 0, 3);
-        detailsLayout.Controls.Add(expValueLabel, 1, 3);
-        detailsLayout.Controls.Add(happinessLabel, 0, 4);
-        detailsLayout.Controls.Add(happinessValueLabel, 1, 4);
+        detailsLayout.Controls.Add(stateLabel, 0, 3);
+        detailsLayout.Controls.Add(stateValueLabel, 1, 3);
+        detailsLayout.Controls.Add(assignmentLabel, 0, 4);
+        detailsLayout.Controls.Add(assignmentValueLabel, 1, 4);
         detailsLayout.Controls.Add(skillsLabel, 0, 5);
-        detailsLayout.Controls.Add(skillsValueLabel, 1, 5);
-        detailsLayout.Controls.Add(assignmentLabel, 0, 6);
-        detailsLayout.Controls.Add(assignmentValueLabel, 1, 6);
+        detailsLayout.Controls.Add(skillsListView, 1, 5);
         
         detailsGroupBox.Controls.Add(detailsLayout);
         
@@ -2000,6 +2045,12 @@ public partial class MainDashboard : Form
                     
                     listView.Items.Add(item);
                 }
+                
+                // Maintain sorting if a column was previously sorted
+                if (_dashboardBuildingsSortedColumn != -1)
+                {
+                    listView.ListViewItemSorter = new DashboardBuildingsListViewSorter(_dashboardBuildingsSortedColumn, _dashboardBuildingsSortOrder);
+                }
             }
         }
 
@@ -2040,6 +2091,12 @@ public partial class MainDashboard : Form
                     item.SubItems.Add(status);
                     item.Tag = npc.Id;
                     listView.Items.Add(item);
+                }
+                
+                // Maintain sorting if a column was previously sorted
+                if (_dashboardNPCsSortedColumn != -1)
+                {
+                    listView.ListViewItemSorter = new DashboardNPCsListViewSorter(_dashboardNPCsSortedColumn, _dashboardNPCsSortOrder);
                 }
             }
         }
@@ -2268,53 +2325,79 @@ public partial class MainDashboard : Form
     {
         if (npc == null) return;
 
-        var detailsGroupBox = new GroupBox
+        // Find the existing controls and update them
+        var nameValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCName");
+        var typeValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCType");
+        var levelValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCLevel");
+        var stateValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCState");
+        var assignmentValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCAssignment");
+        var skillsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCSkillsListView");
+
+        // Update basic info
+        if (nameValueLabel != null) nameValueLabel.Text = npc.Name;
+        if (typeValueLabel != null) typeValueLabel.Text = npc.Type.ToString();
+        if (levelValueLabel != null) levelValueLabel.Text = npc.Level.ToString();
+
+        // Update state - show health status
+        if (stateValueLabel != null)
         {
-            Text = "NPC Details",
-            Dock = DockStyle.Fill
-        };
+            if (npc.States != null && npc.States.Any())
+            {
+                // Map health states to user-friendly names
+                var stateText = string.Join(", ", npc.States.Select(s => s.Type.ToString()));
+                stateValueLabel.Text = stateText;
+                
+                // Set color based on severity
+                if (npc.States.Any(s => s.Type.ToString().Contains("Gravely") || s.Type.ToString().Contains("Grave")))
+                    stateValueLabel.ForeColor = Color.Red;
+                else if (npc.States.Any(s => s.Type.ToString().Contains("Injured") || s.Type.ToString().Contains("Sick")))
+                    stateValueLabel.ForeColor = Color.Orange;
+                else
+                    stateValueLabel.ForeColor = Color.Black;
+            }
+            else
+            {
+                stateValueLabel.Text = "Healthy";
+                stateValueLabel.ForeColor = Color.Green;
+            }
+        }
 
-        var detailsLayout = new TableLayoutPanel
+        // Update assignment
+        if (assignmentValueLabel != null)
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 5,
-            Padding = new Padding(10)
-        };
+            assignmentValueLabel.Text = npc.Assignment.Type == AssignmentType.Unassigned 
+                ? "Unassigned" 
+                : $"{npc.Assignment.Type}: {npc.Assignment.TargetName}";
+        }
 
-        // Name
-        Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight };
-        Label nameValueLabel = new Label { Text = npc.Name };
-        detailsLayout.Controls.Add(nameLabel, 0, 0);
-        detailsLayout.Controls.Add(nameValueLabel, 1, 0);
-
-        // Type
-        Label typeLabel = new Label { Text = "Type:", TextAlign = ContentAlignment.MiddleRight };
-        Label typeValueLabel = new Label { Text = npc.Type.ToString() };
-        detailsLayout.Controls.Add(typeLabel, 0, 1);
-        detailsLayout.Controls.Add(typeValueLabel, 1, 1);
-
-        // Skills
-        Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.MiddleRight };
-        Label skillsValueLabel = new Label { Text = string.Join(", ", npc.Skills.Select(s => $"{s.Name} (Lvl {s.Level})")) };
-        detailsLayout.Controls.Add(skillsLabel, 0, 2);
-        detailsLayout.Controls.Add(skillsValueLabel, 1, 2);
-
-        // Assignment
-        Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight };
-        Label assignmentValueLabel = new Label { Text = npc.Assignment.Type == AssignmentType.Unassigned ? "None" : $"{npc.Assignment.Type}: {npc.Assignment.TargetName}" };
-        detailsLayout.Controls.Add(assignmentLabel, 0, 3);
-        detailsLayout.Controls.Add(assignmentValueLabel, 1, 3);
-
-        // Health States
-        Label statesLabel = new Label { Text = "Status:", TextAlign = ContentAlignment.MiddleRight };
-        Label statesValueLabel = new Label { Text = npc.States.Any() ? string.Join(", ", npc.States.Select(s => s.Type.ToString())) : "Healthy" };
-        detailsLayout.Controls.Add(statesLabel, 0, 4);
-        detailsLayout.Controls.Add(statesValueLabel, 1, 4);
-
-        // Clear and add the new layout
-        detailsGroupBox.Controls.Clear();
-        detailsGroupBox.Controls.Add(detailsLayout);
+        // Update skills ListView - only show skills with XP > 0
+        if (skillsListView != null)
+        {
+            skillsListView.Items.Clear();
+            
+            var skillsWithXP = npc.Skills.Where(s => s.Experience > 0 || s.Level > 0).ToList();
+            
+            if (skillsWithXP.Any())
+            {
+                foreach (var skill in skillsWithXP)
+                {
+                    var item = new ListViewItem(skill.Name);
+                    int requiredXP = (skill.Level + 1) * 100;
+                    item.SubItems.Add(skill.Level.ToString());
+                    item.SubItems.Add($"{skill.Experience}/{requiredXP}");
+                    skillsListView.Items.Add(item);
+                }
+            }
+            else
+            {
+                // Show a placeholder if no skills with XP
+                var noSkillsItem = new ListViewItem("No skills learned");
+                noSkillsItem.SubItems.Add("");
+                noSkillsItem.SubItems.Add("");
+                noSkillsItem.ForeColor = Color.Gray;
+                skillsListView.Items.Add(noSkillsItem);
+            }
+        }
     }
 
     // Helper to switch to NPCs tab and select an NPC
@@ -3661,6 +3744,60 @@ public partial class MainDashboard : Form
         _lastSortOrder = newSortOrder;
     }
 
+    private void DashboardBuildingsListView_ColumnClick(object sender, ColumnClickEventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        
+        // Figure out the new sorting order
+        SortOrder newSortOrder;
+        
+        // If we clicked the same column that was clicked last time,
+        // reverse the sort order. Otherwise, default to ascending.
+        if (_dashboardBuildingsSortedColumn == e.Column)
+        {
+            newSortOrder = _dashboardBuildingsSortOrder == SortOrder.Ascending ? 
+                          SortOrder.Descending : SortOrder.Ascending;
+        }
+        else
+        {
+            newSortOrder = SortOrder.Ascending;
+        }
+        
+        // Sort the items
+        listView.ListViewItemSorter = new DashboardBuildingsListViewSorter(e.Column, newSortOrder);
+        
+        // Remember the new sorting column and order
+        _dashboardBuildingsSortedColumn = e.Column;
+        _dashboardBuildingsSortOrder = newSortOrder;
+    }
+
+    private void DashboardNPCsListView_ColumnClick(object sender, ColumnClickEventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        
+        // Figure out the new sorting order
+        SortOrder newSortOrder;
+        
+        // If we clicked the same column that was clicked last time,
+        // reverse the sort order. Otherwise, default to ascending.
+        if (_dashboardNPCsSortedColumn == e.Column)
+        {
+            newSortOrder = _dashboardNPCsSortOrder == SortOrder.Ascending ? 
+                          SortOrder.Descending : SortOrder.Ascending;
+        }
+        else
+        {
+            newSortOrder = SortOrder.Ascending;
+        }
+        
+        // Sort the items
+        listView.ListViewItemSorter = new DashboardNPCsListViewSorter(e.Column, newSortOrder);
+        
+        // Remember the new sorting column and order
+        _dashboardNPCsSortedColumn = e.Column;
+        _dashboardNPCsSortOrder = newSortOrder;
+    }
+
     private class BuildingsListViewSorter : System.Collections.IComparer
     {
         private int _column;
@@ -3743,6 +3880,127 @@ public partial class MainDashboard : Form
                 "Damaged" => 5,
                 _ => 6
             };
+        }
+    }
+
+    private class DashboardBuildingsListViewSorter : System.Collections.IComparer
+    {
+        private int _column;
+        private SortOrder _sortOrder;
+
+        public DashboardBuildingsListViewSorter(int column, SortOrder sortOrder)
+        {
+            _column = column;
+            _sortOrder = sortOrder;
+        }
+
+        public int Compare(object x, object y)
+        {
+            ListViewItem itemX = (ListViewItem)x;
+            ListViewItem itemY = (ListViewItem)y;
+            
+            int compareResult;
+            
+            // Different comparison logic based on column
+            // Dashboard buildings columns: Name, Type, Workers, Level, Status
+            switch (_column)
+            {
+                case 0: // Name
+                case 1: // Type
+                    compareResult = String.Compare(
+                        itemX.SubItems[_column].Text,
+                        itemY.SubItems[_column].Text
+                    );
+                    break;
+                    
+                case 2: // Workers
+                    // Extract current worker count
+                    int workersX = int.Parse(itemX.SubItems[_column].Text.Split('/')[0]);
+                    int workersY = int.Parse(itemY.SubItems[_column].Text.Split('/')[0]);
+                    compareResult = workersX.CompareTo(workersY);
+                    break;
+                    
+                case 3: // Level
+                    int levelX = int.Parse(itemX.SubItems[_column].Text);
+                    int levelY = int.Parse(itemY.SubItems[_column].Text);
+                    compareResult = levelX.CompareTo(levelY);
+                    break;
+                    
+                case 4: // Status
+                    // Get the status without progress info
+                    string statusX = itemX.SubItems[_column].Text.Split(' ')[0];
+                    string statusY = itemY.SubItems[_column].Text.Split(' ')[0];
+                    
+                    // Convert status to priority number
+                    int priorityX = GetStatusPriority(statusX);
+                    int priorityY = GetStatusPriority(statusY);
+                    
+                    compareResult = priorityX.CompareTo(priorityY);
+                    break;
+                    
+                default:
+                    compareResult = 0;
+                    break;
+            }
+            
+            // Return the result based on sort order
+            return _sortOrder == SortOrder.Ascending ? compareResult : -compareResult;
+        }
+        
+        private int GetStatusPriority(string status)
+        {
+            return status switch
+            {
+                "Complete" => 0,
+                "UnderConstruction" => 1,
+                "Planning" => 2,
+                "Upgrading" => 3,
+                "Repairing" => 4,
+                "Damaged" => 5,
+                _ => 6
+            };
+        }
+    }
+
+    private class DashboardNPCsListViewSorter : System.Collections.IComparer
+    {
+        private int _column;
+        private SortOrder _sortOrder;
+
+        public DashboardNPCsListViewSorter(int column, SortOrder sortOrder)
+        {
+            _column = column;
+            _sortOrder = sortOrder;
+        }
+
+        public int Compare(object x, object y)
+        {
+            ListViewItem itemX = (ListViewItem)x;
+            ListViewItem itemY = (ListViewItem)y;
+            
+            int compareResult;
+            
+            // Different comparison logic based on column
+            // Dashboard NPCs columns: Name, Type, Assignment, Status
+            switch (_column)
+            {
+                case 0: // Name
+                case 1: // Type
+                case 2: // Assignment
+                case 3: // Status
+                    compareResult = String.Compare(
+                        itemX.SubItems[_column].Text,
+                        itemY.SubItems[_column].Text
+                    );
+                    break;
+                    
+                default:
+                    compareResult = 0;
+                    break;
+            }
+            
+            // Return the result based on sort order
+            return _sortOrder == SortOrder.Ascending ? compareResult : -compareResult;
         }
     }
 
