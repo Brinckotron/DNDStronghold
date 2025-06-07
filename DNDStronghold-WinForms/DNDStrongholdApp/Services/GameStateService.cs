@@ -581,6 +581,8 @@ namespace DNDStrongholdApp.Services
                     if (Enum.TryParse<NPCType>(npcData.Type, out var npcType))
                     {
                         var npc = new NPC(npcType);
+                        // Generate a procedural bio for test NPCs
+                        npc.GenerateBio();
                         _currentStronghold.NPCs.Add(npc);
                     }
                 }

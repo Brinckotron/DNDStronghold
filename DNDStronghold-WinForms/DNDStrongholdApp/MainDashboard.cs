@@ -845,7 +845,7 @@ public partial class MainDashboard : Form
         TableLayoutPanel detailsLayout = new TableLayoutPanel();
         detailsLayout.Dock = DockStyle.Fill;
         detailsLayout.ColumnCount = 2;
-        detailsLayout.RowCount = 6;
+        detailsLayout.RowCount = 7;
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Name
@@ -853,7 +853,8 @@ public partial class MainDashboard : Form
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Level
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // State
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Assignment
-        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // Skills ListView
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F)); // Skills ListView (reduced to 50%)
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F)); // Bio section (new 50%)
         
         // Labels for details
         Label nameLabel = new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
@@ -898,6 +899,41 @@ public partial class MainDashboard : Form
         skillsListView.Resize += ResizeSkillsColumns;
         ResizeSkillsColumns(null, null);
         
+        // Bio section
+        Label bioLabel = new Label { Text = "Bio:", TextAlign = ContentAlignment.TopRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
+        
+        // Bio panel to contain the TextBox and Edit button
+        TableLayoutPanel bioPanel = new TableLayoutPanel();
+        bioPanel.Dock = DockStyle.Fill;
+        bioPanel.ColumnCount = 1;
+        bioPanel.RowCount = 2;
+        bioPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // TextBox
+        bioPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Button
+        bioPanel.Margin = new Padding(0, 5, 0, 0);
+        
+        // Bio TextBox (read-only display)
+        TextBox bioTextBox = new TextBox();
+        bioTextBox.Dock = DockStyle.Fill;
+        bioTextBox.Multiline = true;
+        bioTextBox.ScrollBars = ScrollBars.Vertical;
+        bioTextBox.ReadOnly = true;
+        bioTextBox.BackColor = SystemColors.Control;
+        bioTextBox.Tag = "NPCBioTextBox";
+        bioTextBox.Text = "";
+        
+        // Edit Bio button
+        Button editBioButton = new Button();
+        editBioButton.Text = "Edit Bio";
+        editBioButton.Dock = DockStyle.Right;
+        editBioButton.Width = 80;
+        editBioButton.Height = 25;
+        editBioButton.Tag = "EditBioButton";
+        editBioButton.Margin = new Padding(0, 5, 0, 0);
+        editBioButton.Click += EditBioButton_Click;
+        
+        bioPanel.Controls.Add(bioTextBox, 0, 0);
+        bioPanel.Controls.Add(editBioButton, 0, 1);
+        
         // Add to details layout
         detailsLayout.Controls.Add(nameLabel, 0, 0);
         detailsLayout.Controls.Add(nameValueLabel, 1, 0);
@@ -911,6 +947,8 @@ public partial class MainDashboard : Form
         detailsLayout.Controls.Add(assignmentValueLabel, 1, 4);
         detailsLayout.Controls.Add(skillsLabel, 0, 5);
         detailsLayout.Controls.Add(skillsListView, 1, 5);
+        detailsLayout.Controls.Add(bioLabel, 0, 6);
+        detailsLayout.Controls.Add(bioPanel, 1, 6);
         
         detailsGroupBox.Controls.Add(detailsLayout);
         
@@ -2332,6 +2370,7 @@ public partial class MainDashboard : Form
         var stateValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCState");
         var assignmentValueLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCAssignment");
         var skillsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCSkillsListView");
+        var bioTextBox = FindControl<TextBox>(_tabControl.TabPages[2], "NPCBioTextBox");
 
         // Update basic info
         if (nameValueLabel != null) nameValueLabel.Text = npc.Name;
@@ -2396,6 +2435,38 @@ public partial class MainDashboard : Form
                 noSkillsItem.SubItems.Add("");
                 noSkillsItem.ForeColor = Color.Gray;
                 skillsListView.Items.Add(noSkillsItem);
+            }
+        }
+
+        // Update bio display
+        if (bioTextBox != null)
+        {
+            bioTextBox.Text = npc.Bio ?? "";
+        }
+    }
+
+    private void EditBioButton_Click(object sender, EventArgs e)
+    {
+        // Find the currently selected NPC
+        var npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+        if (npcsListView?.SelectedItems.Count > 0)
+        {
+            string npcId = (string)npcsListView.SelectedItems[0].Tag;
+            NPC selectedNpc = _stronghold.NPCs.Find(n => n.Id == npcId);
+            
+            if (selectedNpc != null)
+            {
+                using (var bioDialog = new BioEditDialog(selectedNpc.Name, selectedNpc.Bio, selectedNpc))
+                {
+                    if (bioDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        // Update the NPC's bio
+                        selectedNpc.Bio = bioDialog.BioText;
+                        
+                        // Update the bio display
+                        UpdateNPCDetails(selectedNpc);
+                    }
+                }
             }
         }
     }

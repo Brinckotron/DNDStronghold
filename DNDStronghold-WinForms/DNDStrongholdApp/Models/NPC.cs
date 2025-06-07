@@ -12,6 +12,7 @@ namespace DNDStrongholdApp.Models
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public NPCType Type { get; set; }
         public string Name { get; set; } = string.Empty;
+        public NPCGender Gender { get; set; } = NPCGender.Male;
         public List<Skill> Skills { get; set; } = new List<Skill>();
         public NPCAssignment Assignment { get; set; } = new NPCAssignment();
         public List<ResourceCost> UpkeepCost { get; set; } = new List<ResourceCost>();
@@ -21,6 +22,7 @@ namespace DNDStrongholdApp.Models
         public bool IsAlive { get; set; } = true;
         public int Level { get; set; } = 1; // NPC level, starts at 1
         public NPCStatus Status { get; set; } = NPCStatus.Available; // Current status of the NPC
+        public string Bio { get; set; } = string.Empty; // NPC biography/description
 
         // Constructor for a new NPC
         public NPC(NPCType type, string name = "")
@@ -29,6 +31,21 @@ namespace DNDStrongholdApp.Models
             Name = !string.IsNullOrEmpty(name) ? name : GenerateRandomName();
             InitializeSkills();
             UpdateUpkeepCosts(); // Initialize upkeep costs
+        }
+
+        // Generate a procedural bio for this NPC
+        public void GenerateBio()
+        {
+            try
+            {
+                var bioGenerator = new Services.BioGeneratorService();
+                Bio = bioGenerator.GenerateBio(this);
+            }
+            catch
+            {
+                // If bio generation fails, leave bio empty
+                Bio = string.Empty;
+            }
         }
 
         // Initialize all skills at level 0
@@ -303,6 +320,7 @@ namespace DNDStrongholdApp.Models
 
                 Random random = new Random();
                 bool isMale = random.Next(2) == 0;
+                Gender = isMale ? NPCGender.Male : NPCGender.Female;
                 
                 string firstName = isMale 
                     ? nameData.MaleNames[random.Next(nameData.MaleNames.Count)] 
@@ -328,6 +346,7 @@ namespace DNDStrongholdApp.Models
             
             Random random = new Random();
             bool isMale = random.Next(2) == 0;
+            Gender = isMale ? NPCGender.Male : NPCGender.Female;
             
             string firstName = isMale 
                 ? maleNames[random.Next(maleNames.Length)] 
@@ -378,6 +397,12 @@ namespace DNDStrongholdApp.Models
         Artisan,
         Scholar,
         Merchant
+    }
+
+    public enum NPCGender
+    {
+        Male,
+        Female
     }
 
     public enum BasicSkill

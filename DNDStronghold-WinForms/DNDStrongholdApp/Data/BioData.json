@@ -1,0 +1,3298 @@
+{
+  "bioSections": {
+    "backgrounds": [
+      {
+        "text": "Born in a small farming village, {name} learned the value of hard work from an early age.",
+        "weight": 1.0,
+        "npcTypes": ["Peasant", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in the bustling streets of a merchant town, {name} has always been comfortable around trade and commerce.",
+        "weight": 1.0,
+        "npcTypes": ["Merchant", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Growing up near the frontier, {name} developed a keen sense for danger and survival.",
+        "weight": 1.0,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "Born into a family of craftsmen, {name} showed an early aptitude for working with {his/her} hands.",
+        "weight": 1.0,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a monastery, {name} spent {his/her} youth studying ancient texts and learning the ways of scholarship.",
+        "weight": 1.0,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The youngest of seven children, {name} learned to fend for {himself/herself} early in life.",
+        "weight": 0.8,
+        "npcTypes": ["Peasant", "Laborer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a harsh winter, {name}'s family struggled to make ends meet in their small mountain village.",
+        "weight": 0.7,
+        "npcTypes": ["Peasant", "Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "As the child of traveling merchants, {name} has seen more of the world than most people twice {his/her} age.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Orphaned at a young age, {name} was taken in by the local militia and trained in the arts of war.",
+        "weight": 0.5,
+        "npcTypes": ["Militia", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of renowned craftswomen, {name} carries on a proud tradition of fine workmanship.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "female"
+      },
+      {
+        "text": "The son of a veteran soldier, {name} was raised with stories of honor and duty.",
+        "weight": 0.8,
+        "npcTypes": ["Militia"],
+        "gender": "male"
+      },
+      {
+        "text": "Born to a fishing family on the coast, {name} learned to read the signs of weather and tide.",
+        "weight": 0.8,
+        "npcTypes": ["Peasant", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a manor as a servant's child, {name} observed the ways of the wealthy from an early age.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The daughter of a village healer, {name} learned the properties of herbs and the art of mending wounds.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Peasant"],
+        "gender": "female"
+      },
+      {
+        "text": "Born during a time of war, {name}'s early years were marked by uncertainty and frequent moves.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} grandfather after {his/her} parents died in a plague, {name} learned self-reliance early.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a trading post at the crossroads, {name} grew up hearing tales from travelers of distant lands.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of former city guards, {name} was taught the importance of vigilance and protecting others.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a rural inn, {name} learned to read people and handle difficult situations with diplomacy.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of foresters, {name} spent {his/her} childhood among the trees and learned their secrets.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "The only child of elderly parents, {name} grew up with a deep sense of responsibility and maturity.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a mining town, {name} learned early about the dangers and rewards of working deep underground.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} aunt after {his/her} parents died in a fire, {name} values family above all else.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born into a family of wandering performers, {name} learned to entertain crowds before {he/she} could properly walk.",
+        "weight": 0.5,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a blacksmith, {name} grew up breathing forge smoke and hearing hammer on anvil.",
+        "weight": 0.9,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a river town where boats brought news from distant lands, {name} dreamed of adventure from an early age.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a terrible storm, {name}'s mother always said the weather shaped {his/her} strong will.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The eldest of twelve children, {name} learned leadership and patience through sheer necessity.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a temple as a foundling, {name} knows more prayers than most people know words.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to cheese makers in the hills, {name} can judge the quality of milk by smell alone.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a seamstress, {name} learned to create beauty from simple cloth and thread.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near ancient ruins, {name} played among broken stones that once held great power.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of horse breeders, {name} can calm any mount with just a whispered word.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a lighthouse keeper, {name} grew up guiding lost souls safely to shore.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} grandmother who was known as the wisest woman in three villages, {name} inherited her keen insight.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a border fort, {name} learned to sleep through war drums and wake at the slightest suspicious sound.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of traveling tinkers, {name} knows how to fix almost anything with whatever materials are at hand.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where flowers bloomed year-round, {name} believes there is beauty in even the darkest places.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a solar eclipse, the midwife declared {name} would walk between light and shadow all {his/her} life.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a grain merchant, {name} learned to judge character by watching how people bargained for their daily bread.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} uncle, a retired soldier who taught {him/her} that honor matters more than gold.",
+        "weight": 0.8,
+        "npcTypes": ["Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a town known for its healing springs, {name} grew up believing in the power of hope and renewal.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a map maker, {name} knows that every journey begins with a single step in the right direction.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a household that took in orphaned children, {name} learned that family is about more than blood.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who spoke different languages, {name} grew up as a bridge between two worlds.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a baker, {name} knows that the best bread comes from patience, timing, and a little bit of love.",
+        "weight": 0.8,
+        "npcTypes": ["Peasant", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a great library that burned down when {he/she} was young, {name} understands the fragility of knowledge.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to shepherds who followed their flocks across seasonal pastures, {name} learned that home is where your people are.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a clockmaker, {name} grew up understanding that everything has its proper time and place.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town that survived three sieges, {name} learned that persistence can overcome any obstacle.",
+        "weight": 0.7,
+        "npcTypes": ["Militia", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of rope makers, {name} understands that strength comes from many strands woven together.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a ferry operator, {name} spent countless hours helping people cross from one side to the other.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house built into a great tree, {name} learned to live in harmony with nature.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who ran a waystation for travelers, {name} heard stories from every corner of the world.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a weather prophet, {name} learned to read the signs in cloud and wind.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by wolves after being lost in the wilderness as a baby, {name} was found years later by hunters.",
+        "weight": 0.2,
+        "npcTypes": ["Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a town famous for its cheese wheels, {name} learned that the best things in life require patience.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a night watchman, {name} grew up knowing that danger often wears a friendly face.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where echoes carried for miles, {name} learned the power and danger of spoken words.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of dye makers, {name} sees the world in more colors than most people can imagine.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a toll collector, {name} learned early that everyone has a price and a story.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near hot springs that never froze, {name} believes in the possibility of warmth even in the coldest times.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a meteor shower, {name}'s parents said the stars themselves blessed {his/her} birth.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a pearl diver, {name} knows that the most beautiful treasures are often hidden in dark places.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where seven different families lived together, {name} learned to find peace in chaos.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of stone carvers, {name} understands that masterpieces are created one careful strike at a time.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a bridge builder, {name} learned that connecting people is the most important work of all.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a tower where signal fires were lit to warn of danger, {name} understands the weight of responsibility.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who raised honeybees, {name} learned that cooperation creates sweetness.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a glass blower, {name} knows that fragile things can also be incredibly beautiful.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house built on stilts over a marsh, {name} learned to adapt to changing conditions.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a time of plenty, {name} grew up believing that generosity creates abundance.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a message runner, {name} understands that words can travel faster than horses.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} grandfather who spoke to spirits, {name} learned that the world holds more mysteries than answers.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a town where music played day and night, {name} believes that rhythm connects all living things.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a spice merchant, {name} can identify any seasoning by scent alone.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a canyon where water was precious, {name} learned to value every drop of rain.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of roof thatchers, {name} knows that shelter requires both skill and patience.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a dream interpreter, {name} believes that sleep holds messages from the divine.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a volcano that rumbled but never erupted, {name} learned to live with constant uncertainty.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who tended a garden of healing herbs, {name} grew up surrounded by the power of nature's medicine.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a candlemaker, {name} understands that even small lights can drive away great darkness.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where silence was golden, {name} learned to listen more than {he/she} spoke.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a bumper harvest, {name}'s parents took it as a sign of future prosperity.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a boundary marker, {name} spent childhood walking property lines and learning respect for others' land.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} great-aunt who collected rare books, {name} learned that knowledge is the greatest treasure.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a town that existed only during market days, {name} learned that community can be temporary but meaningful.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a bird caller, {name} can mimic dozens of different animal sounds perfectly.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where fruit trees grew wild, {name} believes that nature provides for those who respect it.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who ran a soup kitchen, {name} learned that hunger looks the same on every face.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a coin counter, {name} learned that true wealth lies in what cannot be measured.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where guests were always welcome, {name} believes that hospitality is a sacred duty.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a great flood, {name} learned early that disaster can strike without warning.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a hedge witch, {name} grew up knowing which plants heal and which harm.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a tower that housed the town's bell, {name} marked time for an entire community.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made musical instruments, {name} understands that beauty requires both art and craftsmanship.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a fortune teller, {name} learned that the future is made by choices, not destiny.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near ancient standing stones, {name} felt the weight of history in every sunrise.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to a family of water carriers, {name} knows the value of life's most basic needs.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a seed keeper, {name} learned that every ending contains the promise of a new beginning.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house built from shipwreck wood, {name} grew up surrounded by stories of the sea.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a time of war but in a town that stayed neutral, {name} learned the value of peace.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a tax collector, {name} saw both the necessity and burden of civic duty.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised by {his/her} stepmother after {his/her} father died, {name} learned that family bonds can be chosen.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born in a town where everyone knew everyone else's business, {name} values both community and privacy.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a midwife, {name} helped bring dozens of new lives into the world.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where winter lasted eight months, {name} learned patience and preparation.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who carved totems for protection, {name} believes in the power of symbols.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a bridge toll keeper, {name} learned that passage always comes with a price.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where four generations lived together, {name} learned to respect both youth and age.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during the spring planting, {name}'s parents saw it as a sign of growth and renewal.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a road marker carver, {name} spent childhood helping travelers find their way.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a sacred grove that no one was allowed to enter, {name} learned the power of restraint.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made nets for fishermen, {name} understands that success often requires cooperation.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a chimney sweep, {name} learned that the dirtiest jobs are often the most necessary.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where books outnumbered furniture, {name} grew up believing knowledge was more valuable than gold.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a bumper crop year, {name} learned that abundance should be shared, not hoarded.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a bone setter, {name} learned that healing often requires causing temporary pain.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town built around a natural amphitheater, {name} grew up with the echo of their own voice.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who raised carrier pigeons, {name} learned that messages can travel where people cannot.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a well digger, {name} knows that life flows from the deepest sources.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where meals were always cooked for one more person than lived there, {name} learned generosity as a way of life.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a lunar eclipse, {name} was told {he/she} would bring hidden truths to light.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a salt merchant, {name} learned that preservation sometimes requires harsh measures.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where flowers bloomed in impossible colors, {name} believes magic exists in everyday beauty.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who tended a graveyard, {name} learned to find peace among memories.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a basket weaver, {name} understands that usefulness and beauty can be the same thing.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a crossroads where three kingdoms met, {name} learned to navigate different customs and laws.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who raised silkworms, {name} learned that transformation requires patience and care.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a fire tender who kept the communal hearth burning, {name} learned that warmth shared is warmth multiplied.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town built around a great windmill, {name} grew up with the sound of grinding grain as {his/her} lullaby.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who ran a lost and found, {name} learned that what's lost to one person may be treasure to another.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a tree surgeon, {name} learned to heal what grows and remove what harms.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a battlefield where wildflowers now bloom, {name} believes beauty can grow from tragedy.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made soap from ash and fat, {name} knows that cleanliness can come from humble ingredients.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a tent maker, {name} learned that home can be anywhere you can make shelter.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where gems could be found in the riverbed, {name} learned to see value in unexpected places.",
+        "weight": 0.5,
+        "npcTypes": ["Merchant", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a time when strangers often brought news, {name} learned to read people before they spoke.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a flour miller, {name} understands that good bread begins with good grain and honest work.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where every door was painted a different color, {name} learned that variety brings joy.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who caught and trained wild horses, {name} learned that partnership requires mutual respect.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a message carver who cut news into wooden tokens, {name} knows that words have weight.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a hot spring that bubbled with different colors each season, {name} believes in the magic of change.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who tended an orchard of rare fruit trees, {name} learned that the sweetest rewards require the longest wait.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a dawn caller who woke the town each morning, {name} learned the importance of reliable rhythm.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where every wall was covered with maps, {name} dreamed of places beyond the horizon.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a comet's passage, {name} was told the stars had marked {him/her} for adventure.",
+        "weight": 0.4,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a ale brewer, {name} learned that the best gatherings happen around shared cups.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a spring that was said to grant wishes, {name} learned that hope is worth more than gold.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made wheels for wagons, {name} understands that progress requires both strength and precision.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a star chart maker, {name} learned to navigate by patterns others couldn't see.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town where the seasons came in the wrong order, {name} learned to adapt to the impossible.",
+        "weight": 0.4,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made candles from beeswax, {name} learned that light comes from patient cooperation.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a boundary dispute mediator, {name} learned that most conflicts stem from misunderstanding.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near ruins where echoes of the past could still be heard, {name} learned to listen to history's lessons.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who raised rabbits for their soft fur, {name} learned that gentleness can be more valuable than strength.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a wind vane maker, {name} learned to read the subtle signs of changing weather.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where mirrors covered every surface, {name} learned to see {himself/herself} from many angles.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born during a celebration that lasted three days, {name} learned that joy shared is joy multiplied.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a rope bridge inspector, {name} learned that safety requires attention to the smallest details.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a geyser that erupted precisely at noon each day, {name} learned to trust in natural rhythms.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made fishing hooks from bone, {name} learned that the right tool makes all the difference.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a peace negotiator, {name} learned that listening is often more powerful than speaking.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where mushrooms grew as tall as trees, {name} learned that nature follows its own rules.",
+        "weight": 0.4,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who carved figureheads for ships, {name} learned that art should guide people safely home.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a grain sorter, {name} learned to separate the valuable from the worthless with patience.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a waterfall that froze into crystal spires each winter, {name} believes in the beauty of transformation.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made paint from crushed flowers, {name} learned that beauty can be captured and shared.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a coin authenticator, {name} learned to spot false things with a single glance.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house built around a living tree, {name} learned to grow with what nature provides.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who crafted music boxes that played lullabies, {name} learned that comfort can be carried anywhere.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a wind reader who predicted storms, {name} learned to trust subtle changes in the air.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a forest where the trees whispered secrets, {name} learned to listen to what others cannot hear.",
+        "weight": 0.4,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made clockwork toys, {name} learned that precision can bring wonder to the world.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a traveling bone setter, {name} learned that healing requires both gentleness and strength.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town where everyone wore masks during festivals, {name} learned that identity can be playful.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who raised carrier pigeons, {name} learned that distance is no barrier to connection.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a salt marsh harvester, {name} learned that the most valuable things often come from harsh places.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a cave that sang different notes when the wind blew, {name} believes the world is full of hidden music.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who wove baskets strong enough to carry stones, {name} learned that flexibility and strength can coexist.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a dream interpreter, {name} learned that meaning can be found in the strangest places.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where stones grew like flowers, {name} learned that the impossible happens more often than expected.",
+        "weight": 0.3,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made bellows for blacksmiths, {name} learned that great works require steady breath and patience.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a tide pool tender, {name} learned that small worlds can contain infinite wonders.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a crossroads where five paths met, {name} learned that every choice leads to adventure.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who cultivated healing moss, {name} learned that medicine can grow in the dimmest places.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a crystal grower, {name} learned that beauty requires time, patience, and the right conditions.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where every meal was a celebration, {name} learned that food shared is more than sustenance.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made preserves from wild berries, {name} learned to capture summer's sweetness for winter's need.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a night soil collector, {name} learned that even the humblest work serves a vital purpose.",
+        "weight": 0.9,
+        "npcTypes": ["Peasant", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a spring that ran backwards uphill, {name} learned that nature holds mysteries beyond understanding.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made paper from unusual plants, {name} learned that knowledge can be preserved in many forms.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a echo caller who spoke to mountain spirits, {name} learned that some conversations require great patience.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town built on stilts above marshland, {name} learned to adapt to ground that shifts beneath {his/her} feet.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who raised fowl for their colorful feathers, {name} learned that beauty has practical value too.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a fortune cookie writer, {name} learned that hope can be folded into the smallest packages.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a field where different crops grew in perfect spirals, {name} believes there is order in seeming chaos.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made instruments from driftwood, {name} learned that storms can provide unexpected gifts.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a pearl diver, {name} learned that the greatest treasures are hidden in dark depths.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a house where shadows danced without light, {name} learned that some wonders have no explanation.",
+        "weight": 0.3,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who trained ravens to carry messages, {name} learned that intelligence comes in many forms.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a spice trader, {name} learned that flavor can transport people to distant lands.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a lake that reflected different skies each day, {name} learned that perspective changes everything.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made brushes from unusual animal hair, {name} learned that art requires the right tools for expression.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a cloud reader who predicted weather by shapes in the sky, {name} learned to see patterns everywhere.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a valley where flowers bloomed in winter, {name} learned that life finds a way to surprise.",
+        "weight": 0.5,
+        "npcTypes": ["Farmer", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made felt from gathered animal fur, {name} learned that warmth can be crafted from what others discard.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a sundial maker, {name} learned that time moves differently for everyone.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a hill where colors changed with the seasons, {name} learned that change can be beautiful.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who caught fireflies to light their home, {name} learned that gentle capture can create wonder.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a salt road maintainer, {name} learned that trade depends on paths kept clear.",
+        "weight": 0.8,
+        "npcTypes": ["Laborer", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised in a town where buildings grew from living wood, {name} learned that construction and cultivation can be the same art.",
+        "weight": 0.4,
+        "npcTypes": ["Artisan", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Born to parents who made whistles that could call specific birds, {name} learned that communication has many languages.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "The child of a maze keeper, {name} learned that being lost is often the first step to finding something new.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Raised near a spring where water flowed upward, {name} learned that the world follows rules {he/she} doesn't understand.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      }
+    ],
+    "personalities": [
+      {
+        "text": "{He/She} is known for {his/her} cheerful disposition and willingness to help others.",
+        "weight": 1.0,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Quiet and thoughtful, {name} prefers to observe before acting.",
+        "weight": 1.0,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Bold and confident, {name} is not afraid to take charge when the situation demands it.",
+        "weight": 1.0,
+        "npcTypes": ["Militia", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a quick wit and an even quicker tongue, often making jokes to lighten the mood.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Stubborn and determined, {name} never gives up once {he/she} sets {his/her} mind to something.",
+        "weight": 0.9,
+        "npcTypes": ["Artisan", "Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Cautious by nature, {name} always thinks twice before making important decisions.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is naturally curious about the world and asks many questions.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Hot-tempered but loyal, {name} would do anything for {his/her} friends.",
+        "weight": 0.6,
+        "npcTypes": ["Militia", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Gentle and nurturing, {name} has a natural way with children and animals.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "Ambitious and driven, {name} dreams of making {his/her} mark on the world.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Pragmatic and level-headed, {name} rarely lets emotions cloud {his/her} judgment.",
+        "weight": 0.9,
+        "npcTypes": ["Militia", "Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an infectious laugh and finds joy in the smallest things.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Fiercely independent, {name} prefers to rely on {his/her} own abilities rather than seek help.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Patient and methodical, {name} believes that good work takes time and cannot be rushed.",
+        "weight": 0.9,
+        "npcTypes": ["Artisan", "Scholar", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is deeply superstitious and sees omens and signs in everyday events.",
+        "weight": 0.5,
+        "npcTypes": ["Peasant", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Competitive by nature, {name} turns almost everything into a friendly contest.",
+        "weight": 0.6,
+        "npcTypes": ["Militia", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a natural talent for storytelling and can captivate any audience.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Melancholic and contemplative, {name} often seems lost in thought about distant matters.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely loyal but slow to trust, having been betrayed in the past.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has an uncanny ability to remember every slight but forgets compliments quickly.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually optimistic, {name} believes tomorrow will always be better than today.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is naturally nocturnal and does {his/her} best thinking in the quiet hours of night.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively neat, {name} cannot function in disorder and organizes everything {he/she} touches.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a photographic memory for faces but struggles terribly with names.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Intensely empathetic, {name} absorbs the emotions of others like a sponge.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is chronically punctual and becomes anxious when others are late.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally charismatic, {name} can convince almost anyone of almost anything.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for predicting weather changes days in advance.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Extremely absent-minded, {name} often forgets {he/she} was in the middle of a conversation.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is naturally suspicious of good fortune, expecting disaster to follow.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively generous, {name} gives away {his/her} possessions faster than {he/she} can acquire them.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has boundless energy in the morning but becomes sluggish after midday.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Intensely private, {name} shares personal information only with extreme reluctance.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an excellent sense of direction but terrible spatial awareness indoors.",
+        "weight": 0.6,
+        "npcTypes": ["Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally diplomatic, {name} can find compromise even in the most heated disputes.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely sensitive to criticism but craves approval from others.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively honest, {name} cannot tell even harmless white lies without feeling guilty.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for calming frightened animals with just {his/her} presence.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually curious, {name} asks so many questions that others sometimes avoid {him/her}.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is naturally frugal and can stretch resources further than seems possible.",
+        "weight": 0.8,
+        "npcTypes": ["Peasant", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "Exceptionally patient, {name} can wait for hours without showing any sign of frustration.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an instinctive understanding of group dynamics and social hierarchies.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally theatrical, {name} unconsciously dramatizes even mundane events when telling stories.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is compulsively helpful and cannot resist offering assistance to anyone in need.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Intensely focused, {name} can work for hours without noticing hunger, thirst, or fatigue.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for mimicking voices and mannerisms perfectly.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally restless, {name} fidgets constantly and struggles to sit still for long periods.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely observant and notices details that others completely miss.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively polite, {name} apologizes constantly, even for things beyond {his/her} control.",
+        "weight": 0.6,
+        "npcTypes": ["Peasant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual affinity for numbers and can perform complex calculations mentally.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally intuitive, {name} often knows what others are thinking before they speak.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely competitive but only with {himself/herself}, constantly trying to improve.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually cheerful, {name} maintains good humor even in the most dire circumstances.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for predicting what others will say or do next.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally cautious, {name} always has a backup plan and an escape route ready.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is compulsively creative and sees artistic potential in everything.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Extremely practical, {name} focuses on what works rather than what looks elegant.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for remembering exactly where {he/she} left things.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally philosophical, {name} turns every conversation toward deeper questions about life.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely adaptable and adjusts quickly to new situations and environments.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively tidy, {name} cannot concentrate in messy environments and cleans compulsively.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for sensing when others are lying or hiding something.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally protective, {name} instinctively shields others from harm, physical or emotional.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely methodical and follows the same routines religiously every day.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually hungry, {name} thinks about food constantly and eats whenever possible.",
+        "weight": 0.6,
+        "npcTypes": ["Laborer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for finding lost objects and forgotten paths.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally rebellious, {name} questions authority and challenges established traditions.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely nostalgic and constantly reminisces about 'the good old days.'",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively fair, {name} ensures everyone gets equal treatment, even at personal cost.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for calming tensions and diffusing angry situations.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally inquisitive, {name} investigates every mystery and follows every lead.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely punctual but becomes flustered when schedules are disrupted.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually worried, {name} imagines worst-case scenarios for every situation.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for making others feel comfortable and accepted.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally ambitious, {name} constantly seeks new challenges and opportunities for growth.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is compulsively punctual and becomes anxious when running even slightly late.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Extremely tactful, {name} can deliver bad news without causing offense or hurt feelings.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for sensing the mood of a room the moment {he/she} enters.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally stubborn, {name} refuses to change course once {he/she} has made a decision.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely literal-minded and often misses sarcasm and subtle humor.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively cheerful, {name} maintains optimism even when it's clearly inappropriate.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for sensing when change is coming, often days in advance.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally cautious with money, {name} questions every purchase and saves obsessively.",
+        "weight": 0.7,
+        "npcTypes": ["Peasant", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely empathetic but struggles to maintain emotional boundaries with others.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually distracted, {name} starts many projects but finishes few of them.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for finding beauty in ugly or broken things.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally skeptical, {name} questions everything and believes nothing without proof.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is compulsively reliable and never breaks a promise or misses a commitment.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Extremely patient with beginners, {name} enjoys teaching skills to others.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for making others laugh, even in difficult times.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally territorial, {name} becomes uncomfortable when others enter {his/her} personal space.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely conscious of social status and treats people differently based on rank.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Compulsively honest about {his/her} own flaws, {name} confesses mistakes before being caught.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for remembering every kindness shown to {him/her}.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally humble, {name} downplays {his/her} accomplishments and deflects praise.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is extremely sensitive to noise and becomes agitated in loud environments.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetually busy, {name} always has multiple projects and cannot sit idle.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual gift for sensing what others need before they ask.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Naturally decisive, {name} makes quick decisions and rarely second-guesses {himself/herself}.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is compulsively prepared and carries supplies for every possible emergency.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "Extremely forgiving, {name} gives people second, third, and fourth chances.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for finding the perfect words to comfort someone in grief.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      }
+    ],
+    "appearances": [
+      {
+        "text": "{He/She} has weathered hands that speak of years of hard work.",
+        "weight": 1.0,
+        "npcTypes": ["Farmer", "Laborer", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "Tall and lean, {name} moves with the quiet grace of someone used to long travels.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has kind eyes that seem to see right through to one's soul.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "Broad-shouldered and strong, {name} looks like {he/she} could handle any physical challenge.",
+        "weight": 0.9,
+        "npcTypes": ["Militia", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always dresses neatly, taking pride in {his/her} appearance.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Calloused fingers and ink-stained clothes mark {him/her} as someone who works with their hands.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has sharp, alert eyes that miss nothing.",
+        "weight": 0.9,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "Despite {his/her} rough work, {name} maintains an air of quiet dignity.",
+        "weight": 0.7,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a warm smile that puts others at ease.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Small scars on {his/her} hands tell tales of countless hours perfecting {his/her} craft.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has sun-weathered skin from years of working outdoors.",
+        "weight": 0.9,
+        "npcTypes": ["Farmer", "Scout", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "Despite {his/her} simple clothes, {name} carries {himself/herself} with quiet confidence.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has nimble fingers that seem always to be in motion, even when at rest.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Crow's feet around {his/her} eyes speak of someone who smiles often.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} moves with the quiet, measured steps of someone used to sneaking around.",
+        "weight": 0.7,
+        "npcTypes": ["Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} has the broad build and sturdy stance of someone used to heavy lifting.",
+        "weight": 0.9,
+        "npcTypes": ["Laborer", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has ink stains that seem permanently etched into {his/her} fingertips.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "There's a restlessness in {his/her} posture, as if {he/she} is always ready to move.",
+        "weight": 0.7,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the soft hands and upright bearing of someone unaccustomed to manual labor.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has silver hair that catches the light like spun moonbeams.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "A network of small scars covers {his/her} hands, each one telling a story of careful work.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an easy smile that reaches all the way to {his/her} eyes.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Perpetual ink stains mark {his/her} fingers as surely as any badge of office.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the lean build of someone who walks more than they ride.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Laugh lines frame {his/her} eyes, speaking of a life filled with joy.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has unusually long fingers that seem perfect for delicate work.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "A single streak of white runs through {his/her} otherwise dark hair.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the steady gaze of someone comfortable with their place in the world.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Freckles dust {his/her} face like scattered copper coins.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the muscular forearms of someone who works with heavy tools daily.",
+        "weight": 0.9,
+        "npcTypes": ["Artisan", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "There's a thoughtful quality to {his/her} expression, as if always pondering something.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has remarkably clean fingernails despite working with {his/her} hands.",
+        "weight": 0.6,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "A small scar cuts through one eyebrow, giving {him/her} a slightly roguish look.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the straight posture of someone taught proper bearing from childhood.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "Crow's feet speak of countless hours squinting in bright sunlight.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual eye color that catches people off guard.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Calluses ridge {his/her} palms in patterns specific to {his/her} trade.",
+        "weight": 0.9,
+        "npcTypes": ["Artisan", "Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the alert eyes of someone always watching for danger.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "A slight stoop to {his/her} shoulders speaks of years bent over detailed work.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the broad shoulders and confident stride of natural leadership.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Worry lines crease {his/her} forehead, suggesting a mind that carries many burdens.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the graceful movements of someone comfortable in their own skin.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "A barely visible network of tiny scars covers {his/her} hands from handling sharp tools.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the patient eyes of someone who has seen much and judges little.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Premature gray at {his/her} temples suggests a life of significant responsibility.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the compact build of someone built for endurance rather than speed.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "There's a warmth in {his/her} smile that makes strangers feel welcome.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the slightly hunched posture of someone who spends hours reading.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "A distinctive birthmark on {his/her} cheek makes {him/her} easily recognizable.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the quick, darting eyes of someone always assessing their surroundings.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "Rough patches on {his/her} hands speak of years working with rope and leather.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the well-groomed appearance of someone who takes pride in presentation.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "A slight tremor in {his/her} hands suggests either age or nervous energy.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the relaxed bearing of someone comfortable with their circumstances.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "Dirt under {his/her} fingernails speaks of recent honest work in soil or stone.",
+        "weight": 0.9,
+        "npcTypes": ["Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the keen gaze of someone who notices details others miss.",
+        "weight": 0.8,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "A faded tattoo on {his/her} forearm hints at a more adventurous past.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "Militia"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has the confident handshake of someone accustomed to making deals.",
+        "weight": 0.8,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      }
+    ],
+    "motivations": [
+      {
+        "text": "{He/She} works to provide for {his/her} family back home.",
+        "weight": 1.0,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} seeks to master {his/her} craft and become renowned for {his/her} skill.",
+        "weight": 0.9,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} hopes to save enough coin to buy a small plot of land.",
+        "weight": 0.8,
+        "npcTypes": ["Peasant", "Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} is driven by a desire to protect others from the dangers {he/she} has witnessed.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} dreams of building a trading empire that spans the known world.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} seeks knowledge above all else, believing that understanding is the key to a better world.",
+        "weight": 0.8,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} wants to prove that {he/she} is just as capable as anyone else.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} is haunted by past failures and seeks redemption through honest work.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} believes in the importance of community and works to make everyone's life better.",
+        "weight": 0.7,
+        "npcTypes": ["Peasant", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} is motivated by a sense of duty instilled from childhood.",
+        "weight": 0.8,
+        "npcTypes": ["Militia", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} hopes to one day return to {his/her} homeland and help rebuild what was lost.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} works to pay off a debt inherited from {his/her} family.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to honor the memory of a fallen mentor by following their teachings.",
+        "weight": 0.7,
+        "npcTypes": ["Militia", "Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} dreams of establishing a workshop and training the next generation.",
+        "weight": 0.8,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is driven by curiosity about ancient mysteries and forgotten lore.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} wants to ensure that no one else suffers the hardships {he/she} endured as a child.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to find and reunite with a lost sibling last seen years ago.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} is motivated by a deep love of the land and a desire to see it flourish.",
+        "weight": 0.8,
+        "npcTypes": ["Farmer", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} works toward the day when {he/she} can afford to marry {his/her} childhood sweetheart.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to build a legacy that will outlast {his/her} own lifetime.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is motivated by a desire to bring prosperity to {his/her} struggling hometown.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to atone for a mistake that haunts {his/her} past.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} dreams of discovering something that will change the world for the better.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} is driven by a promise made to a dying friend.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to preserve ancient traditions that are slowly being forgotten.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to ensure {his/her} children have better opportunities than {he/she} did.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is motivated by the fear of ending up destitute like {his/her} parents.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to perfect a technique that has challenged artisans for generations.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is driven by curiosity about lands beyond the known maps.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to support an ailing parent who can no longer work.",
+        "weight": 0.8,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks revenge against those who wronged {his/her} family.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} is motivated by a vision or prophecy that guides {his/her} actions.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} works to earn enough respect to be accepted by a prestigious guild.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to unlock the secrets of an ancient artifact or text.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is driven by the need to prove a controversial theory correct.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to gather resources for a dangerous but necessary journey.",
+        "weight": 0.6,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to establish a shrine or monument to honor fallen heroes.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} is motivated by the desire to see justice served in a corrupt system.",
+        "weight": 0.6,
+        "npcTypes": ["Militia", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} works to fund an expedition to rescue someone important to {him/her}.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to master a skill that runs in {his/her} bloodline.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is driven by the need to understand a mysterious phenomenon {he/she} witnessed.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to build a trading network that will connect distant communities.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to find and protect a hidden sanctuary of great importance.",
+        "weight": 0.4,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} is motivated by the desire to heal a great wound in the land.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} works to establish a school that will teach practical skills to the poor.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to create something beautiful that will inspire future generations.",
+        "weight": 0.7,
+        "npcTypes": ["Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is driven by the need to document important history before it's lost.",
+        "weight": 0.7,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to gather allies for a cause greater than personal gain.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to find a cure for a disease affecting {his/her} community.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} is motivated by the desire to explore unmapped territories.",
+        "weight": 0.6,
+        "npcTypes": ["Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} works to establish trade routes that will bring prosperity to remote areas.",
+        "weight": 0.7,
+        "npcTypes": ["Merchant", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to solve an ancient mystery that has puzzled scholars for centuries.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is driven by the need to protect a sacred place from desecration.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} works to build a bridge—literal or metaphorical—between divided peoples.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} seeks to establish a haven for those fleeing persecution.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} is motivated by the dream of creating a new invention that will help everyone.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} works to gather evidence that will clear someone's wrongly tarnished name.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} seeks to fulfill an oath sworn to a higher power or ideal.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      }
+    ],
+    "quirks": [
+      {
+        "text": "{He/She} has a habit of humming old folk songs while working.",
+        "weight": 0.6,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} collects small stones from interesting places {he/she} visits.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always carries a lucky charm given by {his/her} grandmother.",
+        "weight": 0.7,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} has an unusual fear of thunderstorms.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} keeps a detailed journal of daily events.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} has a talent for remembering faces but struggles with names.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always eats the same meal for breakfast every day.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} speaks to animals as if they can understand every word.",
+        "weight": 0.5,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an uncanny ability to predict the weather.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} always knocks on wood three times for luck.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a collection of recipes from every place {he/she} has lived.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} can't sleep unless {his/her} tools are perfectly organized.",
+        "weight": 0.6,
+        "npcTypes": ["Artisan", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a habit of counting things in groups of three.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} always carries a small pouch of salt for good luck and protection.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} insists on sampling any new food before deciding whether to eat it.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} has memorized dozens of old proverbs and quotes them frequently.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Peasant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} never steps on cracks in the pavement or stone floors.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} always greets dogs and cats before greeting their owners.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a compulsive need to straighten crooked pictures or objects.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} keeps a small notebook where {he/she} sketches interesting things {he/she} sees.",
+        "weight": 0.6,
+        "npcTypes": ["Scholar", "Artisan"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always leaves a small portion of {his/her} meal uneaten as an offering to the spirits.",
+        "weight": 0.4,
+        "npcTypes": ["Peasant", "Farmer"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} has an uncanny ability to guess people's ages within a year or two.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always double-checks locked doors, even when {he/she} just locked them {himself/herself}.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has a habit of fidgeting with small objects when thinking deeply.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always tastes {his/her} food before adding any seasoning.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} collects interesting buttons and sews them onto a special vest.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual fear of birds but tries to hide it.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always walks around puddles rather than stepping through them.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has memorized the names of every star visible in the night sky.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Scout"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always carries a small mirror to check {his/her} appearance.",
+        "weight": 0.4,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a compulsive need to arrange things in perfect rows.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} talks to {himself/herself} when working alone.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always saves the best part of {his/her} meal for last.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has an unusual talent for balancing objects on {his/her} head.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always apologizes to furniture when bumping into it.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} keeps a collection of pressed flowers from places {he/she} has visited.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a habit of tapping out rhythms on tables or surfaces.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always counts {his/her} steps when walking long distances.",
+        "weight": 0.4,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an irrational fear of round numbers and avoids them.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always wears something blue for good luck.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has memorized dozens of folk remedies for common ailments.",
+        "weight": 0.6,
+        "npcTypes": ["Farmer", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always bows slightly when passing through doorways.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a habit of rolling dice or coins when making decisions.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} keeps a detailed record of every person {he/she} has ever met.",
+        "weight": 0.5,
+        "npcTypes": ["Scholar", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always eats fruit in a specific order from sweetest to sourest.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has an unusual ability to predict when it will rain by {his/her} joints aching.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always carries a piece of iron for protection against evil spirits.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has a habit of naming inanimate objects and treating them like friends.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always turns around three times before entering {his/her} home.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} keeps a collection of interesting keys, even though {he/she} doesn't know what they unlock.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual talent for guessing what people are thinking about.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always sleeps with {his/her} feet pointing north.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a habit of collecting small smooth stones from rivers and streams.",
+        "weight": 0.5,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always knocks before entering any room, even if it's {his/her} own.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has memorized the birthdates of everyone {he/she} cares about.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always drinks from the same side of a cup or mug.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a habit of sketching faces in the margins of any papers {he/she} writes on.",
+        "weight": 0.4,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} always checks the sky before making any important decisions.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has an unusual fear of silence and always hums or makes noise when alone.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} keeps a small bag of different colored threads for emergency repairs.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} always gives names to {his/her} tools and treats them with respect.",
+        "weight": 0.5,
+        "npcTypes": ["Artisan", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has a habit of saving interesting scraps of paper and fabric in a special box.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      }
+    ],
+    "secrets": [
+      {
+        "text": "{He/She} once saved a merchant's life and has never mentioned it to anyone.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} can read, though {he/she} lets others believe otherwise.",
+        "weight": 0.4,
+        "npcTypes": ["Peasant", "Farmer", "Laborer"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once lived in a big city but left for reasons {he/she} won't discuss.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} knows the location of a small cache of silver buried near {his/her} childhood home.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} is distantly related to minor nobility, though the family fell from grace long ago.",
+        "weight": 0.2,
+        "npcTypes": ["Scholar", "Merchant"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} once witnessed something supernatural but has never spoken of it.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a natural talent for magic but lacks formal training.",
+        "weight": 0.2,
+        "npcTypes": ["Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} was briefly married years ago but never speaks of what happened to {his/her} spouse.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows the location of a hidden cave filled with ancient artwork.",
+        "weight": 0.2,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} once stole food to feed starving children and has never felt guilty about it.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} discovered a minor lord's affair but chose to keep the secret.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{Name} has a hidden stash of coins saved from years of careful penny-pinching.",
+        "weight": 0.5,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once received a mysterious letter that changed {his/her} entire worldview.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once found a treasure map but never told anyone about it.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows the real reason why the previous mayor left town so suddenly.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once saw a ghost but has never spoken of it to anyone.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a small collection of gems hidden beneath {his/her} floorboards.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} knows the location of a secret passage in the local lord's manor.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once helped a fugitive escape justice but believes it was the right thing to do.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} discovered that a respected local figure is not who they claim to be.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows about a hidden room full of books that were supposed to be destroyed.",
+        "weight": 0.2,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once accidentally killed someone and buried the body in secret.",
+        "weight": 0.1,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a key to a mysterious locked door that {he/she} has never opened.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} knows the true parentage of someone important in the community.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once discovered a criminal's hideout but never reported it to the authorities.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has been receiving anonymous payments for years and doesn't know why.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows about a tunnel system beneath the town that few others are aware of.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once found a dead body but moved it to protect someone {he/she} cared about.",
+        "weight": 0.1,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a birthmark that exactly matches one described in an ancient prophecy.",
+        "weight": 0.1,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} knows the combination to a safe that doesn't belong to {him/her}.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once overheard two important people planning something illegal.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has been secretly teaching children to read despite local prohibitions.",
+        "weight": 0.3,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows where a certain someone hides their most valuable possessions.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once saved a life but the person never knew it was {him/her}.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has a container filled with old love letters from someone now famous.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} knows the true story behind a local legend that everyone else has wrong.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once found a valuable item and returned it anonymously to its owner.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has been secretly caring for an abandoned child in another town.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows about a cache of weapons hidden from a previous conflict.",
+        "weight": 0.2,
+        "npcTypes": ["Militia", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once witnessed a miracle but has never spoken of it for fear of being disbelieved.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has been leaving anonymous gifts for a family in need.",
+        "weight": 0.4,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} knows the location of a spring with unusual healing properties.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once prevented a disaster but never told anyone how close it came to happening.",
+        "weight": 0.3,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has been secretly documenting corruption among local officials.",
+        "weight": 0.2,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows about a forgotten shrine hidden in the nearby wilderness.",
+        "weight": 0.2,
+        "npcTypes": ["Scout", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once had a prophetic dream that came true in disturbing detail.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} has been secretly studying magic despite it being forbidden.",
+        "weight": 0.2,
+        "npcTypes": ["Scholar", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} knows the whereabouts of a person everyone believes to be dead.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} once stumbled upon evidence of an ancient civilization in the area.",
+        "weight": 0.2,
+        "npcTypes": ["Scout", "Scholar"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} has been secretly funding a local charity for years.",
+        "weight": 0.3,
+        "npcTypes": ["Merchant", "any"],
+        "gender": "any"
+      },
+      {
+        "text": "{He/She} knows the real reason why certain areas are considered forbidden or cursed.",
+        "weight": 0.2,
+        "npcTypes": ["any"],
+        "gender": "any"
+      },
+      {
+        "text": "{name} once discovered that someone important is not really dead as everyone believes.",
+        "weight": 0.1,
+        "npcTypes": ["any"],
+        "gender": "any"
+      }
+    ]
+  }
+} 
