@@ -28,7 +28,17 @@ namespace DNDStrongholdApp.Models
         public NPC(NPCType type, string name = "")
         {
             Type = type;
-            Name = !string.IsNullOrEmpty(name) ? name : GenerateRandomName();
+            if (!string.IsNullOrEmpty(name))
+            {
+                Name = name;
+            }
+            else
+            {
+                // Randomly assign gender before generating name
+                Random random = new Random();
+                Gender = random.Next(2) == 0 ? NPCGender.Male : NPCGender.Female;
+                Name = GenerateRandomName();
+            }
             InitializeSkills();
             UpdateUpkeepCosts(); // Initialize upkeep costs
         }
@@ -319,10 +329,8 @@ namespace DNDStrongholdApp.Models
                 }
 
                 Random random = new Random();
-                bool isMale = random.Next(2) == 0;
-                Gender = isMale ? NPCGender.Male : NPCGender.Female;
                 
-                string firstName = isMale 
+                string firstName = Gender == NPCGender.Male 
                     ? nameData.MaleNames[random.Next(nameData.MaleNames.Count)] 
                     : nameData.FemaleNames[random.Next(nameData.FemaleNames.Count)];
                     
@@ -345,10 +353,8 @@ namespace DNDStrongholdApp.Models
             string[] surnames = { "Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor" };
             
             Random random = new Random();
-            bool isMale = random.Next(2) == 0;
-            Gender = isMale ? NPCGender.Male : NPCGender.Female;
             
-            string firstName = isMale 
+            string firstName = Gender == NPCGender.Male 
                 ? maleNames[random.Next(maleNames.Length)] 
                 : femaleNames[random.Next(femaleNames.Length)];
                 

@@ -152,8 +152,8 @@ public partial class MainDashboard : Form
         dmModeItem.Click += (s, e) =>
         {
             _gameStateService.DMMode = dmModeItem.Checked;
-            // Update Edit Bio button visibility
-            UpdateEditBioButtonVisibility();
+            // Update DM Mode button visibility
+            UpdateDMButtonVisibility();
         };
         toolsMenu.DropDownItems.Add(new ToolStripSeparator());
         toolsMenu.DropDownItems.Add(dmModeItem);
@@ -326,11 +326,13 @@ public partial class MainDashboard : Form
         groupBox.Text = "Resources";
         groupBox.Dock = DockStyle.Fill;
         groupBox.Margin = new Padding(5);
+        groupBox.Tag = "ResourceSummaryPanel";
         
         ListView listView = new ListView();
         listView.Dock = DockStyle.Fill;
         listView.View = View.Details;
         listView.FullRowSelect = true;
+        listView.Tag = "ResourceSummaryList";
         
         // Add columns
         listView.Columns.Add("Resource", 100);
@@ -349,14 +351,38 @@ public partial class MainDashboard : Form
         // Initial sizing
         ResizeResourceColumns(null, null);
         
-        // Add items for each resource
+        // Add items for each resource with enhanced display
         foreach (var resource in _stronghold.Resources)
         {
-            ListViewItem item = new ListViewItem(resource.Type.ToString());
+            // Add resource symbol to name
+            string symbol = resource.Type.GetSymbol();
+            ListViewItem item = new ListViewItem($"{symbol} {resource.Type}");
             item.SubItems.Add(resource.Amount.ToString());
-            item.SubItems.Add(resource.NetWeeklyChange.ToString());
+            
+            // Enhanced weekly change display
+            string changeText = $"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}";
+            item.SubItems.Add(changeText);
+            
+            // Color coding based on net change
+            if (resource.NetWeeklyChange > 0)
+                item.ForeColor = Color.DarkGreen;
+            else if (resource.NetWeeklyChange < 0)
+                item.ForeColor = Color.DarkRed;
+            else
+                item.ForeColor = Color.Black;
+            
+            item.Tag = resource; // Store resource for navigation
             listView.Items.Add(item);
         }
+        
+        // Double-click to open in Resources tab
+        listView.DoubleClick += (s, e) => {
+            if (listView.SelectedItems.Count > 0)
+            {
+                var resource = (Resource)listView.SelectedItems[0].Tag;
+                ShowResourceInTab(resource.Type);
+            }
+        };
         
         groupBox.Controls.Add(listView);
         return groupBox;
@@ -468,6 +494,7 @@ public partial class MainDashboard : Form
         groupBox.Text = "NPCs";
         groupBox.Dock = DockStyle.Fill;
         groupBox.Margin = new Padding(5);
+        groupBox.Tag = "NPCSummaryPanel";
         
         ListView listView = new ListView();
         listView.Dock = DockStyle.Fill;
@@ -626,15 +653,19 @@ public partial class MainDashboard : Form
         {
             new ColumnHeader { Text = "Resource", Width = 150 },
             new ColumnHeader { Text = "Amount", Width = 100 },
-            new ColumnHeader { Text = "Net Change", Width = 100 }
+            new ColumnHeader { Text = "Net Change", Width = 100 },
+            new ColumnHeader { Text = "Production", Width = 100 },
+            new ColumnHeader { Text = "Consumption", Width = 100 }
         });
-        // Dynamic column widths (45%, 25%, 30%)
+        // Dynamic column widths (25%, 15%, 20%, 20%, 20%)
         void ResizeResourceColumns(object s, EventArgs e)
         {
             int totalWidth = resourcesListView.ClientSize.Width;
-            resourcesListView.Columns[0].Width = (int)(totalWidth * 0.45);
-            resourcesListView.Columns[1].Width = (int)(totalWidth * 0.25);
-            resourcesListView.Columns[2].Width = (int)(totalWidth * 0.30);
+            resourcesListView.Columns[0].Width = (int)(totalWidth * 0.25);
+            resourcesListView.Columns[1].Width = (int)(totalWidth * 0.15);
+            resourcesListView.Columns[2].Width = (int)(totalWidth * 0.20);
+            resourcesListView.Columns[3].Width = (int)(totalWidth * 0.20);
+            resourcesListView.Columns[4].Width = (int)(totalWidth * 0.20);
         }
         resourcesListView.Resize += ResizeResourceColumns;
         ResizeResourceColumns(null, null);
@@ -715,6 +746,7 @@ public partial class MainDashboard : Form
         }
         productionSourcesListView.Resize += ResizeProductionSourcesColumns;
         ResizeProductionSourcesColumns(null, null);
+        productionSourcesListView.DoubleClick += ProductionSourcesListView_DoubleClick;
 
         // Consumption sources list view
         ListView consumptionSourcesListView = new ListView
@@ -742,6 +774,7 @@ public partial class MainDashboard : Form
         }
         consumptionSourcesListView.Resize += ResizeConsumptionSourcesColumns;
         ResizeConsumptionSourcesColumns(null, null);
+        consumptionSourcesListView.DoubleClick += ConsumptionSourcesListView_DoubleClick;
 
         Button adjustButton = new Button
         {
@@ -749,7 +782,8 @@ public partial class MainDashboard : Form
             Width = 120,
             Height = 38,
             Tag = "AdjustResourceButton",
-            Margin = new Padding(0, 8, 0, 0)
+            Margin = new Padding(0, 8, 0, 0),
+            Visible = _gameStateService.DMMode
         };
         adjustButton.Click += AdjustResourceButton_Click;
 
@@ -779,16 +813,8 @@ public partial class MainDashboard : Form
 
         tab.Controls.Add(layout);
 
-        // Populate the resources list directly
-        resourcesListView.Items.Clear();
-        foreach (var resource in _stronghold.Resources)
-        {
-            var item = new ListViewItem(resource.Type.ToString());
-            item.SubItems.Add(resource.Amount.ToString());
-            item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
-            item.Tag = resource;
-            resourcesListView.Items.Add(item);
-        }
+        // Populate the resources list directly - use the enhanced refresh method
+        RefreshResourcesTab();
     }
 
     private void InitializeNPCsTab(TabPage tab)
@@ -800,6 +826,14 @@ public partial class MainDashboard : Form
         layout.RowCount = 1;
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F)); // List 55%
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F)); // Details 45%
+        
+        // Left side panel (contains ListView and Add button)
+        TableLayoutPanel leftPanel = new TableLayoutPanel();
+        leftPanel.Dock = DockStyle.Fill;
+        leftPanel.ColumnCount = 1;
+        leftPanel.RowCount = 2;
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // ListView takes all available space
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F)); // Fixed height for button
         
         // NPCs list view
         ListView npcsListView = new ListView();
@@ -839,6 +873,41 @@ public partial class MainDashboard : Form
         }
         
         npcsListView.SelectedIndexChanged += NPCsListView_SelectedIndexChanged;
+        
+        // Create button panel for Add and Delete buttons
+        FlowLayoutPanel buttonPanel = new FlowLayoutPanel();
+        buttonPanel.Dock = DockStyle.Fill;
+        buttonPanel.FlowDirection = FlowDirection.LeftToRight;
+        buttonPanel.Margin = new Padding(0, 8, 0, 0);
+        buttonPanel.Height = 30;
+        
+        // Create Add NPC button (only visible in DM Mode)
+        Button addNPCButton = new Button();
+        addNPCButton.Text = "Add NPC";
+        addNPCButton.Height = 30;
+        addNPCButton.Width = 80;
+        addNPCButton.Margin = new Padding(0, 0, 5, 0);
+        addNPCButton.Visible = _gameStateService.DMMode; // Only visible in DM Mode
+        addNPCButton.Tag = "AddNPCButton";
+        addNPCButton.Click += AddNPCButton_Click;
+        
+        // Create Delete NPC button (only visible in DM Mode)
+        Button deleteNPCButton = new Button();
+        deleteNPCButton.Text = "Delete NPC";
+        deleteNPCButton.Height = 30;
+        deleteNPCButton.Width = 90;
+        deleteNPCButton.Margin = new Padding(0, 0, 0, 0);
+        deleteNPCButton.Visible = _gameStateService.DMMode; // Only visible in DM Mode
+        deleteNPCButton.Tag = "DeleteNPCButton";
+        deleteNPCButton.Click += DeleteNPCButton_Click;
+        
+        // Add buttons to button panel
+        buttonPanel.Controls.Add(addNPCButton);
+        buttonPanel.Controls.Add(deleteNPCButton);
+        
+        // Add controls to left panel
+        leftPanel.Controls.Add(npcsListView, 0, 0);
+        leftPanel.Controls.Add(buttonPanel, 0, 1);
         
         // Details panel
         GroupBox detailsGroupBox = new GroupBox();
@@ -959,7 +1028,7 @@ public partial class MainDashboard : Form
         detailsGroupBox.Controls.Add(detailsLayout);
         
         // Add controls to layout
-        layout.Controls.Add(npcsListView, 0, 0);
+        layout.Controls.Add(leftPanel, 0, 0);
         layout.Controls.Add(detailsGroupBox, 1, 0);
         
         tab.Controls.Add(layout);
@@ -2099,6 +2168,7 @@ public partial class MainDashboard : Form
         }
 
         // Update Resource Summary Panel
+            
         var resourceSummaryPanel = FindControl<GroupBox>(_tabControl.TabPages[0], "ResourceSummaryPanel");
         if (resourceSummaryPanel != null)
         {
@@ -2108,9 +2178,24 @@ public partial class MainDashboard : Form
                 listView.Items.Clear();
                 foreach (var resource in _stronghold.Resources)
                 {
-                    ListViewItem item = new ListViewItem(resource.Type.ToString());
+                    // Add resource symbol to name
+                    string symbol = resource.Type.GetSymbol();
+                    ListViewItem item = new ListViewItem($"{symbol} {resource.Type}");
                     item.SubItems.Add(resource.Amount.ToString());
-                    item.SubItems.Add(resource.NetWeeklyChange.ToString());
+                    
+                    // Enhanced weekly change display
+                    string changeText = $"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}";
+                    item.SubItems.Add(changeText);
+                    
+                    // Color coding based on net change
+                    if (resource.NetWeeklyChange > 0)
+                        item.ForeColor = Color.DarkGreen;
+                    else if (resource.NetWeeklyChange < 0)
+                        item.ForeColor = Color.DarkRed;
+                    else
+                        item.ForeColor = Color.Black;
+                    
+                    item.Tag = resource; // Store resource for navigation
                     listView.Items.Add(item);
                 }
             }
@@ -2298,13 +2383,33 @@ public partial class MainDashboard : Form
             selectedResource = (Resource)resourcesListView.SelectedItems[0].Tag;
         }
 
-        // Refresh list
+        // Note: Production/consumption calculations are updated automatically when game state changes
+
+        // Refresh list with updated data
         resourcesListView.Items.Clear();
         foreach (var resource in _stronghold.Resources)
         {
             var item = new ListViewItem(resource.Type.ToString());
             item.SubItems.Add(resource.Amount.ToString());
-            item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
+            
+            // Color-code the net change
+            string netChangeText = $"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}";
+            item.SubItems.Add(netChangeText);
+            item.SubItems.Add($"+{resource.WeeklyProduction}");
+            item.SubItems.Add($"-{resource.WeeklyConsumption}");
+            
+            // Set color based on net change for the entire row
+            if (resource.NetWeeklyChange > 0)
+                item.ForeColor = Color.DarkGreen;
+            else if (resource.NetWeeklyChange < 0)
+                item.ForeColor = Color.DarkRed;
+            else
+                item.ForeColor = Color.Black;
+            
+            // Add color to specific sub-items
+            item.SubItems[3].ForeColor = Color.Green; // Production in green
+            item.SubItems[4].ForeColor = Color.Red; // Consumption in red
+            
             item.Tag = resource;
             resourcesListView.Items.Add(item);
 
@@ -2313,6 +2418,82 @@ public partial class MainDashboard : Form
             {
                 item.Selected = true;
                 resourcesListView.EnsureVisible(item.Index);
+                // Manually trigger the selection changed event to update details
+                ResourcesListView_SelectedIndexChanged(resourcesListView, EventArgs.Empty);
+            }
+        }
+    }
+
+    private void UpdateAllBuildingProductionAndUpkeep()
+    {
+        foreach (var building in _stronghold.Buildings)
+        {
+            if (building.IsFunctional())
+            {
+                // Get assigned NPCs for this building
+                var assignedNPCs = building.AssignedWorkers
+                    .Select(workerId => _stronghold.NPCs.Find(n => n.Id == workerId))
+                    .Where(npc => npc != null)
+                    .ToList();
+
+                // Update production based on current workers
+                building.UpdateProduction(assignedNPCs);
+
+                // Update upkeep based on current workers and building data
+                UpdateBuildingUpkeep(building, assignedNPCs);
+            }
+        }
+    }
+
+
+
+    private void UpdateBuildingUpkeep(Building building, List<NPC> assignedNPCs)
+    {
+        building.ActualUpkeep.Clear();
+
+        // Load building data for upkeep calculations
+        string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+        if (File.Exists(jsonPath))
+        {
+            string json = File.ReadAllText(jsonPath);
+            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+            
+            if (buildingInfo != null)
+            {
+                // Calculate worker salaries (Gold upkeep)
+                int totalSalaries = assignedNPCs.Sum(worker => 
+                    Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                // Get base upkeep for current level
+                var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level);
+                
+                foreach (var upkeep in upkeepAtLevel)
+                {
+                    int totalUpkeep = upkeep.baseValue;
+                    
+                    // Add worker salaries to Gold upkeep
+                    if (upkeep.resourceType == "Gold")
+                    {
+                        totalUpkeep += totalSalaries;
+                    }
+
+                    building.ActualUpkeep.Add(new ResourceCost
+                    {
+                        ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), upkeep.resourceType),
+                        Amount = totalUpkeep
+                    });
+                }
+
+                // If there are workers but no Gold upkeep entry, add salary-only upkeep
+                if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
+                {
+                    building.ActualUpkeep.Add(new ResourceCost
+                    {
+                        ResourceType = ResourceType.Gold,
+                        Amount = totalSalaries
+                    });
+                }
             }
         }
     }
@@ -2456,12 +2637,32 @@ public partial class MainDashboard : Form
         }
     }
 
-    private void UpdateEditBioButtonVisibility()
+    private void UpdateDMButtonVisibility()
     {
+        // NPCs tab buttons
         var editBioButton = FindControl<Button>(_tabControl.TabPages[2], "EditBioButton");
         if (editBioButton != null)
         {
             editBioButton.Visible = _gameStateService.DMMode;
+        }
+        
+        var addNPCButton = FindControl<Button>(_tabControl.TabPages[2], "AddNPCButton");
+        if (addNPCButton != null)
+        {
+            addNPCButton.Visible = _gameStateService.DMMode;
+        }
+        
+        var deleteNPCButton = FindControl<Button>(_tabControl.TabPages[2], "DeleteNPCButton");
+        if (deleteNPCButton != null)
+        {
+            deleteNPCButton.Visible = _gameStateService.DMMode;
+        }
+        
+        // Resources tab button
+        var adjustResourceButton = FindControl<Button>(_tabControl.TabPages[3], "AdjustResourceButton");
+        if (adjustResourceButton != null)
+        {
+            adjustResourceButton.Visible = _gameStateService.DMMode;
         }
     }
 
@@ -2573,27 +2774,88 @@ public partial class MainDashboard : Form
         ListView productionSourcesListView = FindControl<ListView>(listView.Parent, "ProductionSourcesListView");
         ListView consumptionSourcesListView = FindControl<ListView>(listView.Parent, "ConsumptionSourcesListView");
 
-        if (nameValueLabel != null) nameValueLabel.Text = selectedResource.Type.ToString();
-        if (amountValueLabel != null) amountValueLabel.Text = selectedResource.Amount.ToString();
-        if (productionValueLabel != null) productionValueLabel.Text = $"+{selectedResource.WeeklyProduction} per week";
-        if (consumptionValueLabel != null) consumptionValueLabel.Text = $"-{selectedResource.WeeklyConsumption} per week";
+        if (nameValueLabel != null) 
+        {
+            // Add resource symbol to name
+            string symbol = selectedResource.Type.GetSymbol();
+            nameValueLabel.Text = $"{symbol} {selectedResource.Type}";
+        }
+        
+        if (amountValueLabel != null) 
+        {
+            // Add time estimate if resource is being depleted
+            string amountText = selectedResource.Amount.ToString();
+            if (selectedResource.NetWeeklyChange < 0 && selectedResource.Amount > 0)
+            {
+                int weeksUntilEmpty = selectedResource.Amount / Math.Abs(selectedResource.NetWeeklyChange);
+                if (weeksUntilEmpty <= 4)
+                {
+                    amountText += $" (⚠️ {weeksUntilEmpty} weeks left)";
+                    amountValueLabel.ForeColor = Color.Red;
+                }
+                else if (weeksUntilEmpty <= 8)
+                {
+                    amountText += $" ({weeksUntilEmpty} weeks left)";
+                    amountValueLabel.ForeColor = Color.Orange;
+                }
+                else
+                {
+                    amountValueLabel.ForeColor = Color.Black;
+                }
+            }
+            else
+            {
+                amountValueLabel.ForeColor = Color.Black;
+            }
+            amountValueLabel.Text = amountText;
+        }
+        
+        if (productionValueLabel != null) 
+        {
+            productionValueLabel.Text = $"+{selectedResource.WeeklyProduction} per week";
+            productionValueLabel.ForeColor = selectedResource.WeeklyProduction > 0 ? Color.Green : Color.Gray;
+        }
+        
+        if (consumptionValueLabel != null) 
+        {
+            consumptionValueLabel.Text = $"-{selectedResource.WeeklyConsumption} per week";
+            consumptionValueLabel.ForeColor = selectedResource.WeeklyConsumption > 0 ? Color.Red : Color.Gray;
+        }
+        
         if (netChangeValueLabel != null)
         {
             int netChange = selectedResource.NetWeeklyChange;
-            netChangeValueLabel.Text = $"{(netChange >= 0 ? "+" : "")}{netChange} per week";
-            netChangeValueLabel.ForeColor = netChange >= 0 ? Color.Green : Color.Red;
+            string changeText = $"{(netChange >= 0 ? "+" : "")}{netChange} per week";
+            
+            if (netChange > 0)
+            {
+                changeText += " 📈";
+                netChangeValueLabel.ForeColor = Color.Green;
+            }
+            else if (netChange < 0)
+            {
+                changeText += " 📉";
+                netChangeValueLabel.ForeColor = Color.Red;
+            }
+            else
+            {
+                changeText += " ⚖️";
+                netChangeValueLabel.ForeColor = Color.Orange;
+            }
+            
+            netChangeValueLabel.Text = changeText;
         }
 
         // Update production sources list
         if (productionSourcesListView != null)
         {
             productionSourcesListView.Items.Clear();
-            var prodSources = selectedResource.Sources.Where(s => s.IsProduction).ToList();
+            var prodSources = selectedResource.Sources.Where(s => s.IsProduction).OrderByDescending(s => s.Amount).ToList();
             if (prodSources.Count == 0)
             {
                 var placeholder = new ListViewItem("No production sources");
-                placeholder.SubItems.Add("");
-                placeholder.SubItems.Add("");
+                placeholder.SubItems.Add("None");
+                placeholder.SubItems.Add("0");
                 placeholder.ForeColor = Color.Gray;
                 productionSourcesListView.Items.Add(placeholder);
             }
@@ -2602,8 +2864,22 @@ public partial class MainDashboard : Form
                 foreach (var source in prodSources)
                 {
                     var item = new ListViewItem(source.SourceName);
-                    item.SubItems.Add(source.SourceType.ToString());
+                    
+                    // Show building level if it's a building
+                    string typeText = source.SourceType.ToString();
+                    if (source.SourceType == ResourceSourceType.Building)
+                    {
+                        var building = _stronghold.Buildings.Find(b => b.Id == source.SourceId);
+                        if (building != null)
+                        {
+                            int workerCount = building.AssignedWorkers.Count;
+                            typeText = $"Building (Lvl {building.Level}, {workerCount} workers)";
+                        }
+                    }
+                    
+                    item.SubItems.Add(typeText);
                     item.SubItems.Add($"+{source.Amount}");
+                    item.Tag = source; // Store source for potential navigation
                     productionSourcesListView.Items.Add(item);
                 }
             }
@@ -2612,12 +2888,12 @@ public partial class MainDashboard : Form
         if (consumptionSourcesListView != null)
         {
             consumptionSourcesListView.Items.Clear();
-            var consSources = selectedResource.Sources.Where(s => !s.IsProduction).ToList();
+            var consSources = selectedResource.Sources.Where(s => !s.IsProduction).OrderByDescending(s => s.Amount).ToList();
             if (consSources.Count == 0)
             {
                 var placeholder = new ListViewItem("No consumption sources");
-                placeholder.SubItems.Add("");
-                placeholder.SubItems.Add("");
+                placeholder.SubItems.Add("None");
+                placeholder.SubItems.Add("0");
                 placeholder.ForeColor = Color.Gray;
                 consumptionSourcesListView.Items.Add(placeholder);
             }
@@ -2626,18 +2902,92 @@ public partial class MainDashboard : Form
                 foreach (var source in consSources)
                 {
                     var item = new ListViewItem(source.SourceName);
-                    item.SubItems.Add(source.SourceType.ToString());
+                    
+                    // Show building level if it's a building
+                    string typeText = source.SourceType.ToString();
+                    if (source.SourceType == ResourceSourceType.Building)
+                    {
+                        var building = _stronghold.Buildings.Find(b => b.Id == source.SourceId);
+                        if (building != null)
+                        {
+                            int workerCount = building.AssignedWorkers.Count;
+                            typeText = $"Building (Lvl {building.Level}, {workerCount} workers)";
+                        }
+                    }
+                    else if (source.SourceType == ResourceSourceType.Manual && source.SourceId == "NPCs")
+                    {
+                        typeText = $"Population ({_stronghold.NPCs.Count} NPCs)";
+                    }
+                    
+                    item.SubItems.Add(typeText);
                     item.SubItems.Add($"-{source.Amount}");
+                    item.Tag = source; // Store source for potential navigation
                     consumptionSourcesListView.Items.Add(item);
                 }
             }
         }
     }
 
+    private void ProductionSourcesListView_DoubleClick(object sender, EventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        if (listView.SelectedItems.Count == 0) return;
+
+        var source = (ResourceSource)listView.SelectedItems[0].Tag;
+        if (source == null) return;
+
+        // Navigate to building if it's a building source
+        if (source.SourceType == ResourceSourceType.Building)
+        {
+            ShowBuildingInTab(source.SourceId);
+        }
+    }
+
+    private void ConsumptionSourcesListView_DoubleClick(object sender, EventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        if (listView.SelectedItems.Count == 0) return;
+
+        var source = (ResourceSource)listView.SelectedItems[0].Tag;
+        if (source == null) return;
+
+        // Navigate to building if it's a building source
+        if (source.SourceType == ResourceSourceType.Building)
+        {
+            ShowBuildingInTab(source.SourceId);
+        }
+        // For NPCs, could potentially navigate to NPCs tab
+        else if (source.SourceType == ResourceSourceType.Manual && source.SourceId == "NPCs")
+        {
+            _tabControl.SelectedIndex = 2; // NPCs tab
+        }
+    }
+
     private void AdjustResourceButton_Click(object sender, EventArgs e)
     {
-        ListView resourcesListView = FindControl<ListView>(((Button)sender).Parent.Parent.Parent, "ResourcesListView");
-        if (resourcesListView == null || resourcesListView.SelectedItems.Count == 0) return;
+        // Try to find the ListView by going up the control hierarchy to the tab page
+        Control current = (Button)sender;
+        TabPage resourcesTab = null;
+        
+        // Navigate up to find the TabPage
+        while (current != null && !(current is TabPage))
+        {
+            current = current.Parent;
+        }
+        resourcesTab = current as TabPage;
+        
+        ListView resourcesListView = null;
+        if (resourcesTab != null)
+        {
+            resourcesListView = FindControl<ListView>(resourcesTab, "ResourcesListView");
+        }
+        
+        if (resourcesListView == null || resourcesListView.SelectedItems.Count == 0)
+        {
+            MessageBox.Show("Please select a resource first.", "No Resource Selected", 
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
 
         Resource selectedResource = (Resource)resourcesListView.SelectedItems[0].Tag;
         if (selectedResource == null) return;
@@ -2655,26 +3005,12 @@ public partial class MainDashboard : Form
                 int difference = dialog.Value - selectedResource.Amount;
                 var command = new ModifyResourceCommand(_gameStateService, selectedResource.Type, difference);
                 _gameStateService.GetCommandInvoker().ExecuteCommand(command);
-                RefreshResourcesList();
+                RefreshResourcesTab();
             }
         }
     }
 
-    private void RefreshResourcesList()
-    {
-        ListView resourcesListView = FindControl<ListView>(_tabControl.TabPages[3], "ResourcesListView");
-        if (resourcesListView == null) return;
 
-        resourcesListView.Items.Clear();
-        foreach (var resource in _stronghold.Resources)
-        {
-            var item = new ListViewItem(resource.Type.ToString());
-            item.SubItems.Add(resource.Amount.ToString());
-            item.SubItems.Add($"{(resource.NetWeeklyChange >= 0 ? "+" : "")}{resource.NetWeeklyChange}");
-            item.Tag = resource;
-            resourcesListView.Items.Add(item);
-        }
-    }
 
     private void AddBuildingButton_Click(object sender, EventArgs e)
     {
@@ -2686,6 +3022,92 @@ public partial class MainDashboard : Form
                 // which will trigger GameStateChanged event and refresh the UI
                 // No need to manually update the ListView here
             }
+        }
+    }
+
+    private void AddNPCButton_Click(object sender, EventArgs e)
+    {
+        using (var addNPCDialog = new AddNPCDialog())
+        {
+            if (addNPCDialog.ShowDialog() == DialogResult.OK)
+            {
+                // Get the created NPC from the dialog
+                var createdNPC = addNPCDialog.CreatedNPC;
+                if (createdNPC != null)
+                {
+                    // Add the NPC to the stronghold
+                    _stronghold.NPCs.Add(createdNPC);
+                    
+                    // Store the created NPC ID for selection after refresh
+                    _lastCreatedNpcId = createdNPC.Id;
+                    
+                    // Trigger game state change to refresh UI
+                    _gameStateService.OnGameStateChanged();
+                }
+            }
+        }
+    }
+
+    private void DeleteNPCButton_Click(object sender, EventArgs e)
+    {
+        // Find the currently selected NPC
+        var npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+        if (npcsListView?.SelectedItems.Count > 0)
+        {
+            string npcId = (string)npcsListView.SelectedItems[0].Tag;
+            NPC selectedNpc = _stronghold.NPCs.Find(n => n.Id == npcId);
+            
+            if (selectedNpc != null)
+            {
+                // Confirm deletion
+                var result = MessageBox.Show(
+                    $"Are you sure you want to delete '{selectedNpc.Name}'?\n\nThis action cannot be undone.",
+                    "Delete NPC",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+                
+                if (result == DialogResult.Yes)
+                {
+                    // Check if NPC is assigned to any buildings or missions
+                    var assignedBuildings = _stronghold.Buildings.Where(b => 
+                        b.AssignedWorkers.Contains(npcId) || 
+                        b.DedicatedConstructionCrew.Contains(npcId)).ToList();
+                    
+                    if (assignedBuildings.Any())
+                    {
+                        var buildingNames = string.Join(", ", assignedBuildings.Select(b => b.Name));
+                        var unassignResult = MessageBox.Show(
+                            $"'{selectedNpc.Name}' is currently assigned to: {buildingNames}\n\n" +
+                            "Do you want to unassign them from all buildings and continue with deletion?",
+                            "NPC Is Assigned",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+                        
+                        if (unassignResult != DialogResult.Yes)
+                        {
+                            return; // Cancel deletion
+                        }
+                        
+                        // Unassign from all buildings
+                        foreach (var building in assignedBuildings)
+                        {
+                            building.AssignedWorkers.Remove(npcId);
+                            building.DedicatedConstructionCrew.Remove(npcId);
+                        }
+                    }
+                    
+                    // Remove the NPC from the stronghold
+                    _stronghold.NPCs.Remove(selectedNpc);
+                    
+                    // Trigger game state change to refresh UI
+                    _gameStateService.OnGameStateChanged();
+                }
+            }
+        }
+        else
+        {
+            MessageBox.Show("Please select an NPC to delete.", "No NPC Selected", 
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 

@@ -137,6 +137,7 @@ namespace DNDStrongholdApp.Services
                 _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Wood, Amount = 0 });
                 _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Stone, Amount = 0 });
                 _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Iron, Amount = 0 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Luxury, Amount = 0 });
                 
                 // Set treasury to 0 as well
                 _currentStronghold.Treasury = 0;
@@ -381,6 +382,18 @@ namespace DNDStrongholdApp.Services
                 }
                 // TODO: Add special building food consumption (tavern, inn, etc.)
             }
+
+            // Apply the weekly changes to all resources
+            foreach (var resource in _currentStronghold.Resources)
+            {
+                resource.ApplyWeeklyChange();
+                
+                // Update treasury if it's gold
+                if (resource.Type == ResourceType.Gold)
+                {
+                    _currentStronghold.Treasury = resource.Amount;
+                }
+            }
         }
         
         // Generate weekly report
@@ -559,6 +572,7 @@ namespace DNDStrongholdApp.Services
                 _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Wood, Amount = 50 });
                 _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Stone, Amount = 30 });
                 _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Iron, Amount = 10 });
+                _currentStronghold.Resources.Add(new Resource { Type = ResourceType.Luxury, Amount = 5 });
 
                 // Add buildings from test data
                 foreach (var buildingData in testData.Buildings)
@@ -937,9 +951,118 @@ namespace DNDStrongholdApp.Services
             return true;
         }
         
+        // Update production and consumption calculations without applying changes
+        private void UpdateProductionAndConsumptionRates()
+        {
+            // Update building production and upkeep for all functional buildings
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                if (building.IsFunctional())
+                {
+                    // Get assigned NPCs for this building
+                    var assignedNPCs = building.AssignedWorkers
+                        .Select(workerId => _currentStronghold.NPCs.Find(n => n.Id == workerId))
+                        .Where(npc => npc != null)
+                        .ToList();
+
+                    // Update production based on current workers
+                    building.UpdateProduction(assignedNPCs);
+
+                    // Update upkeep based on current workers
+                    building.ActualUpkeep.Clear();
+                    
+                    // Calculate worker salaries (Gold upkeep)
+                    int totalSalaries = assignedNPCs.Sum(worker => 
+                        Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                    // Add worker salaries to Gold upkeep
+                    if (totalSalaries > 0)
+                    {
+                        building.ActualUpkeep.Add(new ResourceCost
+                        {
+                            ResourceType = ResourceType.Gold,
+                            Amount = totalSalaries
+                        });
+                    }
+                }
+            }
+
+            // Reset all resource rates
+            foreach (var resource in _currentStronghold.Resources)
+            {
+                resource.WeeklyProduction = 0;
+                resource.WeeklyConsumption = 0;
+                resource.Sources.Clear();
+            }
+
+            // Aggregate building production and upkeep
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                if (building.IsFunctional())
+                {
+                    // Production
+                    foreach (var prod in building.ActualProduction)
+                    {
+                        var resource = _currentStronghold.Resources.Find(r => r.Type == prod.ResourceType);
+                        if (resource != null && prod.Amount > 0)
+                        {
+                            resource.WeeklyProduction += prod.Amount;
+                            resource.Sources.Add(new ResourceSource
+                            {
+                                SourceType = ResourceSourceType.Building,
+                                SourceId = building.Id,
+                                SourceName = building.Name,
+                                Amount = prod.Amount,
+                                IsProduction = true
+                            });
+                        }
+                    }
+                    // Upkeep
+                    foreach (var upkeep in building.ActualUpkeep)
+                    {
+                        var resource = _currentStronghold.Resources.Find(r => r.Type == upkeep.ResourceType);
+                        if (resource != null && upkeep.Amount > 0)
+                        {
+                            resource.WeeklyConsumption += upkeep.Amount;
+                            resource.Sources.Add(new ResourceSource
+                            {
+                                SourceType = ResourceSourceType.Building,
+                                SourceId = building.Id,
+                                SourceName = building.Name,
+                                Amount = upkeep.Amount,
+                                IsProduction = false
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Food consumption: 1 per NPC (assigned or not)
+            var foodResource = _currentStronghold.Resources.Find(r => r.Type == ResourceType.Food);
+            if (foodResource != null)
+            {
+                int foodPerNPC = 1;
+                int totalNPCs = _currentStronghold.NPCs.Count;
+                foodResource.WeeklyConsumption += totalNPCs * foodPerNPC;
+                if (totalNPCs > 0)
+                {
+                    foodResource.Sources.Add(new ResourceSource
+                    {
+                        SourceType = ResourceSourceType.Manual,
+                        SourceId = "NPCs",
+                        SourceName = "Population",
+                        Amount = totalNPCs * foodPerNPC,
+                        IsProduction = false
+                    });
+                }
+            }
+        }
+
         // Notify listeners that the game state has changed
         public void OnGameStateChanged()
         {
+            // Update production/consumption rates whenever game state changes
+            UpdateProductionAndConsumptionRates();
             GameStateChanged?.Invoke(this, EventArgs.Empty);
         }
 

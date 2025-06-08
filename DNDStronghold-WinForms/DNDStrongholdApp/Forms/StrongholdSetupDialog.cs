@@ -297,6 +297,12 @@ namespace DNDStrongholdApp
             Buildings.Clear();
             NPCs.Clear();
             StartingResources.Clear();
+            
+            // Initialize all resource types with 0 amounts
+            foreach (ResourceType resourceType in Enum.GetValues<ResourceType>())
+            {
+                StartingResources[resourceType] = 0;
+            }
 
             // Add Griffin's Hunt preset button
             Button griffinsHuntButton = new Button();
@@ -602,11 +608,20 @@ namespace DNDStrongholdApp
             
             // Set starting resources (limited due to damaged state)
             StartingResources.Clear();
+            
+            // Initialize all resource types with 0 amounts first
+            foreach (ResourceType resourceType in Enum.GetValues<ResourceType>())
+            {
+                StartingResources[resourceType] = 0;
+            }
+            
+            // Set specific amounts for Griffin's Hunt scenario
             StartingResources[ResourceType.Gold] = 200;
             StartingResources[ResourceType.Food] = 50;
             StartingResources[ResourceType.Wood] = 30;
             StartingResources[ResourceType.Stone] = 15;
             StartingResources[ResourceType.Iron] = 5;
+            StartingResources[ResourceType.Luxury] = 2; // Small amount of luxury items
             
             // Refresh lists
             RefreshBuildingsList();
@@ -699,7 +714,7 @@ namespace DNDStrongholdApp
         public NumericInputDialog(string title, string prompt, int min, int max, int defaultValue)
         {
             this.Text = title;
-            this.Size = new Size(300, 150);
+            this.Size = new Size(400, 180);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -708,11 +723,11 @@ namespace DNDStrongholdApp
             
             Label promptLabel = new Label();
             promptLabel.Text = prompt;
-            promptLabel.Location = new Point(10, 10);
+            promptLabel.Location = new Point(60, 20);
             promptLabel.Size = new Size(280, 20);
             
             _numericUpDown = new NumericUpDown();
-            _numericUpDown.Location = new Point(10, 40);
+            _numericUpDown.Location = new Point(60, 50);
             _numericUpDown.Size = new Size(280, 20);
             _numericUpDown.Minimum = min;
             _numericUpDown.Maximum = max;
@@ -721,13 +736,13 @@ namespace DNDStrongholdApp
             Button okButton = new Button();
             okButton.Text = "OK";
             okButton.DialogResult = DialogResult.OK;
-            okButton.Location = new Point(130, 80);
+            okButton.Location = new Point(180, 100);
             okButton.Size = new Size(75, 23);
             
             Button cancelButton = new Button();
             cancelButton.Text = "Cancel";
             cancelButton.DialogResult = DialogResult.Cancel;
-            cancelButton.Location = new Point(215, 80);
+            cancelButton.Location = new Point(265, 100);
             cancelButton.Size = new Size(75, 23);
             
             this.Controls.Add(promptLabel);

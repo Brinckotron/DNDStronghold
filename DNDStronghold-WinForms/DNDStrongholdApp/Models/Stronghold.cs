@@ -32,6 +32,7 @@ namespace DNDStrongholdApp.Models
             Resources.Add(new Resource { Type = ResourceType.Wood, Amount = 50 });
             Resources.Add(new Resource { Type = ResourceType.Stone, Amount = 30 });
             Resources.Add(new Resource { Type = ResourceType.Iron, Amount = 10 });
+            Resources.Add(new Resource { Type = ResourceType.Luxury, Amount = 5 });
         }
 
         // Methods for stronghold management will be added here
