@@ -94,11 +94,166 @@ namespace DNDStrongholdApp.Services
                     sections.Add(secret);
             }
 
-            // Join sections with proper spacing
-            return string.Join(" ", sections);
+                    // Join sections with proper spacing
+        return string.Join(" ", sections);
+    }
+
+    // Public method to get filtered section data for DM Mode
+    public Dictionary<string, List<BioOption>> GetFilteredSectionData(NPC npc)
+    {
+        var sectionData = new Dictionary<string, List<BioOption>>();
+        
+        if (_bioData?.BioSections != null)
+        {
+            sectionData["Background"] = _bioData.BioSections.Backgrounds?.Where(option => IsValidForNPC(option, npc)).ToList() ?? new List<BioOption>();
+            sectionData["Personality"] = _bioData.BioSections.Personalities?.Where(option => IsValidForNPC(option, npc)).ToList() ?? new List<BioOption>();
+            sectionData["Appearance"] = _bioData.BioSections.Appearances?.Where(option => IsValidForNPC(option, npc)).ToList() ?? new List<BioOption>();
+            sectionData["Motivation"] = _bioData.BioSections.Motivations?.Where(option => IsValidForNPC(option, npc)).ToList() ?? new List<BioOption>();
+            sectionData["Quirk"] = _bioData.BioSections.Quirks?.Where(option => IsValidForNPC(option, npc)).ToList() ?? new List<BioOption>();
+            sectionData["Secret"] = _bioData.BioSections.Secrets?.Where(option => IsValidForNPC(option, npc)).ToList() ?? new List<BioOption>();
+        }
+        else
+        {
+            // Fallback to empty lists
+            foreach (var section in new[] { "Background", "Personality", "Appearance", "Motivation", "Quirk", "Secret" })
+            {
+                sectionData[section] = new List<BioOption>();
+            }
+        }
+        
+        return sectionData;
+    }
+
+    // Generate bio with tracking of selected indices
+    public string GenerateBioWithIndices(NPC npc, out Dictionary<string, int> selectedIndices)
+    {
+        selectedIndices = new Dictionary<string, int>();
+        
+        if (_bioData?.BioSections == null) 
+        {
+            // Initialize with default indices for all sections
+            foreach (var section in new[] { "Background", "Personality", "Appearance", "Motivation", "Quirk", "Secret" })
+            {
+                selectedIndices[section] = 0;
+            }
+            return "A mysterious individual with an unknown past.";
         }
 
-        private string SelectRandomOption(List<BioOption> options, NPC npc)
+        var sections = new List<string>();
+
+        // Get filtered section data
+        var sectionData = GetFiltereredSectionData(npc);
+
+        // Generate each section with index tracking
+        var background = SelectRandomOptionWithIndex(sectionData["Background"], npc, out int backgroundIndex);
+        selectedIndices["Background"] = backgroundIndex;
+        if (!string.IsNullOrEmpty(background))
+            sections.Add(background);
+
+        var personality = SelectRandomOptionWithIndex(sectionData["Personality"], npc, out int personalityIndex);
+        selectedIndices["Personality"] = personalityIndex;
+        if (!string.IsNullOrEmpty(personality))
+            sections.Add(personality);
+
+        var appearance = SelectRandomOptionWithIndex(sectionData["Appearance"], npc, out int appearanceIndex);
+        selectedIndices["Appearance"] = appearanceIndex;
+        if (!string.IsNullOrEmpty(appearance))
+            sections.Add(appearance);
+
+        var motivation = SelectRandomOptionWithIndex(sectionData["Motivation"], npc, out int motivationIndex);
+        selectedIndices["Motivation"] = motivationIndex;
+        if (!string.IsNullOrEmpty(motivation))
+            sections.Add(motivation);
+
+        // Add quirks and secrets with lower probability
+        if (_random.NextDouble() < 0.7) // 70% chance of quirk
+        {
+            var quirk = SelectRandomOptionWithIndex(sectionData["Quirk"], npc, out int quirkIndex);
+            selectedIndices["Quirk"] = quirkIndex;
+            if (!string.IsNullOrEmpty(quirk))
+                sections.Add(quirk);
+        }
+        else
+        {
+            selectedIndices["Quirk"] = 0; // No quirk selected
+        }
+
+        if (_random.NextDouble() < 0.3) // 30% chance of secret
+        {
+            var secret = SelectRandomOptionWithIndex(sectionData["Secret"], npc, out int secretIndex);
+            selectedIndices["Secret"] = secretIndex;
+            if (!string.IsNullOrEmpty(secret))
+                sections.Add(secret);
+        }
+        else
+        {
+            selectedIndices["Secret"] = 0; // No secret selected
+        }
+
+        // Join sections with proper spacing
+        return string.Join(" ", sections);
+    }
+
+    // Generate bio from specific section indices
+    public string GenerateBioFromIndices(NPC npc, Dictionary<string, int> indices)
+    {
+        if (_bioData?.BioSections == null) return "A mysterious individual with an unknown past.";
+
+        var sections = new List<string>();
+        var sectionData = GetFiltereredSectionData(npc);
+
+        foreach (var sectionName in new[] { "Background", "Personality", "Appearance", "Motivation", "Quirk", "Secret" })
+        {
+            if (indices.ContainsKey(sectionName) && sectionData.ContainsKey(sectionName))
+            {
+                var options = sectionData[sectionName];
+                int index = indices[sectionName];
+                
+                if (options.Any() && index >= 0 && index < options.Count)
+                {
+                    var selectedOption = options[index];
+                    string processedText = ProcessPlaceholders(selectedOption.Text, npc);
+                    if (!string.IsNullOrEmpty(processedText))
+                        sections.Add(processedText);
+                }
+            }
+        }
+
+        return string.Join(" ", sections);
+    }
+
+    private Dictionary<string, List<BioOption>> GetFiltereredSectionData(NPC npc)
+    {
+        return GetFilteredSectionData(npc);
+    }
+
+    private string SelectRandomOptionWithIndex(List<BioOption> options, NPC npc, out int selectedIndex)
+    {
+        selectedIndex = 0;
+        
+        if (options == null || !options.Any()) return "";
+
+        // Weight-based selection
+        double totalWeight = options.Sum(o => o.Weight);
+        double randomValue = _random.NextDouble() * totalWeight;
+        double currentWeight = 0;
+
+        for (int i = 0; i < options.Count; i++)
+        {
+            currentWeight += options[i].Weight;
+            if (randomValue <= currentWeight)
+            {
+                selectedIndex = i;
+                return ProcessPlaceholders(options[i].Text, npc);
+            }
+        }
+
+        // Fallback to last option
+        selectedIndex = options.Count - 1;
+        return ProcessPlaceholders(options.Last().Text, npc);
+    }
+
+    private string SelectRandomOption(List<BioOption> options, NPC npc)
         {
             if (options == null || !options.Any()) return "";
 

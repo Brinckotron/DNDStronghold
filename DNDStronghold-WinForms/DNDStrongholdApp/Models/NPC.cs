@@ -22,7 +22,7 @@ namespace DNDStrongholdApp.Models
         public bool IsAlive { get; set; } = true;
         public int Level { get; set; } = 1; // NPC level, starts at 1
         public NPCStatus Status { get; set; } = NPCStatus.Available; // Current status of the NPC
-        public string Bio { get; set; } = string.Empty; // NPC biography/description
+        public Bio Bio { get; set; } = new Bio(); // NPC biography/description
 
         // Constructor for a new NPC
         public NPC(NPCType type, string name = "")
@@ -39,12 +39,12 @@ namespace DNDStrongholdApp.Models
             try
             {
                 var bioGenerator = new Services.BioGeneratorService();
-                Bio = bioGenerator.GenerateBio(this);
+                Bio.GenerateFromService(bioGenerator, this);
             }
             catch
             {
                 // If bio generation fails, leave bio empty
-                Bio = string.Empty;
+                Bio = new Bio();
             }
         }
 
@@ -403,6 +403,49 @@ namespace DNDStrongholdApp.Models
     {
         Male,
         Female
+    }
+
+    public class Bio
+    {
+        public string Text { get; set; } = string.Empty;
+        public bool IsCustom { get; set; } = false;
+        public Dictionary<string, int> SectionIndices { get; set; } = new Dictionary<string, int>();
+
+        public Bio()
+        {
+            // Initialize with default indices
+            SectionIndices["Background"] = 0;
+            SectionIndices["Personality"] = 0;
+            SectionIndices["Appearance"] = 0;
+            SectionIndices["Motivation"] = 0;
+            SectionIndices["Quirk"] = 0;
+            SectionIndices["Secret"] = 0;
+        }
+
+        public void SetAsCustom(string customText)
+        {
+            Text = customText;
+            IsCustom = true;
+            // Clear section indices when setting custom text
+            foreach (var key in SectionIndices.Keys.ToList())
+            {
+                SectionIndices[key] = 0;
+            }
+        }
+
+        public void SetAsGenerated(string generatedText, Dictionary<string, int> indices)
+        {
+            Text = generatedText;
+            IsCustom = false;
+            SectionIndices = new Dictionary<string, int>(indices);
+        }
+
+        public void GenerateFromService(Services.BioGeneratorService bioGenerator, NPC npc)
+        {
+            // Generate bio text with matching indices
+            string generatedText = bioGenerator.GenerateBioWithIndices(npc, out Dictionary<string, int> actualIndices);
+            SetAsGenerated(generatedText, actualIndices);
+        }
     }
 
     public enum BasicSkill

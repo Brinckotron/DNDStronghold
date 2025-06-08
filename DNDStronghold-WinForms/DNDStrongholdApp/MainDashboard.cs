@@ -41,6 +41,8 @@ public partial class MainDashboard : Form
     private SortOrder _dashboardBuildingsSortOrder = SortOrder.None;
     private int _dashboardNPCsSortedColumn = -1;
     private SortOrder _dashboardNPCsSortOrder = SortOrder.None;
+    private int _skillsSortedColumn = 1; // Default to Level column
+    private SortOrder _skillsSortOrder = SortOrder.Descending;
 
     // Add CurrentProject property to track building projects
     private Building CurrentProject => _stronghold?.Buildings.FirstOrDefault(b => 
@@ -150,6 +152,8 @@ public partial class MainDashboard : Form
         dmModeItem.Click += (s, e) =>
         {
             _gameStateService.DMMode = dmModeItem.Checked;
+            // Update Edit Bio button visibility
+            UpdateEditBioButtonVisibility();
         };
         toolsMenu.DropDownItems.Add(new ToolStripSeparator());
         toolsMenu.DropDownItems.Add(dmModeItem);
@@ -882,6 +886,7 @@ public partial class MainDashboard : Form
         skillsListView.GridLines = true;
         skillsListView.Tag = "NPCSkillsListView";
         skillsListView.Margin = new Padding(0, 5, 0, 0);
+        skillsListView.ColumnClick += SkillsListView_ColumnClick;
         
         // Add columns for skills
         skillsListView.Columns.Add("Skill", 100);
@@ -921,7 +926,7 @@ public partial class MainDashboard : Form
         bioTextBox.Tag = "NPCBioTextBox";
         bioTextBox.Text = "";
         
-        // Edit Bio button
+        // Edit Bio button (only visible in DM Mode)
         Button editBioButton = new Button();
         editBioButton.Text = "Edit Bio";
         editBioButton.Dock = DockStyle.Right;
@@ -929,6 +934,7 @@ public partial class MainDashboard : Form
         editBioButton.Height = 25;
         editBioButton.Tag = "EditBioButton";
         editBioButton.Margin = new Padding(0, 5, 0, 0);
+        editBioButton.Visible = _gameStateService.DMMode; // Only visible in DM Mode
         editBioButton.Click += EditBioButton_Click;
         
         bioPanel.Controls.Add(bioTextBox, 0, 0);
@@ -2424,8 +2430,13 @@ public partial class MainDashboard : Form
                     int requiredXP = (skill.Level + 1) * 100;
                     item.SubItems.Add(skill.Level.ToString());
                     item.SubItems.Add($"{skill.Experience}/{requiredXP}");
+                    item.Tag = skill; // Store the skill object for sorting
                     skillsListView.Items.Add(item);
                 }
+                
+                // Apply sorting (default is by Level descending)
+                skillsListView.ListViewItemSorter = new SkillsListViewSorter(_skillsSortedColumn, _skillsSortOrder);
+                skillsListView.Sort();
             }
             else
             {
@@ -2441,7 +2452,16 @@ public partial class MainDashboard : Form
         // Update bio display
         if (bioTextBox != null)
         {
-            bioTextBox.Text = npc.Bio ?? "";
+            bioTextBox.Text = npc.Bio?.Text ?? "";
+        }
+    }
+
+    private void UpdateEditBioButtonVisibility()
+    {
+        var editBioButton = FindControl<Button>(_tabControl.TabPages[2], "EditBioButton");
+        if (editBioButton != null)
+        {
+            editBioButton.Visible = _gameStateService.DMMode;
         }
     }
 
@@ -2461,7 +2481,7 @@ public partial class MainDashboard : Form
                     if (bioDialog.ShowDialog() == DialogResult.OK)
                     {
                         // Update the NPC's bio
-                        selectedNpc.Bio = bioDialog.BioText;
+                        selectedNpc.Bio = bioDialog.GetUpdatedBio();
                         
                         // Update the bio display
                         UpdateNPCDetails(selectedNpc);
@@ -4072,6 +4092,80 @@ public partial class MainDashboard : Form
             
             // Return the result based on sort order
             return _sortOrder == SortOrder.Ascending ? compareResult : -compareResult;
+        }
+    }
+
+    private void SkillsListView_ColumnClick(object sender, ColumnClickEventArgs e)
+    {
+        ListView listView = (ListView)sender;
+        
+        // Determine sort order
+        if (e.Column == _skillsSortedColumn)
+        {
+            _skillsSortOrder = _skillsSortOrder == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
+        }
+        else
+        {
+            _skillsSortedColumn = e.Column;
+            _skillsSortOrder = SortOrder.Ascending;
+        }
+        
+        // Apply the sort
+        listView.ListViewItemSorter = new SkillsListViewSorter(_skillsSortedColumn, _skillsSortOrder);
+        listView.Sort();
+    }
+
+    private class SkillsListViewSorter : System.Collections.IComparer
+    {
+        private int _column;
+        private SortOrder _sortOrder;
+
+        public SkillsListViewSorter(int column, SortOrder sortOrder)
+        {
+            _column = column;
+            _sortOrder = sortOrder;
+        }
+
+        public int Compare(object x, object y)
+        {
+            ListViewItem item1 = (ListViewItem)x;
+            ListViewItem item2 = (ListViewItem)y;
+
+            int result = 0;
+
+            // Handle placeholder items (no skills learned)
+            if (item1.ForeColor == Color.Gray || item2.ForeColor == Color.Gray)
+            {
+                if (item1.ForeColor == Color.Gray && item2.ForeColor == Color.Gray)
+                    return 0;
+                if (item1.ForeColor == Color.Gray)
+                    return _sortOrder == SortOrder.Ascending ? 1 : -1;
+                if (item2.ForeColor == Color.Gray)
+                    return _sortOrder == SortOrder.Ascending ? -1 : 1;
+            }
+
+            // Get the skill objects from the Tag property
+            var skill1 = item1.Tag as Skill;
+            var skill2 = item2.Tag as Skill;
+
+            switch (_column)
+            {
+                case 0: // Skill Name
+                    result = string.Compare(skill1?.Name ?? item1.Text, skill2?.Name ?? item2.Text, StringComparison.OrdinalIgnoreCase);
+                    break;
+                case 1: // Level
+                    int level1 = skill1?.Level ?? 0;
+                    int level2 = skill2?.Level ?? 0;
+                    result = level1.CompareTo(level2);
+                    break;
+                case 2: // XP
+                    int xp1 = skill1?.Experience ?? 0;
+                    int xp2 = skill2?.Experience ?? 0;
+                    result = xp1.CompareTo(xp2);
+                    break;
+            }
+
+            return _sortOrder == SortOrder.Ascending ? result : -result;
         }
     }
 
