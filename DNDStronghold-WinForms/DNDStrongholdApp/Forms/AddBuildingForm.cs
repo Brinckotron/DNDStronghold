@@ -76,7 +76,10 @@ namespace DNDStrongholdApp.Forms
                 Width = 440,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            _buildingTypeComboBox.Items.AddRange(Enum.GetNames(typeof(BuildingType)));
+            // Load building types from BuildingTypeService
+            var buildingTypeService = BuildingTypeService.GetInstance();
+            var availableTypes = buildingTypeService.GetAvailableBuildingTypes();
+            _buildingTypeComboBox.Items.AddRange(availableTypes.ToArray());
             _buildingTypeComboBox.SelectedIndexChanged += BuildingType_SelectedIndexChanged;
 
             // Name TextBox
@@ -340,7 +343,7 @@ namespace DNDStrongholdApp.Forms
                 return;
             }
 
-            BuildingType selectedType = (BuildingType)Enum.Parse(typeof(BuildingType), _buildingTypeComboBox.SelectedItem.ToString());
+            string selectedType = _buildingTypeComboBox.SelectedItem.ToString();
             
             // Set description
             _descriptionTextBox.Text = GetBuildingDescription(selectedType);
@@ -425,11 +428,11 @@ namespace DNDStrongholdApp.Forms
         {
             if (_buildingTypeComboBox.SelectedItem == null) return;
 
-            BuildingType selectedType = (BuildingType)Enum.Parse(typeof(BuildingType), _buildingTypeComboBox.SelectedItem.ToString());
+            string selectedType = _buildingTypeComboBox.SelectedItem.ToString();
             
             // If name is empty, use the building type as the default name
             string buildingName = string.IsNullOrWhiteSpace(_nameTextBox.Text) 
-                ? selectedType.ToString() 
+                ? selectedType 
                 : _nameTextBox.Text.Trim();
 
             // Create the building
@@ -482,6 +485,30 @@ namespace DNDStrongholdApp.Forms
 
             this.DialogResult = DialogResult.OK;
             this.Close();
+        }
+
+        private string GetBuildingDescription(string buildingType)
+        {
+            // Simple description based on building type
+            return buildingType switch
+            {
+                "Farm" => "Produces food for the stronghold population.",
+                "Watchtower" => "Provides security and surveillance for the stronghold.",
+                "Smithy" => "Forges weapons, armor, and tools for the stronghold.",
+                "Laboratory" => "Conducts research and creates alchemical items.",
+                "Chapel" => "Provides spiritual guidance and healing services.",
+                "Mine" => "Extracts valuable ores and minerals from the ground.",
+                "Barracks" => "Houses and trains military personnel.",
+                "Library" => "Stores knowledge and enables research activities.",
+                "TradeOffice" => "Manages trade relations and commercial activities.",
+                "Stables" => "Houses and breeds horses and other livestock.",
+                "Tavern" => "Provides hospitality and social gathering space.",
+                "MasonsYard" => "Crafts stone blocks and architectural elements.",
+                "Workshop" => "General crafting facility for various goods.",
+                "Granary" => "Stores and preserves food supplies.",
+                "Quarry" => "Extracts stone and other building materials.",
+                _ => $"A {buildingType} building that serves the stronghold's needs."
+            };
         }
     }
 } 

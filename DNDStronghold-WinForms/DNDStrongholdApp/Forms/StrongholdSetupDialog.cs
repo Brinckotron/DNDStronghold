@@ -330,7 +330,7 @@ namespace DNDStrongholdApp
             
             foreach (var building in Buildings)
             {
-                ListViewItem item = new ListViewItem(building.Type.ToString());
+                ListViewItem item = new ListViewItem(building.TypeName);
                 string statusText = building.ConstructionStatus.ToString();
                 if (building.ConstructionStatus == BuildingStatus.UnderConstruction ||
                     building.ConstructionStatus == BuildingStatus.Repairing ||
@@ -392,9 +392,9 @@ namespace DNDStrongholdApp
             }
         }
         
-        private void AddBuilding(BuildingType type, BuildingStatus status = BuildingStatus.Planning)
+        private void AddBuilding(string typeName, BuildingStatus status = BuildingStatus.Planning)
         {
-            Building building = new Building(type);
+            Building building = new Building(typeName);
             building.ConstructionStatus = status;
             Buildings.Add(building);
             RefreshBuildingsList();
@@ -414,7 +414,7 @@ namespace DNDStrongholdApp
             {
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    BuildingType type = (BuildingType)Enum.Parse(typeof(BuildingType), dialog.SelectedValue);
+                    string typeName = dialog.SelectedValue;
                     
                     // Show building status selection dialog
                     using (var statusDialog = new ComboBoxDialog("Select Building Status", "Building Status:", Enum.GetNames(typeof(BuildingStatus))))
@@ -422,7 +422,7 @@ namespace DNDStrongholdApp
                         if (statusDialog.ShowDialog() == DialogResult.OK)
                         {
                             BuildingStatus status = (BuildingStatus)Enum.Parse(typeof(BuildingStatus), statusDialog.SelectedValue);
-                            AddBuilding(type, status);
+                            AddBuilding(typeName, status);
                         }
                     }
                 }
@@ -541,7 +541,7 @@ namespace DNDStrongholdApp
             _npcsListView.Items.Clear();
             
             // Add damaged buildings
-            AddBuilding(BuildingType.Barracks, BuildingStatus.Damaged);
+            AddBuilding("Barracks", BuildingStatus.Damaged);
             Building mainHall = _buildingsListView.Items[_buildingsListView.Items.Count - 1].Tag as Building;
             if (mainHall != null)
             {
@@ -549,7 +549,7 @@ namespace DNDStrongholdApp
                 mainHall.Condition = 20;
             }
             
-            AddBuilding(BuildingType.Watchtower, BuildingStatus.Damaged);
+            AddBuilding("Watchtower", BuildingStatus.Damaged);
             Building watchtower = _buildingsListView.Items[_buildingsListView.Items.Count - 1].Tag as Building;
             if (watchtower != null)
             {
@@ -557,7 +557,7 @@ namespace DNDStrongholdApp
                 watchtower.Condition = 15;
             }
             
-            AddBuilding(BuildingType.Stables, BuildingStatus.Damaged);
+            AddBuilding("Stables", BuildingStatus.Damaged);
             Building stables = _buildingsListView.Items[_buildingsListView.Items.Count - 1].Tag as Building;
             if (stables != null)
             {
@@ -566,7 +566,7 @@ namespace DNDStrongholdApp
             }
             
             // Add one intact building
-            AddBuilding(BuildingType.Farm, BuildingStatus.Complete);
+            AddBuilding("Farm", BuildingStatus.Complete);
             Building farm = _buildingsListView.Items[_buildingsListView.Items.Count - 1].Tag as Building;
             if (farm != null)
             {

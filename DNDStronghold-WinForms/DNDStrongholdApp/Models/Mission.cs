@@ -58,11 +58,11 @@ namespace DNDStrongholdApp.Models
         }
         
         // Add building requirement
-        public void AddBuildingRequirement(BuildingType type, int minLevel = 1)
+        public void AddBuildingRequirement(string typeName, int minLevel = 1)
         {
             Requirements.Buildings.Add(new BuildingRequirement
             {
-                Type = type,
+                Type = typeName,
                 MinLevel = minLevel
             });
         }
@@ -131,7 +131,7 @@ namespace DNDStrongholdApp.Models
             // Check building requirements
             foreach (var requirement in Requirements.Buildings)
             {
-                var building = buildings.Find(b => b.Type == requirement.Type && b.Level >= requirement.MinLevel);
+                var building = buildings.Find(b => b.TypeName == requirement.Type && b.Level >= requirement.MinLevel);
                 if (building == null)
                 {
                     return false;
@@ -236,7 +236,7 @@ namespace DNDStrongholdApp.Models
     
     public class BuildingRequirement
     {
-        public BuildingType Type { get; set; }
+        public string Type { get; set; } = string.Empty;
         public int MinLevel { get; set; } = 1;
     }
     

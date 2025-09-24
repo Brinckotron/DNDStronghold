@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
 using DNDStrongholdApp.Models;
+using DNDStrongholdApp.Services;
 
 namespace DNDStrongholdApp.Forms
 {
@@ -17,10 +18,9 @@ namespace DNDStrongholdApp.Forms
 
         // Add class-level fields for controls
         private ComboBox buildingTypeCombo;
-        private NumericUpDown numWorkerSlots;
         private NumericUpDown numRequiredConstructionPoints;
         private NumericUpDown numMaxLevel;
-        private DataGridView dgvWorkerSlotIncrease;
+        private DataGridView dgvWorkerSlotsScaling;
         private DataGridView dgvProductionScaling;
         private DataGridView dgvUpkeepScaling;
         private ComboBox primarySkillCombo;
@@ -33,10 +33,16 @@ namespace DNDStrongholdApp.Forms
         public BuildingDataEditor()
         {
             InitializeComponent();
-            jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-            if (!File.Exists(jsonPath))
+            // Always use the source Data directory relative to the project
+            // From bin/Debug/net8.0-windows back to project root is 3 levels up
+            string projectRoot = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.Parent?.Parent?.FullName;
+            if (projectRoot != null && Directory.Exists(Path.Combine(projectRoot, "Data")))
             {
-                // Try the alternative path
+                jsonPath = Path.Combine(projectRoot, "Data", "BuildingData.json");
+            }
+            else
+            {
+                // Fallback to current directory structure
                 jsonPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "BuildingData.json");
             }
             LoadBuildingData();
@@ -98,15 +104,29 @@ namespace DNDStrongholdApp.Forms
             {
                 Location = new Point(120, 4),
                 Width = 200,
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDown // Allow typing new entries
             };
-            buildingTypeCombo.Items.AddRange(Enum.GetNames(typeof(BuildingType)));
+            
+            // Load building types from BuildingTypeService
+            var buildingTypeService = BuildingTypeService.GetInstance();
+            var availableTypes = buildingTypeService.GetAvailableBuildingTypes();
+            buildingTypeCombo.Items.AddRange(availableTypes.ToArray());
+            
             buildingTypeCombo.SelectedIndexChanged += (s, e) =>
             {
                 cmbBuildingType_SelectedIndexChanged(s, e);
             };
 
-            buildingTypePanel.Controls.AddRange(new Control[] { buildingTypeLabel, buildingTypeCombo });
+            // Add "Add New Type" button
+            var addTypeButton = new Button
+            {
+                Text = "Add New Type",
+                Location = new Point(330, 3),
+                Size = new Size(100, 25)
+            };
+            addTypeButton.Click += AddNewBuildingType_Click;
+
+            buildingTypePanel.Controls.AddRange(new Control[] { buildingTypeLabel, buildingTypeCombo, addTypeButton });
 
             // Basic Properties Panel
             var basicPropertiesPanel = new Panel
@@ -116,28 +136,11 @@ namespace DNDStrongholdApp.Forms
                 Size = new Size(960, 100)
             };
 
-            // Worker Slots
-            var workerSlotsLabel = new Label { Text = "Slots", Location = new Point(0, 7), Width = 55 };
-            numWorkerSlots = new NumericUpDown
-            {
-                Location = new Point(60, 4),
-                Width = 70,
-                Minimum = 0,
-                Maximum = 10
-            };
-            numWorkerSlots.ValueChanged += (s, e) =>
-            {
-                if (currentBuilding != null)
-                {
-                    currentBuilding.workerSlots = (int)numWorkerSlots.Value;
-                }
-            };
-
             // Required Construction Points
-            var constructionPointsLabel = new Label { Text = "Points", Location = new Point(140, 7), Width = 60 };
+            var constructionPointsLabel = new Label { Text = "Points", Location = new Point(0, 7), Width = 60 };
             numRequiredConstructionPoints = new NumericUpDown
             {
-                Location = new Point(200, 4),
+                Location = new Point(60, 4),
                 Width = 90,
                 Minimum = 0,
                 Maximum = 1000
@@ -205,7 +208,6 @@ namespace DNDStrongholdApp.Forms
             };
 
             basicPropertiesPanel.Controls.AddRange(new Control[] {
-                workerSlotsLabel, numWorkerSlots,
                 constructionPointsLabel, numRequiredConstructionPoints,
                 maxLevelLabel, numMaxLevel,
                 primarySkillLabel, primarySkillCombo,
@@ -241,8 +243,7 @@ namespace DNDStrongholdApp.Forms
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = true,
                 AllowUserToDeleteRows = true,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                RowHeadersVisible = false
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
             var costResourceTypeCol = new DataGridViewComboBoxColumn { Name = "ResourceType", HeaderText = "Resource Type" };
             costResourceTypeCol.Items.AddRange(Enum.GetNames(typeof(DNDStrongholdApp.Models.ResourceType)));
@@ -250,19 +251,19 @@ namespace DNDStrongholdApp.Forms
             dgvConstructionCost.Columns.Add("Amount", "Amount");
             tabConstructionCosts.Controls.Add(dgvConstructionCost);
 
-            // Worker Slot Increases Tab
-            var tabWorkerSlots = new TabPage("Worker Slot Increases");
-            dgvWorkerSlotIncrease = new DataGridView
+            // Worker Slots Scaling Tab
+            var tabWorkerSlots = new TabPage("Worker Slots Scaling");
+            dgvWorkerSlotsScaling = new DataGridView
             {
                 Dock = DockStyle.Fill,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 AllowUserToAddRows = true,
                 AllowUserToDeleteRows = true
             };
-            dgvWorkerSlotIncrease.Columns.Add("Level", "Level");
-            dgvWorkerSlotIncrease.Columns.Add("Increase", "Increase");
-            dgvWorkerSlotIncrease.CellValueChanged += (s, e) => UpdateWorkerSlotIncreases();
-            tabWorkerSlots.Controls.Add(dgvWorkerSlotIncrease);
+            dgvWorkerSlotsScaling.Columns.Add("Level", "Level");
+            dgvWorkerSlotsScaling.Columns.Add("WorkerSlots", "Worker Slots");
+            dgvWorkerSlotsScaling.CellValueChanged += (s, e) => UpdateWorkerSlotsScaling();
+            tabWorkerSlots.Controls.Add(dgvWorkerSlotsScaling);
 
             // Production Scaling Tab
             var tabProduction = new TabPage("Production Scaling");
@@ -320,8 +321,7 @@ namespace DNDStrongholdApp.Forms
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = true,
                 AllowUserToDeleteRows = true,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                RowHeadersVisible = false
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
             var bonusResourceCol = new DataGridViewComboBoxColumn { Name = "Resource", HeaderText = "Resource" };
             bonusResourceCol.Items.AddRange(Enum.GetNames(typeof(DNDStrongholdApp.Models.ResourceType)));
@@ -374,7 +374,6 @@ namespace DNDStrongholdApp.Forms
             // Do not create a new entry here; only create on save if needed
 
             // Update basic properties
-            numWorkerSlots.Value = currentBuilding.workerSlots;
             numRequiredConstructionPoints.Value = currentBuilding.requiredConstructionPoints;
             numMaxLevel.Value = currentBuilding.maxLevel;
 
@@ -392,11 +391,11 @@ namespace DNDStrongholdApp.Forms
             else
                 tertiarySkillCombo.SelectedItem = "-None-";
 
-            // Update worker slot increases
-            dgvWorkerSlotIncrease.Rows.Clear();
-            foreach (var increase in currentBuilding.workerSlotIncrease)
+            // Update worker slots scaling
+            dgvWorkerSlotsScaling.Rows.Clear();
+            foreach (var scaling in currentBuilding.workerSlotsScaling)
             {
-                dgvWorkerSlotIncrease.Rows.Add(increase.level, increase.increase);
+                dgvWorkerSlotsScaling.Rows.Add(scaling.level, scaling.workerSlots);
             }
 
             // Update production scaling
@@ -453,10 +452,9 @@ namespace DNDStrongholdApp.Forms
                 currentBuilding = new BuildingInfo
                 {
                     type = selectedType,
-                    workerSlots = (int)numWorkerSlots.Value,
                     requiredConstructionPoints = (int)numRequiredConstructionPoints.Value,
                     maxLevel = (int)numMaxLevel.Value,
-                    workerSlotIncrease = new List<LevelIncrease>(),
+                    workerSlotsScaling = new List<WorkerSlotsScaling>(),
                     productionScaling = new List<LevelResourceValue>(),
                     upkeepScaling = new List<LevelUpkeepValue>(),
                     constructionCost = new List<ResourceCostInfo>(),
@@ -470,7 +468,6 @@ namespace DNDStrongholdApp.Forms
             }
 
             // Update basic properties
-            currentBuilding.workerSlots = (int)numWorkerSlots.Value;
             currentBuilding.requiredConstructionPoints = (int)numRequiredConstructionPoints.Value;
             currentBuilding.maxLevel = (int)numMaxLevel.Value;
 
@@ -481,17 +478,17 @@ namespace DNDStrongholdApp.Forms
             var ter = tertiarySkillCombo.SelectedItem?.ToString() ?? string.Empty;
             currentBuilding.tertiarySkill = (ter == "-None-") ? string.Empty : ter;
 
-            // Update worker slot increases
-            currentBuilding.workerSlotIncrease.Clear();
-            foreach (DataGridViewRow row in dgvWorkerSlotIncrease.Rows)
+            // Update worker slots scaling
+            currentBuilding.workerSlotsScaling.Clear();
+            foreach (DataGridViewRow row in dgvWorkerSlotsScaling.Rows)
             {
                 if (row.IsNewRow) continue;
                 if (row.Cells[0].Value != null && row.Cells[1].Value != null)
                 {
-                    currentBuilding.workerSlotIncrease.Add(new LevelIncrease
+                    currentBuilding.workerSlotsScaling.Add(new WorkerSlotsScaling
                     {
                         level = Convert.ToInt32(row.Cells[0].Value),
-                        increase = Convert.ToInt32(row.Cells[1].Value)
+                        workerSlots = Convert.ToInt32(row.Cells[1].Value)
                     });
                 }
             }
@@ -603,20 +600,20 @@ namespace DNDStrongholdApp.Forms
             }
         }
 
-        private void UpdateWorkerSlotIncreases()
+        private void UpdateWorkerSlotsScaling()
         {
             var building = currentBuilding;
             if (building == null) return;
 
-            building.workerSlotIncrease.Clear();
-            foreach (DataGridViewRow row in dgvWorkerSlotIncrease.Rows)
+            building.workerSlotsScaling.Clear();
+            foreach (DataGridViewRow row in dgvWorkerSlotsScaling.Rows)
             {
                 if (row.Cells[0].Value != null && row.Cells[1].Value != null)
                 {
-                    building.workerSlotIncrease.Add(new LevelIncrease
+                    building.workerSlotsScaling.Add(new WorkerSlotsScaling
                     {
                         level = Convert.ToInt32(row.Cells[0].Value),
-                        increase = Convert.ToInt32(row.Cells[1].Value)
+                        workerSlots = Convert.ToInt32(row.Cells[1].Value)
                     });
                 }
             }
@@ -680,6 +677,62 @@ namespace DNDStrongholdApp.Forms
                         projectName = row.Cells[0].Value.ToString(),
                         minLevel = Convert.ToInt32(row.Cells[1].Value)
                     });
+                }
+            }
+        }
+
+        private void AddNewBuildingType_Click(object sender, EventArgs e)
+        {
+            // Show input dialog for new building type name
+            using (var dialog = new DNDStrongholdApp.Forms.TextInputDialog("Add New Building Type", "Building Type Name:", ""))
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    string newTypeName = dialog.InputText.Trim();
+                    
+                    if (string.IsNullOrEmpty(newTypeName))
+                    {
+                        MessageBox.Show("Building type name cannot be empty.", "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    
+                    try
+                    {
+                        var buildingTypeService = BuildingTypeService.GetInstance();
+                        
+                        // Check if the type already exists
+                        if (buildingTypeService.IsBuildingTypeValid(newTypeName))
+                        {
+                            MessageBox.Show($"Building type '{newTypeName}' already exists.", "Duplicate Type", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                        
+                        // Add the new building type to the service
+                        bool success = buildingTypeService.AddBuildingType(newTypeName);
+                        
+                        if (success)
+                        {
+                            // Add to the combo box
+                            buildingTypeCombo.Items.Add(newTypeName);
+                            
+                            // Select the new type
+                            buildingTypeCombo.SelectedItem = newTypeName;
+                            
+                            MessageBox.Show($"Building type '{newTypeName}' added successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Failed to add building type '{newTypeName}'.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to add building type: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
         }

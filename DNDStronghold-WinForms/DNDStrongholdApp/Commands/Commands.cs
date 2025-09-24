@@ -102,7 +102,7 @@ namespace DNDStrongholdApp.Commands
         public bool CanExecute()
         {
             var building = _gameStateService.GetCurrentStronghold().Buildings.Find(b => b.Id == _buildingId);
-            return building != null && _workerIds.Count <= building.WorkerSlots;
+            return building != null && _workerIds.Count <= building.GetWorkerSlots();
         }
     }
 
@@ -141,7 +141,7 @@ namespace DNDStrongholdApp.Commands
 
         public bool CanExecute()
         {
-            return _crewIds.Count <= 3; // Max 3 construction crew members
+            return _crewIds.Count <= 5; // Max 5 construction crew members
         }
     }
 
@@ -499,7 +499,7 @@ namespace DNDStrongholdApp.Commands
             try
             {
                 var buildingData = _loadDataCommand.Execute();
-                var buildingInfo = buildingData.buildings.Find(b => b.type == _building.Type.ToString());
+                var buildingInfo = buildingData.buildings.Find(b => b.type == _building.TypeName);
                 
                 if (buildingInfo != null)
                 {

@@ -27,7 +27,7 @@ namespace DNDStrongholdApp
             // Load building info for skill relevance using command
             var loadDataCommand = new LoadBuildingDataCommand();
             var buildingData = loadDataCommand.Execute();
-            _buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+            _buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
             
             // Filter NPCs using command
             var filterCommand = new FilterNPCsCommand(allNPCs, n => 
@@ -81,7 +81,7 @@ namespace DNDStrongholdApp
             
             // Assigned NPCs group
             GroupBox assignedGroup = new GroupBox();
-            assignedGroup.Text = $"Assigned Workers ({_building.AssignedWorkers.Count}/{_building.WorkerSlots})";
+            assignedGroup.Text = $"Assigned Workers ({_building.AssignedWorkers.Count}/{_building.GetWorkerSlots()})";
             assignedGroup.Dock = DockStyle.Fill;
             
             _assignedNPCsListView = new ListView();
@@ -210,7 +210,7 @@ namespace DNDStrongholdApp
             }
             
             // Update assigned workers count in group box title
-            ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.WorkerSlots})";
+            ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.GetWorkerSlots()})";
         }
         
         private void AssignButton_Click(object sender, EventArgs e)
@@ -218,9 +218,9 @@ namespace DNDStrongholdApp
             if (_availableNPCsListView.SelectedItems.Count > 0)
             {
                 // Check if we're at max capacity
-                if (_assignedNPCsListView.Items.Count >= _building.WorkerSlots)
+                if (_assignedNPCsListView.Items.Count >= _building.GetWorkerSlots())
                 {
-                    MessageBox.Show($"This building can only have {_building.WorkerSlots} workers assigned.", 
+                    MessageBox.Show($"This building can only have {_building.GetWorkerSlots()} workers assigned.", 
                         "Maximum Workers Reached", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -231,7 +231,7 @@ namespace DNDStrongholdApp
                 _assignedNPCsListView.Items.Add(selectedItem);
                 
                 // Update assigned workers count in group box title
-                ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.WorkerSlots})";
+                ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.GetWorkerSlots()})";
             }
         }
         
@@ -256,7 +256,7 @@ namespace DNDStrongholdApp
                 _availableNPCsListView.Items.Add(selectedItem);
                 
                 // Update assigned workers count in group box title
-                ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.WorkerSlots})";
+                ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.GetWorkerSlots()})";
             }
         }
         

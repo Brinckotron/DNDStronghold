@@ -92,18 +92,21 @@ namespace DNDStrongholdApp.Forms
             {
                 string json = System.IO.File.ReadAllText(jsonPath);
                 var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                var buildingInfo = buildingData.buildings.Find(b => b.type == _building.Type.ToString());
+                var buildingInfo = buildingData.buildings.Find(b => b.type == _building.TypeName);
                 
                 if (buildingInfo != null && _building.Level < buildingInfo.maxLevel)
                 {
-                    // Worker slots increase
-                    var nextLevelSlotIncrease = buildingInfo.workerSlotIncrease
-                        .FirstOrDefault(w => w.level == _building.Level + 1);
-                    if (nextLevelSlotIncrease != null)
+                    // Worker slots scaling
+                    var currentLevelSlots = buildingInfo.workerSlotsScaling
+                        .FirstOrDefault(w => w.level == _building.Level)?.workerSlots ?? 1;
+                    var nextLevelSlots = buildingInfo.workerSlotsScaling
+                        .FirstOrDefault(w => w.level == _building.Level + 1)?.workerSlots ?? 1;
+                    
+                    if (nextLevelSlots > currentLevelSlots)
                     {
                         Label slotLabel = new Label
                         {
-                            Text = $"Worker Slots: +{nextLevelSlotIncrease.increase}",
+                            Text = $"Worker Slots: +{nextLevelSlots - currentLevelSlots}",
                             AutoSize = true
                         };
                         effectsPanel.Controls.Add(slotLabel);
@@ -261,7 +264,7 @@ namespace DNDStrongholdApp.Forms
             {
                 string json = System.IO.File.ReadAllText(jsonPath);
                 var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                var buildingInfo = buildingData.buildings.Find(b => b.type == _building.Type.ToString());
+                var buildingInfo = buildingData.buildings.Find(b => b.type == _building.TypeName);
                 if (buildingInfo != null && _building.Level >= buildingInfo.maxLevel)
                 {
                     canAfford = false;

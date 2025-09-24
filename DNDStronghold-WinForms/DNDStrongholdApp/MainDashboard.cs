@@ -440,11 +440,11 @@ public partial class MainDashboard : Form
                 }
             }
             ListViewItem item = new ListViewItem(building.Name);
-            item.SubItems.Add(building.Type.ToString());
+            item.SubItems.Add(building.TypeName);
             
             // Show regular workers (not including construction crew)
             int regularWorkers = building.AssignedWorkers.Count;
-            string workerText = $"{regularWorkers}/{building.WorkerSlots}";
+            string workerText = $"{regularWorkers}/{building.GetWorkerSlots()}";
             if (building.DedicatedConstructionCrew.Count > 0)
             {
                 workerText += $" (+{building.DedicatedConstructionCrew.Count})";
@@ -1119,11 +1119,11 @@ public partial class MainDashboard : Form
             }
 
             ListViewItem item = new ListViewItem(building.Name);
-            item.SubItems.Add(building.Type.ToString());
+            item.SubItems.Add(building.TypeName);
             
             // Show regular workers (not including construction crew)
             int regularWorkers = building.AssignedWorkers.Count;
-            string workerText = $"{regularWorkers}/{building.WorkerSlots}";
+            string workerText = $"{regularWorkers}/{building.GetWorkerSlots()}";
             if (building.DedicatedConstructionCrew.Count > 0)
             {
                 workerText += $" (+{building.DedicatedConstructionCrew.Count})";
@@ -2134,11 +2134,11 @@ public partial class MainDashboard : Form
                         statusText += $" ({building.ConstructionProgress}%)";
                     }
                     ListViewItem item = new ListViewItem(building.Name);
-                    item.SubItems.Add(building.Type.ToString());
+                    item.SubItems.Add(building.TypeName);
                     
                     // Show regular workers (not including construction crew)
                     int regularWorkers = building.AssignedWorkers.Count;
-                    string workerText = $"{regularWorkers}/{building.WorkerSlots}";
+                    string workerText = $"{regularWorkers}/{building.GetWorkerSlots()}";
                     if (building.DedicatedConstructionCrew.Count > 0)
                     {
                         workerText += $" (+{building.DedicatedConstructionCrew.Count})";
@@ -2273,11 +2273,11 @@ public partial class MainDashboard : Form
             }
 
             ListViewItem item = new ListViewItem(building.Name);
-            item.SubItems.Add(building.Type.ToString());
+            item.SubItems.Add(building.TypeName);
             
             // Show regular workers (not including construction crew)
             int regularWorkers = building.AssignedWorkers.Count;
-            string workerText = $"{regularWorkers}/{building.WorkerSlots}";
+            string workerText = $"{regularWorkers}/{building.GetWorkerSlots()}";
             if (building.DedicatedConstructionCrew.Count > 0)
             {
                 workerText += $" (+{building.DedicatedConstructionCrew.Count})";
@@ -2439,64 +2439,14 @@ public partial class MainDashboard : Form
                 // Update production based on current workers
                 building.UpdateProduction(assignedNPCs);
 
-                // Update upkeep based on current workers and building data
-                UpdateBuildingUpkeep(building, assignedNPCs);
+                // Note: Upkeep is now calculated by GameStateService.UpdateProductionAndConsumptionRates()
+                // which includes both regular worker costs and construction crew costs
             }
         }
     }
 
 
 
-    private void UpdateBuildingUpkeep(Building building, List<NPC> assignedNPCs)
-    {
-        building.ActualUpkeep.Clear();
-
-        // Load building data for upkeep calculations
-        string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-        if (File.Exists(jsonPath))
-        {
-            string json = File.ReadAllText(jsonPath);
-            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-            
-            if (buildingInfo != null)
-            {
-                // Calculate worker salaries (Gold upkeep)
-                int totalSalaries = assignedNPCs.Sum(worker => 
-                    Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-
-                // Get base upkeep for current level
-                var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level);
-                
-                foreach (var upkeep in upkeepAtLevel)
-                {
-                    int totalUpkeep = upkeep.baseValue;
-                    
-                    // Add worker salaries to Gold upkeep
-                    if (upkeep.resourceType == "Gold")
-                    {
-                        totalUpkeep += totalSalaries;
-                    }
-
-                    building.ActualUpkeep.Add(new ResourceCost
-                    {
-                        ResourceType = (ResourceType)Enum.Parse(typeof(ResourceType), upkeep.resourceType),
-                        Amount = totalUpkeep
-                    });
-                }
-
-                // If there are workers but no Gold upkeep entry, add salary-only upkeep
-                if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
-                {
-                    building.ActualUpkeep.Add(new ResourceCost
-                    {
-                        ResourceType = ResourceType.Gold,
-                        Amount = totalSalaries
-                    });
-                }
-            }
-        }
-    }
 
     private void RefreshJournalTab()
     {
@@ -3147,7 +3097,7 @@ public partial class MainDashboard : Form
                         {
                             string json = File.ReadAllText(jsonPath);
                             var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                            var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                            var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
                         
                         if (buildingInfo != null)
                         {
@@ -3265,73 +3215,142 @@ public partial class MainDashboard : Form
                 {
                     upkeepListView.Items.Clear();
                     
-                    // Get building info for upkeep calculations
-                    string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-                    if (File.Exists(jsonPath))
+                    if (building.IsFunctional())
                     {
-                        string json = File.ReadAllText(jsonPath);
-                        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                        
-                        if (buildingInfo != null)
+                        // For functional buildings, show base upkeep + regular worker salaries
+                        string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                        if (File.Exists(jsonPath))
                         {
-                            // Calculate total worker salaries first
-                            int totalSalaries = assignedNPCs.Sum(worker => 
-                                Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-
-                            // Get all upkeep values for current level
-                            var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                            string json = File.ReadAllText(jsonPath);
+                            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                            var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
                             
-                            // If we have workers but no Gold upkeep entry, add one
-                            if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
+                            if (buildingInfo != null)
                             {
-                                upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
-                            }
+                                // Calculate total regular worker salaries
+                                int totalSalaries = assignedNPCs.Sum(worker => 
+                                    Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
 
-                            // Sort to ensure Gold is always first if present
-                            upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
-                            
-                            // Add resource header rows
-                            foreach (var upkeep in upkeepAtLevel)
-                            {
-                                if (upkeep.resourceType == "Gold")
+                                // Get all upkeep values for current level
+                                var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                                
+                                // If we have workers but no Gold upkeep entry, add one
+                                if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
                                 {
-                                    var headerItem = new ListViewItem("Gold");
-                                    headerItem.SubItems.Add("Total");
-                                    headerItem.SubItems.Add((upkeep.baseValue + totalSalaries).ToString());
-                                    headerItem.SubItems.Add(upkeep.baseValue > 0 ? 
-                                        $"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]" :
-                                        $"Salaries[{totalSalaries}]");
-                                    headerItem.BackColor = Color.LightGray;
-                                    headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
-                                    upkeepListView.Items.Add(headerItem);
+                                    upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
+                                }
 
-                                    // Add worker rows
-                                    foreach (var worker in assignedNPCs)
+                                // Sort to ensure Gold is always first if present
+                                upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
+                                
+                                // Add resource header rows
+                                foreach (var upkeep in upkeepAtLevel)
+                                {
+                                    if (upkeep.resourceType == "Gold")
                                     {
-                                        int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
-                                        var highestSkill = worker.Skills.Any() ? 
-                                            worker.Skills.OrderByDescending(s => s.Level).First() : null;
+                                        var headerItem = new ListViewItem("Gold");
+                                        headerItem.SubItems.Add("Total");
+                                        headerItem.SubItems.Add((upkeep.baseValue + totalSalaries).ToString());
+                                        headerItem.SubItems.Add(upkeep.baseValue > 0 ? 
+                                            $"Base upkeep[{upkeep.baseValue}] + Salaries[{totalSalaries}]" :
+                                            $"Salaries[{totalSalaries}]");
+                                        headerItem.BackColor = Color.LightGray;
+                                        headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                                        upkeepListView.Items.Add(headerItem);
 
-                                        var salaryItem = new ListViewItem("");  // Empty resource column
-                                        salaryItem.SubItems.Add(worker.Name);
-                                        salaryItem.SubItems.Add(salary.ToString());
-                                        salaryItem.SubItems.Add(highestSkill != null ? 
-                                            $"{highestSkill.Name} ({highestSkill.Level})" : 
-                                            "No Skills (1)");
-                                        upkeepListView.Items.Add(salaryItem);
+                                        // Add regular worker rows
+                                        foreach (var worker in assignedNPCs)
+                                        {
+                                            int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                                            var highestSkill = worker.Skills.Any() ? 
+                                                worker.Skills.OrderByDescending(s => s.Level).First() : null;
+
+                                            var salaryItem = new ListViewItem("");  // Empty resource column
+                                            salaryItem.SubItems.Add(worker.Name);
+                                            salaryItem.SubItems.Add(salary.ToString());
+                                            salaryItem.SubItems.Add(highestSkill != null ? 
+                                                $"{highestSkill.Name} ({highestSkill.Level})" : 
+                                                "No Skills (1)");
+                                            upkeepListView.Items.Add(salaryItem);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        var headerItem = new ListViewItem(upkeep.resourceType);
+                                        headerItem.SubItems.Add("Total");
+                                        headerItem.SubItems.Add(upkeep.baseValue.ToString());
+                                        headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}]");
+                                        headerItem.BackColor = Color.LightGray;
+                                        headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                                        upkeepListView.Items.Add(headerItem);
                                     }
                                 }
-                                else
-                                {
-                                    var headerItem = new ListViewItem(upkeep.resourceType);
-                                    headerItem.SubItems.Add("Total");
-                                    headerItem.SubItems.Add(upkeep.baseValue.ToString());
-                                    headerItem.SubItems.Add($"Base upkeep[{upkeep.baseValue}]");
-                                    headerItem.BackColor = Color.LightGray;
-                                    headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
-                                    upkeepListView.Items.Add(headerItem);
-                                }
+                            }
+                        }
+                    }
+                    else if (building.ConstructionStatus == BuildingStatus.Planning ||
+                             building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                             building.ConstructionStatus == BuildingStatus.Repairing ||
+                             building.ConstructionStatus == BuildingStatus.Upgrading)
+                    {
+                        // For non-functional buildings in construction states, show all workers contributing to construction
+                        int totalConstructionSalaries = 0;
+                        var allConstructionWorkers = new List<(NPC worker, string role)>();
+                        
+                        // Get regular workers contributing to construction
+                        var regularWorkerNPCs = assignedNPCs;
+                        foreach (var worker in regularWorkerNPCs)
+                        {
+                            int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                            totalConstructionSalaries += salary;
+                            allConstructionWorkers.Add((worker, "Worker"));
+                        }
+                        
+                        // Get construction crew members
+                        var constructionCrewNPCs = building.DedicatedConstructionCrew
+                            .Select(crewId => _stronghold.NPCs.Find(n => n.Id == crewId))
+                            .Where(npc => npc != null)
+                            .ToList();
+                        
+                        foreach (var worker in constructionCrewNPCs)
+                        {
+                            int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                            totalConstructionSalaries += salary;
+                            allConstructionWorkers.Add((worker, "Crew"));
+                        }
+
+                        if (totalConstructionSalaries > 0)
+                        {
+                            var headerItem = new ListViewItem("Gold");
+                            headerItem.SubItems.Add("Total");
+                            headerItem.SubItems.Add(totalConstructionSalaries.ToString());
+                            
+                            // Build breakdown string
+                            var breakdownParts = new List<string>();
+                            if (regularWorkerNPCs.Count > 0)
+                                breakdownParts.Add($"Workers[{regularWorkerNPCs.Sum(w => Math.Max(1, w.Skills.Any() ? w.Skills.Max(s => s.Level) : 1))}]");
+                            if (constructionCrewNPCs.Count > 0)
+                                breakdownParts.Add($"Crew[{constructionCrewNPCs.Sum(w => Math.Max(1, w.Skills.Any() ? w.Skills.Max(s => s.Level) : 1))}]");
+                            
+                            headerItem.SubItems.Add(string.Join(" + ", breakdownParts));
+                            headerItem.BackColor = Color.LightGray;
+                            headerItem.Font = new Font(upkeepListView.Font, FontStyle.Bold);
+                            upkeepListView.Items.Add(headerItem);
+
+                            // Add individual worker rows
+                            foreach (var (worker, role) in allConstructionWorkers)
+                            {
+                                int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                                var highestSkill = worker.Skills.Any() ? 
+                                    worker.Skills.OrderByDescending(s => s.Level).First() : null;
+
+                                var salaryItem = new ListViewItem("");  // Empty resource column
+                                salaryItem.SubItems.Add(worker.Name);
+                                salaryItem.SubItems.Add(salary.ToString());
+                                salaryItem.SubItems.Add(highestSkill != null ? 
+                                    $"{role} - {highestSkill.Name} ({highestSkill.Level})" : 
+                                    $"{role} - No Skills (1)");
+                                upkeepListView.Items.Add(salaryItem);
                             }
                         }
                     }
@@ -3343,42 +3362,71 @@ public partial class MainDashboard : Form
                 {
                     var summaryParts = new List<string>();
 
-                    // Get building info for upkeep calculations
-                    string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
-                    if (File.Exists(jsonPath))
+                    if (building.IsFunctional())
                     {
-                        string json = File.ReadAllText(jsonPath);
-                        var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
-                        
-                        if (buildingInfo != null)
+                        // For functional buildings, show base upkeep + regular worker salaries
+                        string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
+                        if (File.Exists(jsonPath))
                         {
-                            // Calculate total worker salaries
-                            int totalSalaries = assignedNPCs.Sum(worker => 
-                                Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-
-                            // Get all upkeep values for current level
-                            var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                            string json = File.ReadAllText(jsonPath);
+                            var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
+                            var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
                             
-                            // If we have workers but no Gold upkeep entry, add one
-                            if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
+                            if (buildingInfo != null)
                             {
-                                upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
-                            }
+                                // Calculate total regular worker salaries
+                                int totalSalaries = assignedNPCs.Sum(worker => 
+                                    Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
 
-                            // Sort to ensure Gold is always first if present
-                            upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
-                            
-                            // Add each resource upkeep to summary
-                            foreach (var upkeep in upkeepAtLevel)
-                            {
-                                int totalUpkeep = upkeep.baseValue;
-                                if (upkeep.resourceType == "Gold")
+                                // Get all upkeep values for current level
+                                var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
+                                
+                                // If we have workers but no Gold upkeep entry, add one
+                                if (totalSalaries > 0 && !upkeepAtLevel.Any(u => u.resourceType == "Gold"))
                                 {
-                                    totalUpkeep += totalSalaries;
+                                    upkeepAtLevel.Add(new LevelUpkeepValue { level = building.Level, resourceType = "Gold", baseValue = 0 });
                                 }
-                                summaryParts.Add($"{upkeep.resourceType}: -{totalUpkeep}/week");
+
+                                // Sort to ensure Gold is always first if present
+                                upkeepAtLevel = upkeepAtLevel.OrderBy(u => u.resourceType == "Gold" ? 0 : 1).ToList();
+                                
+                                // Add each resource upkeep to summary
+                                foreach (var upkeep in upkeepAtLevel)
+                                {
+                                    int totalUpkeep = upkeep.baseValue;
+                                    if (upkeep.resourceType == "Gold")
+                                    {
+                                        totalUpkeep += totalSalaries;
+                                    }
+                                    summaryParts.Add($"{upkeep.resourceType}: -{totalUpkeep}/week");
+                                }
                             }
+                        }
+                    }
+                    else if (building.ConstructionStatus == BuildingStatus.Planning ||
+                             building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                             building.ConstructionStatus == BuildingStatus.Repairing ||
+                             building.ConstructionStatus == BuildingStatus.Upgrading)
+                    {
+                        // For non-functional buildings in construction states, show all workers contributing to construction
+                        int totalConstructionSalaries = 0;
+                        
+                        // Add regular worker salaries
+                        totalConstructionSalaries += assignedNPCs.Sum(worker => 
+                            Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+                        
+                        // Add construction crew salaries
+                        var constructionCrewNPCs = building.DedicatedConstructionCrew
+                            .Select(crewId => _stronghold.NPCs.Find(n => n.Id == crewId))
+                            .Where(npc => npc != null)
+                            .ToList();
+
+                        totalConstructionSalaries += constructionCrewNPCs.Sum(worker => 
+                            Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                        if (totalConstructionSalaries > 0)
+                        {
+                            summaryParts.Add($"Gold: -{totalConstructionSalaries}/week");
                         }
                     }
 
@@ -3398,7 +3446,7 @@ public partial class MainDashboard : Form
                 var manageCrewButton = FindControl<Button>(_tabControl.TabPages[1], "ManageCrewButton");
 
                 if (buildingNameValue != null) buildingNameValue.Text = building.Name;
-                if (buildingTypeValue != null) buildingTypeValue.Text = building.Type.ToString();
+                if (buildingTypeValue != null) buildingTypeValue.Text = building.TypeName;
                 if (buildingLevelValue != null) buildingLevelValue.Text = building.Level.ToString();
                 
                 // Update status with progress and time if applicable
@@ -3431,7 +3479,7 @@ public partial class MainDashboard : Form
                 if (workforceSummaryLabel != null)
                 {
                     int regularWorkers = building.AssignedWorkers.Count;
-                    string summaryText = $"{regularWorkers}/{building.WorkerSlots} Workers";
+                    string summaryText = $"{regularWorkers}/{building.GetWorkerSlots()} Workers";
                     if (building.DedicatedConstructionCrew.Count > 0)
                     {
                         summaryText += $" (+{building.DedicatedConstructionCrew.Count} construction crew)";
@@ -3440,7 +3488,8 @@ public partial class MainDashboard : Form
                 }
 
                 // Update construction crew button visibility
-                bool showConstructionCrew = building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                bool showConstructionCrew = building.ConstructionStatus == BuildingStatus.Planning ||
+                                          building.ConstructionStatus == BuildingStatus.UnderConstruction ||
                                           building.ConstructionStatus == BuildingStatus.Repairing ||
                                           building.ConstructionStatus == BuildingStatus.Upgrading;
 
@@ -3460,7 +3509,7 @@ public partial class MainDashboard : Form
                     {
                         string json = File.ReadAllText(jsonPath);
                         var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
 
                         // Add regular workers first (workers not assigned to current project)
                         foreach (var workerId in building.AssignedWorkers)
@@ -3611,7 +3660,7 @@ public partial class MainDashboard : Form
                     {
                         string json = File.ReadAllText(jsonPath);
                         var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+                        var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
                         bool isMaxLevel = buildingInfo != null && building.Level >= buildingInfo.maxLevel;
                         bool canUpgrade = building.ConstructionStatus == BuildingStatus.Complete && 
                                         buildingInfo != null && 
@@ -3868,7 +3917,7 @@ public partial class MainDashboard : Form
 
         string json = File.ReadAllText(jsonPath);
         var buildingData = System.Text.Json.JsonSerializer.Deserialize<BuildingData>(json);
-        var buildingInfo = buildingData.buildings.Find(b => b.type == building.Type.ToString());
+        var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
             
         if (buildingInfo == null)
         {
@@ -3907,12 +3956,17 @@ public partial class MainDashboard : Form
                 {
                     if (building.StartUpgrade(_stronghold.Resources))
                     {
+                        // Calculate initial construction time based on currently assigned workers
+                        building.UpdateConstructionProgress(_stronghold.NPCs);
+                        
                         // Show construction crew assignment dialog for upgrade
                         using (var crewDialog = new ConstructionCrewAssignmentDialog(_stronghold.NPCs, building, "Upgrade"))
                         {
                             if (crewDialog.ShowDialog() == DialogResult.OK && crewDialog.AssignedCrewIds.Count > 0)
                             {
                                 _gameStateService.AssignConstructionCrewToBuilding(building.Id, crewDialog.AssignedCrewIds);
+                                // Recalculate time after crew assignment
+                                building.UpdateConstructionProgress(_stronghold.NPCs);
                             }
                         }
                         
@@ -4051,6 +4105,7 @@ public partial class MainDashboard : Form
         // Determine operation type based on building status
         string operationType = building.ConstructionStatus switch
         {
+            BuildingStatus.Planning => "Construction",
             BuildingStatus.UnderConstruction => "Construction",
             BuildingStatus.Repairing => "Repair",
             BuildingStatus.Upgrading => "Upgrade",

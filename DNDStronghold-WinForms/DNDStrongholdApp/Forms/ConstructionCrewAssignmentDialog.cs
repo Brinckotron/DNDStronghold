@@ -80,7 +80,7 @@ namespace DNDStrongholdApp.Forms
             infoPanel.BorderStyle = BorderStyle.FixedSingle;
             
             Label infoLabel = new Label();
-            infoLabel.Text = "Assign up to 3 workers to a dedicated construction crew. They work on top of the normal worker slots limit and focus solely on construction.";
+            infoLabel.Text = "Assign up to 5 workers to a dedicated construction crew. They work on top of the normal worker slots limit and focus solely on construction.";
             infoLabel.Dock = DockStyle.Fill;
             infoLabel.TextAlign = ContentAlignment.MiddleLeft;
             infoLabel.Padding = new Padding(0);
@@ -107,7 +107,7 @@ namespace DNDStrongholdApp.Forms
             
             // Construction crew group
             GroupBox crewGroup = new GroupBox();
-            crewGroup.Text = "Construction Crew (0/3)";
+            crewGroup.Text = "Construction Crew (0/5)";
             crewGroup.Dock = DockStyle.Fill;
             
             _assignedCrewListView = new ListView();
@@ -199,7 +199,7 @@ namespace DNDStrongholdApp.Forms
         
         private void AvailableWorker_DoubleClick(object sender, EventArgs e)
         {
-            if (_availableNPCsListView.SelectedItems.Count > 0 && _assignedCrewListView.Items.Count < 3)
+            if (_availableNPCsListView.SelectedItems.Count > 0 && _assignedCrewListView.Items.Count < 5)
             {
                 AssignWorkerToCrew();
             }
@@ -215,9 +215,9 @@ namespace DNDStrongholdApp.Forms
         
         private void AssignWorkerToCrew()
         {
-            if (_assignedCrewListView.Items.Count >= 3)
+            if (_assignedCrewListView.Items.Count >= 5)
             {
-                MessageBox.Show("Maximum of 3 workers can be assigned to the construction crew.", 
+                MessageBox.Show("Maximum of 5 workers can be assigned to the construction crew.", 
                     "Maximum Crew Size Reached", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -315,7 +315,7 @@ namespace DNDStrongholdApp.Forms
         
         private void UpdateCrewGroupText()
         {
-            ((GroupBox)_assignedCrewListView.Parent).Text = $"Construction Crew ({_assignedCrewListView.Items.Count}/3)";
+            ((GroupBox)_assignedCrewListView.Parent).Text = $"Construction Crew ({_assignedCrewListView.Items.Count}/5)";
         }
         
         private void OkButton_Click(object sender, EventArgs e)

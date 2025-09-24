@@ -362,26 +362,9 @@ namespace DNDStrongholdApp.Services
                 }
             }
 
-            // Food consumption: 1 per NPC (assigned or not)
-            var foodResource = _currentStronghold.Resources.Find(r => r.Type == ResourceType.Food);
-            if (foodResource != null)
-            {
-                int foodPerNPC = 1;
-                int totalNPCs = _currentStronghold.NPCs.Count;
-                foodResource.WeeklyConsumption += totalNPCs * foodPerNPC;
-                if (totalNPCs > 0)
-                {
-                    foodResource.Sources.Add(new ResourceSource
-                    {
-                        SourceType = ResourceSourceType.Manual,
-                        SourceId = "NPCs",
-                        SourceName = "Population",
-                        Amount = totalNPCs * foodPerNPC,
-                        IsProduction = false
-                    });
-                }
-                // TODO: Add special building food consumption (tavern, inn, etc.)
-            }
+            // Calculate and add NPC food consumption
+            CalculateNPCFoodConsumption();
+            // TODO: Add special building food consumption (tavern, inn, etc.)
 
             // Apply the weekly changes to all resources
             foreach (var resource in _currentStronghold.Resources)
@@ -577,10 +560,9 @@ namespace DNDStrongholdApp.Services
                 // Add buildings from test data
                 foreach (var buildingData in testData.Buildings)
                 {
-                    if (Enum.TryParse<BuildingType>(buildingData.Type, out var buildingType) &&
-                        Enum.TryParse<BuildingStatus>(buildingData.ConstructionStatus, out var constructionStatus))
+                    if (Enum.TryParse<BuildingStatus>(buildingData.ConstructionStatus, out var constructionStatus))
                     {
-                        var building = new Building(buildingType)
+                        var building = new Building(buildingData.Type)
                         {
                             Name = buildingData.Name,
                             ConstructionStatus = constructionStatus
@@ -604,9 +586,8 @@ namespace DNDStrongholdApp.Services
                 // Apply assignments from test data
                 foreach (var assignment in testData.Assignments)
                 {
-                    if (Enum.TryParse<BuildingType>(assignment.BuildingType, out var buildingType))
                     {
-                        var building = _currentStronghold.Buildings.FirstOrDefault(b => b.Type == buildingType);
+                        var building = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == assignment.BuildingType);
                         if (building != null)
                         {
                             var assignedCount = 0;
@@ -718,9 +699,9 @@ namespace DNDStrongholdApp.Services
             _currentStronghold.Buildings.Add(building);
             
             // Add journal entry
-            string title = string.IsNullOrWhiteSpace(building.Name) || building.Name == building.Type.ToString() ?
-                $"{building.Type} construction planned" :
-                $"{building.Name} ({building.Type}) construction planned";
+            string title = string.IsNullOrWhiteSpace(building.Name) || building.Name == building.TypeName ?
+                $"{building.TypeName} construction planned" :
+                $"{building.Name} ({building.TypeName}) construction planned";
                 
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
@@ -932,9 +913,9 @@ namespace DNDStrongholdApp.Services
             }
             
             // Add journal entry
-            string title = string.IsNullOrWhiteSpace(building.Name) || building.Name == building.Type.ToString() ?
-                $"{building.Type} construction canceled" :
-                $"{building.Name} ({building.Type}) construction canceled";
+            string title = string.IsNullOrWhiteSpace(building.Name) || building.Name == building.TypeName ?
+                $"{building.TypeName} construction canceled" :
+                $"{building.Name} ({building.TypeName}) construction canceled";
                 
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
@@ -954,9 +935,11 @@ namespace DNDStrongholdApp.Services
         // Update production and consumption calculations without applying changes
         private void UpdateProductionAndConsumptionRates()
         {
-            // Update building production and upkeep for all functional buildings
+            // Update building production and upkeep for all buildings
             foreach (var building in _currentStronghold.Buildings)
             {
+                building.ActualUpkeep.Clear();
+                
                 if (building.IsFunctional())
                 {
                     // Get assigned NPCs for this building
@@ -968,9 +951,6 @@ namespace DNDStrongholdApp.Services
                     // Update production based on current workers
                     building.UpdateProduction(assignedNPCs);
 
-                    // Update upkeep based on current workers
-                    building.ActualUpkeep.Clear();
-                    
                     // Calculate worker salaries (Gold upkeep)
                     int totalSalaries = assignedNPCs.Sum(worker => 
                         Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
@@ -982,6 +962,41 @@ namespace DNDStrongholdApp.Services
                         {
                             ResourceType = ResourceType.Gold,
                             Amount = totalSalaries
+                        });
+                    }
+                }
+                else if (building.ConstructionStatus == BuildingStatus.Planning ||
+                         building.ConstructionStatus == BuildingStatus.UnderConstruction ||
+                         building.ConstructionStatus == BuildingStatus.Repairing ||
+                         building.ConstructionStatus == BuildingStatus.Upgrading)
+                {
+                    // Calculate upkeep for all workers contributing to construction
+                    int totalConstructionSalaries = 0;
+                    
+                    // Add regular worker salaries (they're contributing to construction)
+                    var regularWorkerNPCs = building.AssignedWorkers
+                        .Select(workerId => _currentStronghold.NPCs.Find(n => n.Id == workerId))
+                        .Where(npc => npc != null)
+                        .ToList();
+                    
+                    totalConstructionSalaries += regularWorkerNPCs.Sum(worker => 
+                        Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+                    
+                    // Add construction crew salaries
+                    var constructionCrewNPCs = building.DedicatedConstructionCrew
+                        .Select(crewId => _currentStronghold.NPCs.Find(n => n.Id == crewId))
+                        .Where(npc => npc != null)
+                        .ToList();
+
+                    totalConstructionSalaries += constructionCrewNPCs.Sum(worker => 
+                        Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+
+                    if (totalConstructionSalaries > 0)
+                    {
+                        building.ActualUpkeep.Add(new ResourceCost
+                        {
+                            ResourceType = ResourceType.Gold,
+                            Amount = totalConstructionSalaries
                         });
                     }
                 }
@@ -1037,21 +1052,35 @@ namespace DNDStrongholdApp.Services
                 }
             }
 
-            // Food consumption: 1 per NPC (assigned or not)
+            // Calculate and add NPC food consumption
+            CalculateNPCFoodConsumption();
+        }
+
+        // Calculate NPC food consumption and add to resource tracking
+        private void CalculateNPCFoodConsumption()
+        {
             var foodResource = _currentStronghold.Resources.Find(r => r.Type == ResourceType.Food);
             if (foodResource != null)
             {
-                int foodPerNPC = 1;
-                int totalNPCs = _currentStronghold.NPCs.Count;
-                foodResource.WeeklyConsumption += totalNPCs * foodPerNPC;
-                if (totalNPCs > 0)
+                int totalFoodConsumption = 0;
+                foreach (var npc in _currentStronghold.NPCs)
                 {
+                    var foodUpkeep = npc.UpkeepCost.Find(c => c.ResourceType == ResourceType.Food);
+                    if (foodUpkeep != null)
+                    {
+                        totalFoodConsumption += foodUpkeep.Amount;
+                    }
+                }
+                
+                if (totalFoodConsumption > 0)
+                {
+                    foodResource.WeeklyConsumption += totalFoodConsumption;
                     foodResource.Sources.Add(new ResourceSource
                     {
                         SourceType = ResourceSourceType.Manual,
                         SourceId = "NPCs",
                         SourceName = "Population",
-                        Amount = totalNPCs * foodPerNPC,
+                        Amount = totalFoodConsumption,
                         IsProduction = false
                     });
                 }
@@ -1081,9 +1110,9 @@ namespace DNDStrongholdApp.Services
         }
 
         // Public method to check if we can afford to build a building
-        public bool CanAffordBuilding(BuildingType buildingType)
+        public bool CanAffordBuilding(string buildingTypeName)
         {
-            var building = new Building(buildingType);
+            var building = new Building(buildingTypeName);
             return HasEnoughResources(building.ConstructionCost);
         }
 
