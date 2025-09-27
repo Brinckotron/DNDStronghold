@@ -70,6 +70,7 @@ namespace DNDStrongholdApp
             _availableNPCsListView.View = View.Details;
             _availableNPCsListView.FullRowSelect = true;
             _availableNPCsListView.MultiSelect = false;
+            _availableNPCsListView.DoubleClick += AvailableNPCs_DoubleClick;
             
             // Add columns
             _availableNPCsListView.Columns.Add("Name", 120);
@@ -89,6 +90,7 @@ namespace DNDStrongholdApp
             _assignedNPCsListView.View = View.Details;
             _assignedNPCsListView.FullRowSelect = true;
             _assignedNPCsListView.MultiSelect = false;
+            _assignedNPCsListView.DoubleClick += AssignedNPCs_DoubleClick;
             
             // Add columns
             _assignedNPCsListView.Columns.Add("Name", 120);
@@ -257,6 +259,22 @@ namespace DNDStrongholdApp
                 
                 // Update assigned workers count in group box title
                 ((GroupBox)_assignedNPCsListView.Parent).Text = $"Assigned Workers ({_assignedNPCsListView.Items.Count}/{_building.GetWorkerSlots()})";
+            }
+        }
+        
+        private void AvailableNPCs_DoubleClick(object sender, EventArgs e)
+        {
+            if (_availableNPCsListView.SelectedItems.Count > 0)
+            {
+                AssignButton_Click(sender, e);
+            }
+        }
+        
+        private void AssignedNPCs_DoubleClick(object sender, EventArgs e)
+        {
+            if (_assignedNPCsListView.SelectedItems.Count > 0)
+            {
+                UnassignButton_Click(sender, e);
             }
         }
         

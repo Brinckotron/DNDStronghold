@@ -29,6 +29,7 @@ namespace DNDStrongholdApp.Forms
         private DataGridView projectsDataGrid;
         private DataGridView dgvConstructionCost;
         private DataGridView dgvWorkerBonus;
+        private CheckBox isEssentialCheckbox;
 
         public BuildingDataEditor()
         {
@@ -207,12 +208,29 @@ namespace DNDStrongholdApp.Forms
                 }
             };
 
+            // Is Essential Checkbox
+            isEssentialCheckbox = new CheckBox
+            {
+                Text = "Essential Building",
+                Location = new Point(0, 70),
+                Width = 120,
+                Checked = false
+            };
+            isEssentialCheckbox.CheckedChanged += (s, e) =>
+            {
+                if (currentBuilding != null)
+                {
+                    currentBuilding.isEssential = isEssentialCheckbox.Checked;
+                }
+            };
+
             basicPropertiesPanel.Controls.AddRange(new Control[] {
                 constructionPointsLabel, numRequiredConstructionPoints,
                 maxLevelLabel, numMaxLevel,
                 primarySkillLabel, primarySkillCombo,
                 secondarySkillLabel, secondarySkillCombo,
-                tertiarySkillLabel, tertiarySkillCombo
+                tertiarySkillLabel, tertiarySkillCombo,
+                isEssentialCheckbox
             });
             basicPropertiesPanel.Height = Math.Max(basicPropertiesPanel.Height, tertiarySkillCombo.Bottom + 10);
 
@@ -390,6 +408,9 @@ namespace DNDStrongholdApp.Forms
                 tertiarySkillCombo.SelectedItem = currentBuilding.tertiarySkill;
             else
                 tertiarySkillCombo.SelectedItem = "-None-";
+
+            // Update IsEssential checkbox
+            isEssentialCheckbox.Checked = currentBuilding.isEssential;
 
             // Update worker slots scaling
             dgvWorkerSlotsScaling.Rows.Clear();

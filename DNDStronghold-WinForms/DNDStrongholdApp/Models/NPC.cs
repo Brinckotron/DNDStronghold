@@ -23,6 +23,11 @@ namespace DNDStrongholdApp.Models
         public int Level { get; set; } = 1; // NPC level, starts at 1
         public NPCStatus Status { get; set; } = NPCStatus.Available; // Current status of the NPC
         public Bio Bio { get; set; } = new Bio(); // NPC biography/description
+        
+        // Hunger system properties
+        public HungerStatus HungerState { get; set; } = HungerStatus.WellFed;
+        public int StarvationProgress { get; set; } = 0; // Progress toward starvation (0-4+)
+        public RationLevel RationLevel { get; set; } = RationLevel.Full; // Default to full rations
 
         // Constructor for a new NPC
         public NPC(NPCType type, string name = "")
@@ -391,6 +396,32 @@ namespace DNDStrongholdApp.Models
                 Status = NPCStatus.Available;
             }
         }
+
+        // Hunger system helper methods
+        public bool IsHungry() => HungerState == HungerStatus.Hungry || HungerState == HungerStatus.Starving;
+        
+        public bool IsStarving() => HungerState == HungerStatus.Starving;
+        
+        public decimal GetHungerProductionMultiplier()
+        {
+            return HungerState switch
+            {
+                HungerStatus.Hungry => 0.5m,    // Base production halved
+                HungerStatus.Starving => 0.0m,  // No base production
+                _ => 1.0m                        // Normal production
+            };
+        }
+        
+        public decimal GetHungerSkillMultiplier()
+        {
+            return HungerState switch
+            {
+                HungerStatus.Starving => 0.5m,  // Skill bonuses halved when starving
+                _ => 1.0m                        // Normal skill bonuses
+            };
+        }
+        
+        public bool CanGainXP() => HungerState != HungerStatus.Starving;
     }
 
     public enum NPCType
@@ -577,6 +608,20 @@ namespace DNDStrongholdApp.Models
         OnMission,        // NPC is on a mission
         Unavailable       // NPC is unavailable due to health conditions
     }
+
+public enum HungerStatus
+{
+    WellFed,          // Default state - no hunger effects  
+    Hungry,           // Base production halved, full skill bonuses, normal XP
+    Starving          // No base production, skill bonuses halved, no XP gain
+}
+
+public enum RationLevel
+{
+    Full = 0,
+    Half = 1,
+    None = 2
+}
 
     // Class to hold name data from JSON file
     public class NameData

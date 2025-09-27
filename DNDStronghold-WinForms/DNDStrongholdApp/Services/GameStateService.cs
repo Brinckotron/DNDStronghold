@@ -203,6 +203,9 @@ namespace DNDStrongholdApp.Services
             // Process resources
             ProcessResources();
             
+            // Process hunger progression after resource consumption
+            ProcessHungerProgression();
+            
             // Generate weekly report
             GenerateWeeklyReport(previousResourceAmounts);
             
@@ -874,8 +877,11 @@ namespace DNDStrongholdApp.Services
             var building = _currentStronghold.Buildings.Find(b => b.Id == buildingId);
             if (building == null) return;
             
-            // Unassign construction crew NPCs
-            foreach (var npcId in building.DedicatedConstructionCrew)
+            // Capture the construction crew list BEFORE clearing it
+            var constructionCrewIds = new List<string>(building.DedicatedConstructionCrew);
+            
+            // Unassign construction crew NPCs using the captured list
+            foreach (var npcId in constructionCrewIds)
             {
                 var npc = _currentStronghold.NPCs.Find(n => n.Id == npcId);
                 if (npc != null)
@@ -953,7 +959,7 @@ namespace DNDStrongholdApp.Services
 
                     // Calculate worker salaries (Gold upkeep)
                     int totalSalaries = assignedNPCs.Sum(worker => 
-                        Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+                        Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0)));
 
                     // Add worker salaries to Gold upkeep
                     if (totalSalaries > 0)
@@ -1068,7 +1074,9 @@ namespace DNDStrongholdApp.Services
                     var foodUpkeep = npc.UpkeepCost.Find(c => c.ResourceType == ResourceType.Food);
                     if (foodUpkeep != null)
                     {
-                        totalFoodConsumption += foodUpkeep.Amount;
+                        // Calculate actual food consumption based on rationing level
+                        int actualConsumption = GetNPCActualFoodConsumption(npc, foodUpkeep.Amount);
+                        totalFoodConsumption += actualConsumption;
                     }
                 }
                 
@@ -1085,6 +1093,155 @@ namespace DNDStrongholdApp.Services
                     });
                 }
             }
+        }
+
+        // Calculate actual food consumption for an NPC based on their hunger/rationing state
+        private int GetNPCActualFoodConsumption(NPC npc, int baseFoodNeed)
+        {
+            return npc.RationLevel switch
+            {
+                RationLevel.Full => baseFoodNeed,      // Full rations = full consumption
+                RationLevel.Half => (int)Math.Ceiling(baseFoodNeed / 2.0),  // Half rations = half consumption (rounded up)
+                RationLevel.None => 0,                     // No rations = no consumption
+                _ => baseFoodNeed
+            };
+        }
+
+        // Process hunger progression based on rationing levels
+        private void ProcessHungerProgression()
+        {
+            // Create a copy of the NPCs list to avoid "Collection was modified" exception
+            // when NPCs abandon the stronghold during iteration
+            var npcsToProcess = _currentStronghold.NPCs.ToList();
+            
+            foreach (var npc in npcsToProcess)
+            {
+                ProcessNPCHungerProgression(npc);
+            }
+        }
+
+        private void ProcessNPCHungerProgression(NPC npc)
+        {
+            // Process hunger progression based on current ration level
+            switch (npc.RationLevel)
+            {
+                case RationLevel.Full:
+                    // Full rations: NPC becomes well-fed and resets starvation progress
+                    if (npc.HungerState != HungerStatus.WellFed)
+                    {
+                        npc.HungerState = HungerStatus.WellFed;
+                        
+                        _currentStronghold.Journal.Add(new JournalEntry(
+                            _currentStronghold.CurrentWeek,
+                            _currentStronghold.YearsSinceFoundation,
+                            JournalEntryType.Event,
+                            "Food Situation Improved",
+                            $"{npc.Name} is no longer hungry and has recovered."
+                        ));
+                    }
+                    
+                    // Always reset starvation progress when NPC has full rations
+                    npc.StarvationProgress = 0;
+                    break;
+                    
+                case RationLevel.Half:
+                    // Half rations: NPC becomes/stays hungry, starvation progress +1
+                    if (npc.HungerState == HungerStatus.WellFed)
+                    {
+                        npc.HungerState = HungerStatus.Hungry;
+                        _currentStronghold.Journal.Add(new JournalEntry(
+                            _currentStronghold.CurrentWeek,
+                            _currentStronghold.YearsSinceFoundation,
+                            JournalEntryType.Event,
+                            "Hunger Begins",
+                            $"{npc.Name} is now hungry due to reduced rations."
+                        ));
+                    }
+                    
+                    if (npc.HungerState == HungerStatus.Hungry)
+                    {
+                        npc.StarvationProgress += 1; // Slow progression on half rations
+                    }
+                    break;
+                    
+                case RationLevel.None:
+                    // No rations: NPC becomes/stays hungry, starvation progress +2
+                    if (npc.HungerState == HungerStatus.WellFed)
+                    {
+                        npc.HungerState = HungerStatus.Hungry;
+                        _currentStronghold.Journal.Add(new JournalEntry(
+                            _currentStronghold.CurrentWeek,
+                            _currentStronghold.YearsSinceFoundation,
+                            JournalEntryType.Event,
+                            "Hunger Begins",
+                            $"{npc.Name} is now hungry - no rations provided."
+                        ));
+                    }
+                    
+                    if (npc.HungerState == HungerStatus.Hungry)
+                    {
+                        npc.StarvationProgress += 2; // Fast progression on no rations
+                        
+                        // Check if NPC should become starving (StarvationProgress >= 4 and no rations)
+                        if (npc.StarvationProgress >= 4)
+                        {
+                            npc.HungerState = HungerStatus.Starving;
+                            
+                            _currentStronghold.Journal.Add(new JournalEntry(
+                                _currentStronghold.CurrentWeek,
+                                _currentStronghold.YearsSinceFoundation,
+                                JournalEntryType.Event,
+                                "⚠️ Starvation Crisis",
+                                $"{npc.Name} is now starving after starvation progress reached {npc.StarvationProgress}. They may abandon the stronghold!"
+                            ));
+                        }
+                    }
+                    break;
+            }
+            
+            // Handle starving NPCs (check for abandonment)
+            if (npc.HungerState == HungerStatus.Starving)
+            {
+                Random random = new Random();
+                int baseAbandonmentChance = 10; // 10% base chance per week
+                
+                // TODO: Factor in morale system when implemented
+                // For now, use base chance
+                
+                if (random.Next(100) < baseAbandonmentChance)
+                {
+                    // NPC abandons the stronghold
+                    AbandonStronghold(npc);
+                }
+            }
+        }
+
+        private void AbandonStronghold(NPC npc)
+        {
+            // Unassign from all buildings and projects
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                building.AssignedWorkers.Remove(npc.Id);
+                building.DedicatedConstructionCrew.Remove(npc.Id);
+                
+                // Remove from current project if assigned
+                if (building.CurrentProject?.AssignedWorkers.Contains(npc.Id) ?? false)
+                {
+                    building.CurrentProject.AssignedWorkers.Remove(npc.Id);
+                }
+            }
+            
+            // Log the abandonment
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "💔 NPC Abandonment",
+                $"{npc.Name} ({npc.Type}) has abandoned the stronghold due to starvation. They left to find food elsewhere."
+            ));
+            
+            // Remove NPC from stronghold
+            _currentStronghold.NPCs.Remove(npc);
         }
 
         // Notify listeners that the game state has changed

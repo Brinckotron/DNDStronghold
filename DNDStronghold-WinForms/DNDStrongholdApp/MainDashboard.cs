@@ -385,6 +385,10 @@ public partial class MainDashboard : Form
         };
         
         groupBox.Controls.Add(listView);
+        
+        // Add permanent rationing management button
+        AddRationingButton(groupBox);
+        
         return groupBox;
     }
 
@@ -526,11 +530,34 @@ public partial class MainDashboard : Form
             ListViewItem item = new ListViewItem(npc.Name);
             item.SubItems.Add(npc.Type.ToString());
             item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-            // Status column: show health states or 'Healthy'
-            string status = npc.States != null && npc.States.Any()
-                ? string.Join(", ", npc.States.Select(s => s.Type.ToString()))
-                : "Healthy";
+            // Status column: show health states and hunger status
+            var statusTexts = new List<string>();
+            
+            // Add health states
+            if (npc.States != null && npc.States.Any())
+            {
+                statusTexts.AddRange(npc.States.Select(s => s.Type.ToString()));
+            }
+            
+            // Add hunger status
+            if (npc.HungerState != HungerStatus.WellFed)
+            {
+                string hungerText = npc.HungerState.ToString();
+                if (npc.StarvationProgress > 0)
+                {
+                    hungerText += $" ({npc.StarvationProgress})";
+                }
+                statusTexts.Add(hungerText);
+            }
+            
+            string status = statusTexts.Any() ? string.Join(", ", statusTexts) : "Healthy";
             item.SubItems.Add(status);
+            
+            // Color-code based on hunger status
+            if (npc.HungerState == HungerStatus.Starving)
+                item.ForeColor = Color.Red;
+            else if (npc.HungerState == HungerStatus.Hungry)
+                item.ForeColor = Color.Orange;
             item.Tag = npc.Id;
             listView.Items.Add(item);
         }
@@ -2010,10 +2037,16 @@ public partial class MainDashboard : Form
 
     private void NextTurnButton_Click(object sender, EventArgs e)
     {
-        // Advance the game by one turn
-        _gameStateService.AdvanceWeek();
-        
-        // UI will be updated via the GameStateChanged event
+        // Check for food shortage or starving NPCs before advancing
+        if (CheckForFoodShortage() || CheckForStarvingNPCs())
+        {
+            ShowPreTurnDialog();
+        }
+        else
+        {
+            // No issues, proceed directly
+            _gameStateService.AdvanceWeek();
+        }
     }
 
     private void SaveButton_Click(object sender, EventArgs e)
@@ -2214,10 +2247,35 @@ public partial class MainDashboard : Form
                     ListViewItem item = new ListViewItem(npc.Name);
                     item.SubItems.Add(npc.Type.ToString());
                     item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-                    string status = npc.States != null && npc.States.Any()
-                        ? string.Join(", ", npc.States.Select(s => s.Type.ToString()))
-                        : "Healthy";
+                    
+                    // Status column: show health states and hunger status
+                    var statusTexts = new List<string>();
+                    
+                    // Add health states
+                    if (npc.States != null && npc.States.Any())
+                    {
+                        statusTexts.AddRange(npc.States.Select(s => s.Type.ToString()));
+                    }
+                    
+                    // Add hunger status
+                    if (npc.HungerState != HungerStatus.WellFed)
+                    {
+                        string hungerText = npc.HungerState.ToString();
+                if (npc.StarvationProgress > 0)
+                {
+                    hungerText += $" ({npc.StarvationProgress})";
+                }
+                        statusTexts.Add(hungerText);
+                    }
+                    
+                    string status = statusTexts.Any() ? string.Join(", ", statusTexts) : "Healthy";
                     item.SubItems.Add(status);
+                    
+                    // Color-code based on hunger status
+                    if (npc.HungerState == HungerStatus.Starving)
+                        item.ForeColor = Color.Red;
+                    else if (npc.HungerState == HungerStatus.Hungry)
+                        item.ForeColor = Color.Orange;
                     item.Tag = npc.Id;
                     listView.Items.Add(item);
                 }
@@ -2244,6 +2302,17 @@ public partial class MainDashboard : Form
                     item.SubItems.Add(entry.Title);
                     listView.Items.Add(item);
                 }
+            }
+        }
+
+        // Update rationing button state
+        var dashboardResourcePanel = FindControl<GroupBox>(_tabControl.TabPages[0], "ResourceSummaryPanel");
+        if (dashboardResourcePanel != null)
+        {
+            var rationingButton = FindControl<Button>(dashboardResourcePanel, "RationingButton");
+            if (rationingButton != null)
+            {
+                UpdateRationingButtonState(rationingButton);
             }
         }
     }
@@ -2514,19 +2583,38 @@ public partial class MainDashboard : Form
         if (typeValueLabel != null) typeValueLabel.Text = npc.Type.ToString();
         if (levelValueLabel != null) levelValueLabel.Text = npc.Level.ToString();
 
-        // Update state - show health status
+        // Update state - show health status and hunger status
         if (stateValueLabel != null)
         {
+            var stateTexts = new List<string>();
+            
+            // Add health states
             if (npc.States != null && npc.States.Any())
             {
-                // Map health states to user-friendly names
-                var stateText = string.Join(", ", npc.States.Select(s => s.Type.ToString()));
-                stateValueLabel.Text = stateText;
+                stateTexts.AddRange(npc.States.Select(s => s.Type.ToString()));
+            }
+            
+            // Add hunger status
+            if (npc.HungerState != HungerStatus.WellFed)
+            {
+                string hungerText = npc.HungerState.ToString();
+                if (npc.StarvationProgress > 0)
+                {
+                    hungerText += $" ({npc.StarvationProgress})";
+                }
+                stateTexts.Add(hungerText);
+            }
+            
+            if (stateTexts.Any())
+            {
+                stateValueLabel.Text = string.Join(", ", stateTexts);
                 
-                // Set color based on severity
-                if (npc.States.Any(s => s.Type.ToString().Contains("Gravely") || s.Type.ToString().Contains("Grave")))
+                // Set color based on most severe condition
+                if (npc.HungerState == HungerStatus.Starving || 
+                    (npc.States?.Any(s => s.Type.ToString().Contains("Gravely") || s.Type.ToString().Contains("Grave")) ?? false))
                     stateValueLabel.ForeColor = Color.Red;
-                else if (npc.States.Any(s => s.Type.ToString().Contains("Injured") || s.Type.ToString().Contains("Sick")))
+                else if (npc.HungerState == HungerStatus.Hungry || 
+                        (npc.States?.Any(s => s.Type.ToString().Contains("Injured") || s.Type.ToString().Contains("Sick")) ?? false))
                     stateValueLabel.ForeColor = Color.Orange;
                 else
                     stateValueLabel.ForeColor = Color.Black;
@@ -3261,7 +3349,7 @@ public partial class MainDashboard : Form
                                         // Add regular worker rows
                                         foreach (var worker in assignedNPCs)
                                         {
-                                            int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                                            int salary = Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0));
                                             var highestSkill = worker.Skills.Any() ? 
                                                 worker.Skills.OrderByDescending(s => s.Level).First() : null;
 
@@ -3301,7 +3389,7 @@ public partial class MainDashboard : Form
                         var regularWorkerNPCs = assignedNPCs;
                         foreach (var worker in regularWorkerNPCs)
                         {
-                            int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                            int salary = Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0));
                             totalConstructionSalaries += salary;
                             allConstructionWorkers.Add((worker, "Worker"));
                         }
@@ -3314,7 +3402,7 @@ public partial class MainDashboard : Form
                         
                         foreach (var worker in constructionCrewNPCs)
                         {
-                            int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                            int salary = Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0));
                             totalConstructionSalaries += salary;
                             allConstructionWorkers.Add((worker, "Crew"));
                         }
@@ -3340,7 +3428,7 @@ public partial class MainDashboard : Form
                             // Add individual worker rows
                             foreach (var (worker, role) in allConstructionWorkers)
                             {
-                                int salary = Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1);
+                                int salary = Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0));
                                 var highestSkill = worker.Skills.Any() ? 
                                     worker.Skills.OrderByDescending(s => s.Level).First() : null;
 
@@ -4647,6 +4735,328 @@ public partial class MainDashboard : Form
     }
 
     #endregion
+
+    #endregion
+
+    #region Food Rationing Management
+
+    private void AddRationingButton(GroupBox resourcePanel)
+    {
+        var rationingButton = new Button
+        {
+            Height = 32,
+            Dock = DockStyle.Bottom,
+            Margin = new Padding(5, 8, 5, 5),
+            Tag = "RationingButton",
+            FlatStyle = FlatStyle.Flat
+        };
+        rationingButton.Click += RationingButton_Click;
+        
+        resourcePanel.Controls.Add(rationingButton);
+        
+        // Set initial button state
+        UpdateRationingButtonState(rationingButton);
+    }
+
+    private void UpdateRationingButtonState(Button rationingButton)
+    {
+        if (rationingButton == null) return;
+        
+        bool hasShortage = CheckForFoodShortage();
+        bool hasStarvingNPCs = CheckForStarvingNPCs();
+        
+        if (hasShortage && hasStarvingNPCs)
+        {
+            // Critical crisis mode styling
+            rationingButton.Text = "🚨 CRITICAL - Manage Rations";
+            rationingButton.BackColor = Color.FromArgb(180, 20, 20); // Darker red
+            rationingButton.ForeColor = Color.White;
+            rationingButton.Font = new Font(rationingButton.Font, FontStyle.Bold);
+        }
+        else if (hasShortage)
+        {
+            // Food shortage styling
+            rationingButton.Text = "⚠️ FOOD CRISIS - Manage Rations";
+            rationingButton.BackColor = Color.FromArgb(220, 60, 60); // Red
+            rationingButton.ForeColor = Color.White;
+            rationingButton.Font = new Font(rationingButton.Font, FontStyle.Bold);
+        }
+        else if (hasStarvingNPCs)
+        {
+            // Starving NPCs styling
+            rationingButton.Text = "⚠️ STARVING NPCs - Manage Rations";
+            rationingButton.BackColor = Color.FromArgb(255, 140, 0); // Orange
+            rationingButton.ForeColor = Color.White;
+            rationingButton.Font = new Font(rationingButton.Font, FontStyle.Bold);
+        }
+        else
+        {
+            // Normal mode styling  
+            rationingButton.Text = "Manage Food Rationing";
+            rationingButton.BackColor = SystemColors.Control; // Default gray
+            rationingButton.ForeColor = SystemColors.ControlText;
+            rationingButton.Font = new Font(rationingButton.Font, FontStyle.Regular);
+        }
+    }
+
+    private bool CheckForFoodShortage()
+    {
+        var foodResource = _stronghold.Resources.Find(r => r.Type == ResourceType.Food);
+        if (foodResource == null) return false;
+        
+        // Check if projected shortage: (stores + production) < consumption
+        int availableFood = foodResource.Amount + foodResource.WeeklyProduction;
+        int neededFood = foodResource.WeeklyConsumption;
+        
+        return availableFood < neededFood;
+    }
+
+    private bool CheckForStarvingNPCs()
+    {
+        return _stronghold.NPCs.Any(npc => npc.HungerState == HungerStatus.Starving);
+    }
+
+    private List<NPC> GetStarvingNPCs()
+    {
+        return _stronghold.NPCs.Where(npc => npc.HungerState == HungerStatus.Starving).ToList();
+    }
+
+    private string GetShortageTooltip()
+    {
+        var foodResource = _stronghold.Resources.Find(r => r.Type == ResourceType.Food);
+        if (foodResource == null) return "Food data not available";
+        
+        int availableFood = foodResource.Amount + foodResource.WeeklyProduction;
+        int neededFood = foodResource.WeeklyConsumption;
+        int shortage = neededFood - availableFood;
+        
+        return $"Food shortage detected!\n" +
+               $"Available: {availableFood}\n" +
+               $"Needed: {neededFood}\n" +
+               $"Short: {shortage}";
+    }
+
+    private void RationingButton_Click(object sender, EventArgs e)
+    {
+        bool hasShortage = CheckForFoodShortage();
+        ShowRationingDialog(emergencyMode: hasShortage);
+    }
+
+    private void ShowRationingDialog(bool emergencyMode = false)
+    {
+        using (var rationingDialog = new FoodRationingDialog(_stronghold, _gameStateService, emergencyMode))
+        {
+            if (rationingDialog.ShowDialog() == DialogResult.OK)
+            {
+                // Rationing changes have been applied
+                // Refresh the UI to reflect changes
+                _gameStateService.OnGameStateChanged();
+            }
+        }
+    }
+
+    private void ShowPreTurnDialog()
+    {
+        var foodResource = _stronghold.Resources.Find(r => r.Type == ResourceType.Food);
+        if (foodResource == null) return;
+
+        bool hasFoodShortage = CheckForFoodShortage();
+        bool hasStarvingNPCs = CheckForStarvingNPCs();
+        var starvingNPCs = GetStarvingNPCs();
+
+        string message = "";
+        string title = "";
+
+        if (hasFoodShortage && hasStarvingNPCs)
+        {
+            title = "Food Crisis & Starving NPCs";
+            message = $"🚨 CRITICAL SITUATION DETECTED!\n\n" +
+                     $"You have both a food shortage AND starving NPCs:\n\n" +
+                     $"FOOD SHORTAGE:\n" +
+                     $"• Available Food: {foodResource.Amount + foodResource.WeeklyProduction} (Stores: {foodResource.Amount} + Production: {foodResource.WeeklyProduction})\n" +
+                     $"• Required Food: {foodResource.WeeklyConsumption}\n" +
+                     $"• Shortage: {foodResource.WeeklyConsumption - (foodResource.Amount + foodResource.WeeklyProduction)} food\n\n" +
+                     $"You have {starvingNPCs.Count} NPC(s) who are currently starving.\n\n" +
+                     $"\n⚠️ Starving NPCs may abandon the stronghold!\n\n" +
+                     $"Please manage your food rations immediately.";
+        }
+        else if (hasFoodShortage)
+        {
+            title = "Food Shortage Warning";
+            int availableFood = foodResource.Amount + foodResource.WeeklyProduction;
+            int neededFood = foodResource.WeeklyConsumption;
+            int shortage = neededFood - availableFood;
+
+            message = $"⚠️ FOOD SHORTAGE DETECTED!\n\n" +
+                     $"You are about to advance to the next turn, but a food shortage is projected:\n\n" +
+                     $"• Available Food: {availableFood} (Stores: {foodResource.Amount} + Production: {foodResource.WeeklyProduction})\n" +
+                     $"• Required Food: {neededFood}\n" +
+                     $"• Shortage: {shortage} food\n\n" +
+                     $"Some NPCs will not be fed adequately and may become hungry or starve.\n\n" +
+                     $"Please manage your food rations before proceeding.";
+        }
+        else if (hasStarvingNPCs)
+        {
+            title = "Starving NPCs Warning";
+            message = $"⚠️ STARVING NPCs DETECTED!\n\n" +
+                     $"You have {starvingNPCs.Count} NPC(s) who are currently starving.\n\n" +
+                     $"🚨 WARNING: These NPCs may abandon the stronghold if not fed!\n\n" +
+                     $"Please manage your food rations immediately.";
+        }
+
+        // Calculate dialog size based on message content
+        int messageHeight = Math.Max(180, message.Split('\n').Length * 20 + 80);
+        int dialogHeight = Math.Max(320, messageHeight + 120);
+
+        // Create simple dialog with one button
+        var dialog = new Form()
+        {
+            Text = title,
+            Size = new Size(500, dialogHeight),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false
+        };
+
+        var messageLabel = new Label()
+        {
+            Text = message,
+            Location = new Point(20, 20),
+            Size = new Size(440, messageHeight),
+            Font = new Font("Microsoft Sans Serif", 9)
+        };
+
+        var manageRationsButton = new Button()
+        {
+            Text = "Manage Rations",
+            Location = new Point(90, messageHeight + 20),
+            Size = new Size(150, 30),
+            DialogResult = DialogResult.OK
+        };
+
+        dialog.Controls.Add(messageLabel);
+        dialog.Controls.Add(manageRationsButton);
+
+        // Add "Continue Anyway" button only when there's no food shortage predicted
+        if (!hasFoodShortage)
+        {
+            var continueButton = new Button()
+            {
+                Text = "Continue Anyway",
+                Location = new Point(240, messageHeight + 20),
+                Size = new Size(150, 30),
+                DialogResult = DialogResult.Cancel
+            };
+            dialog.Controls.Add(continueButton);
+        }
+        else
+        {
+            // When there's a food shortage, make the Manage Rations button centered and wider
+            manageRationsButton.Location = new Point(155, messageHeight + 20);
+            manageRationsButton.Size = new Size(150, 30);
+        }
+
+        dialog.AcceptButton = manageRationsButton;
+
+        var result = dialog.ShowDialog();
+
+        if (result == DialogResult.OK)
+        {
+            // User chose to manage rations
+            ShowRationingDialog(emergencyMode: hasFoodShortage);
+        }
+        else if (result == DialogResult.Cancel && !hasFoodShortage)
+        {
+            // User chose to continue anyway (only available when no food shortage)
+            _gameStateService.AdvanceWeek();
+        }
+        // If result is Cancel with food shortage, do nothing (user closed dialog without action)
+    }
+
+    private void ApplyEmergencyRationing()
+    {
+        // Apply the tiered emergency rationing logic
+        var foodResource = _stronghold.Resources.Find(r => r.Type == ResourceType.Food);
+        if (foodResource == null) return;
+
+        int availableFood = foodResource.Amount + foodResource.WeeklyProduction;
+        int neededFood = foodResource.WeeklyConsumption;
+        
+        if (availableFood >= neededFood) return; // No shortage, no action needed
+
+        // Tier 1: Keep food-producing NPCs well-fed
+        var foodProducingNPCs = _stronghold.NPCs.Where(npc => 
+            npc.Assignment.Type == AssignmentType.Building && 
+            _stronghold.Buildings.Any(b => b.Id == npc.Assignment.TargetId && 
+                (b.TypeName.ToLower().Contains("farm") || 
+                 b.TypeName.ToLower().Contains("garden") ||
+                 b.TypeName.ToLower().Contains("orchard")))).ToList();
+
+        foreach (var npc in foodProducingNPCs)
+        {
+            npc.RationLevel = RationLevel.Full;
+            npc.HungerState = HungerStatus.WellFed;
+        }
+
+        // Tier 2: Cut non-assigned NPCs to half rations
+        var unassignedNPCs = _stronghold.NPCs.Where(npc => 
+            npc.Assignment.Type == AssignmentType.Unassigned && !foodProducingNPCs.Contains(npc)).ToList();
+
+        foreach (var npc in unassignedNPCs)
+        {
+            npc.RationLevel = RationLevel.Half;
+            npc.HungerState = HungerStatus.Hungry;
+        }
+
+        // Tier 3: If still short, cut unassigned NPCs to no rations
+        int remainingShortage = neededFood - availableFood;
+        if (remainingShortage > 0)
+        {
+            foreach (var npc in unassignedNPCs)
+            {
+                npc.RationLevel = RationLevel.None;
+                npc.HungerState = HungerStatus.Hungry;
+            }
+        }
+
+        // Tier 4: If still short, cut luxury workers to half rations
+        var luxuryWorkers = _stronghold.NPCs.Where(npc => 
+            npc.Assignment.Type == AssignmentType.Building && 
+            !foodProducingNPCs.Contains(npc) &&
+            _stronghold.Buildings.Any(b => b.Id == npc.Assignment.TargetId && 
+                (b.TypeName.ToLower().Contains("tavern") || 
+                 b.TypeName.ToLower().Contains("inn") ||
+                 b.TypeName.ToLower().Contains("shop")))).ToList();
+
+        if (remainingShortage > 0)
+        {
+            foreach (var npc in luxuryWorkers)
+            {
+                npc.RationLevel = RationLevel.Half;
+                npc.HungerState = HungerStatus.Hungry;
+            }
+        }
+
+        // Tier 5: If still short, cut luxury workers to no rations
+        if (remainingShortage > 0)
+        {
+            foreach (var npc in luxuryWorkers)
+            {
+                npc.RationLevel = RationLevel.None;
+                npc.HungerState = HungerStatus.Hungry;
+            }
+        }
+
+        // Log the emergency rationing
+        _stronghold.Journal.Add(new JournalEntry(
+            _stronghold.CurrentWeek,
+            _stronghold.YearsSinceFoundation,
+            JournalEntryType.Event,
+            "🚨 Emergency Rationing Applied",
+            $"Due to food shortage, emergency rationing has been automatically applied. Food-producing workers kept well-fed, others rationed based on priority."
+        ));
+    }
 
     #endregion
 

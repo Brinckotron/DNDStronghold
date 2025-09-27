@@ -104,12 +104,12 @@
         {
           "resourceType": "Food",
           "skill": "Farming",
-          "bonusValue": 0.5
+          "bonusValue": 1
         },
         {
           "resourceType": "Food",
           "skill": "Labor",
-          "bonusValue": 0.2
+          "bonusValue": 0.5
         }
       ],
       "constructionCost": [
@@ -129,7 +129,8 @@
       "availableProjects": [],
       "primarySkill": "Farming",
       "secondarySkill": "Labor",
-      "tertiarySkill": "Survival"
+      "tertiarySkill": "Survival",
+      "isEssential": true
     },
     {
       "type": "Watchtower",
@@ -219,7 +220,8 @@
       ],
       "primarySkill": "Perception",
       "secondarySkill": "Survival",
-      "tertiarySkill": "Combat"
+      "tertiarySkill": "Combat",
+      "isEssential": false
     },
     {
       "type": "Smithy",
@@ -319,7 +321,8 @@
       ],
       "primarySkill": "Smithing",
       "secondarySkill": "Crafting",
-      "tertiarySkill": "Labor"
+      "tertiarySkill": "Labor",
+      "isEssential": false
     },
     {
       "type": "Laboratory",
@@ -414,7 +417,8 @@
       ],
       "primarySkill": "Alchemy",
       "secondarySkill": "Research",
-      "tertiarySkill": "Crafting"
+      "tertiarySkill": "Crafting",
+      "isEssential": false
     },
     {
       "type": "Chapel",
@@ -493,7 +497,8 @@
       ],
       "primarySkill": "Faith",
       "secondarySkill": "Medicine",
-      "tertiarySkill": "Lore"
+      "tertiarySkill": "Lore",
+      "isEssential": false
     },
     {
       "type": "Mine",
@@ -623,7 +628,8 @@
       "availableProjects": [],
       "primarySkill": "Mining",
       "secondarySkill": "Labor",
-      "tertiarySkill": ""
+      "tertiarySkill": "",
+      "isEssential": true
     },
     {
       "type": "Barracks",
@@ -705,7 +711,8 @@
       ],
       "primarySkill": "Combat",
       "secondarySkill": "Athletics",
-      "tertiarySkill": "Discipline"
+      "tertiarySkill": "Discipline",
+      "isEssential": false
     },
     {
       "type": "Library",
@@ -821,7 +828,8 @@
       ],
       "primarySkill": "Research",
       "secondarySkill": "Lore",
-      "tertiarySkill": "Education"
+      "tertiarySkill": "Education",
+      "isEssential": false
     },
     {
       "type": "TradeOffice",
@@ -935,9 +943,10 @@
           "minLevel": 3
         }
       ],
-      "primarySkill": "Commerce",
-      "secondarySkill": "Persuasion",
-      "tertiarySkill": "Negotiation"
+      "primarySkill": "Mining",
+      "secondarySkill": "Labor",
+      "tertiarySkill": "",
+      "isEssential": true
     },
     {
       "type": "Stables",
@@ -1027,7 +1036,8 @@
       ],
       "primarySkill": "AnimalHandling",
       "secondarySkill": "Labor",
-      "tertiarySkill": "Athletics"
+      "tertiarySkill": "Athletics",
+      "isEssential": false
     },
     {
       "type": "Tavern",
@@ -1143,7 +1153,8 @@
       ],
       "primarySkill": "Hospitality",
       "secondarySkill": "Persuasion",
-      "tertiarySkill": "Entertainment"
+      "tertiarySkill": "Entertainment",
+      "isEssential": false
     },
     {
       "type": "MasonsYard",
@@ -1255,7 +1266,8 @@
       ],
       "primarySkill": "Masonry",
       "secondarySkill": "Crafting",
-      "tertiarySkill": "Labor"
+      "tertiarySkill": "Labor",
+      "isEssential": false
     },
     {
       "type": "Workshop",
@@ -1371,7 +1383,8 @@
       ],
       "primarySkill": "Crafting",
       "secondarySkill": "Artistry",
-      "tertiarySkill": "Labor"
+      "tertiarySkill": "Labor",
+      "isEssential": false
     },
     {
       "type": "Granary",
@@ -1440,9 +1453,10 @@
           "minLevel": 2
         }
       ],
-      "primarySkill": "Organization",
+      "primarySkill": "Farming",
       "secondarySkill": "Labor",
-      "tertiarySkill": "Logistics"
+      "tertiarySkill": "Survival",
+      "isEssential": true
     },
     {
       "type": "Quarry",
@@ -1568,7 +1582,8 @@
       ],
       "primarySkill": "Mining",
       "secondarySkill": "Labor",
-      "tertiarySkill": "Engineering"
+      "tertiarySkill": "",
+      "isEssential": true
     },
     {
       "type": "Greenhouse",
@@ -1671,7 +1686,8 @@
       ],
       "primarySkill": "Farming",
       "secondarySkill": "Survival",
-      "tertiarySkill": "Medicine"
+      "tertiarySkill": "Medicine",
+      "isEssential": false
     }
   ]
 }
