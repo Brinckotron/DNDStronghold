@@ -44,15 +44,59 @@ This repository contains the following design and planning documents:
 
 ## Technology Stack
 
-- **Frontend**: React with TypeScript
-- **State Management**: Redux Toolkit
-- **UI Components**: Material-UI or Tailwind CSS
-- **Build Tool**: Vite
-- **Storage**: LocalStorage for saving game state
+- **Language**: C# with nullable reference types and implicit usings enabled
+- **UI Framework**: Windows Forms
+- **Target Framework**: `net8.0-windows` (Windows only)
+- **State Management**: Singleton `GameStateService` with a command/invoker pattern for undoable actions
+- **Serialization**: `System.Text.Json` (no external NuGet dependencies)
+- **Storage**: Saves are written to user-chosen `.stronghold` files via the File menu
+
+The design documents above describe an earlier React/TypeScript plan that was not
+pursued; the implemented application is the .NET WinForms app in
+`DNDStronghold-WinForms/`.
 
 ## Getting Started
 
-*Note: This project is currently in the design phase. Implementation instructions will be added once development begins.*
+### Prerequisites
+
+- Windows
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+
+### Running the App
+
+From the project directory containing `DNDStrongholdApp.csproj`:
+
+```powershell
+cd DNDStronghold-WinForms\DNDStrongholdApp
+dotnet run
+```
+
+### Command-Line Options
+
+The app accepts two optional single-letter flags, handled in `Program.cs`. Because
+they are arguments to the app rather than to the `dotnet` CLI, they must be passed
+after a `--` separator:
+
+| Command | Effect |
+| --- | --- |
+| `dotnet run` | Normal start; opens the "Create New Stronghold" flow |
+| `dotnet run -- p` | Test mode; loads the pregenerated stronghold from `Data/TestStrongholdData.json` |
+| `dotnet run -- d` | Debug mode; shows message-box checkpoints during startup |
+| `dotnet run -- p d` | Both of the above |
+
+Flag order does not matter and unrecognized arguments are ignored. The flags are
+matched as exact single letters, so `-d`, `--d`, and `--debug` will **not** work.
+
+### Project Structure
+
+| Path | Contents |
+| --- | --- |
+| `Forms/` | Dialogs for buildings, NPCs, worker assignment, and setup |
+| `Models/` | Domain types (`Stronghold`, `Building`, `NPC`, `Resource`, `Mission`, `Journal`) |
+| `Services/` | `GameStateService`, `BuildingTypeService`, `BioGeneratorService` |
+| `Commands/` | Command objects for save/load and other state changes |
+| `Data/` | JSON definitions for buildings, names, bios, and test data |
+| `MainDashboard.cs` | Main window and tab layout |
 
 ## Development Roadmap
 
