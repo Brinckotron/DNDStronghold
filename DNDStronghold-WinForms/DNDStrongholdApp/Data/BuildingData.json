@@ -130,7 +130,9 @@
       "primarySkill": "Farming",
       "secondarySkill": "Labor",
       "tertiarySkill": "Survival",
-      "isEssential": true
+      "isEssential": true,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Watchtower",
@@ -211,17 +213,42 @@
       "availableProjects": [
         {
           "projectName": "Patrol",
-          "minLevel": 1
+          "minLevel": 1,
+          "description": "Send workers to patrol the area around the stronghold, providing security and gathering information about nearby threats.",
+          "durationWeeks": 2,
+          "initialCost": [ { "resourceType": "Food", "amount": 5 } ],
+          "outcomeType": "InApp",
+          "roll": "None",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers" ],
+          "bonusSkills": [ "Perception", "Survival" ],
+          "successYield": []
         },
         {
           "projectName": "Reconnaissance",
-          "minLevel": 3
+          "minLevel": 3,
+          "description": "Conduct detailed scouting missions to gather intelligence about distant locations and potential opportunities.",
+          "durationWeeks": 4,
+          "initialCost": [
+            { "resourceType": "Food", "amount": 10 },
+            { "resourceType": "Gold", "amount": 20 }
+          ],
+          "outcomeType": "Table",
+          "roll": "Required",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers", "Commission", "Difficulty" ],
+          "bonusSkills": [ "Perception", "Survival" ],
+          "successYield": []
         }
       ],
       "primarySkill": "Perception",
       "secondarySkill": "Survival",
       "tertiarySkill": "Combat",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Smithy",
@@ -316,13 +343,28 @@
       "availableProjects": [
         {
           "projectName": "Craft Equipment",
-          "minLevel": 1
+          "minLevel": 1,
+          "description": "Produce specialized equipment that can be used by the stronghold or traded for resources.",
+          "durationWeeks": 3,
+          "initialCost": [
+            { "resourceType": "Iron", "amount": 5 },
+            { "resourceType": "Wood", "amount": 3 }
+          ],
+          "outcomeType": "Table",
+          "roll": "None",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers", "Commission" ],
+          "bonusSkills": [ "Smithing", "Crafting" ],
+          "successYield": []
         }
       ],
       "primarySkill": "Smithing",
       "secondarySkill": "Crafting",
       "tertiarySkill": "Labor",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Laboratory",
@@ -412,13 +454,25 @@
       "availableProjects": [
         {
           "projectName": "Craft Alchemical Item",
-          "minLevel": 1
+          "minLevel": 1,
+          "description": "Create potions, elixirs, and other alchemical items for various purposes.",
+          "durationWeeks": 2,
+          "initialCost": [ { "resourceType": "Gold", "amount": 30 } ],
+          "outcomeType": "Table",
+          "roll": "Required",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers", "Commission", "Difficulty" ],
+          "bonusSkills": [ "Alchemy", "Crafting" ],
+          "successYield": []
         }
       ],
       "primarySkill": "Alchemy",
       "secondarySkill": "Research",
       "tertiarySkill": "Crafting",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Chapel",
@@ -498,7 +552,9 @@
       "primarySkill": "Faith",
       "secondarySkill": "Medicine",
       "tertiarySkill": "Lore",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Mine",
@@ -629,7 +685,9 @@
       "primarySkill": "Mining",
       "secondarySkill": "Labor",
       "tertiarySkill": "",
-      "isEssential": true
+      "isEssential": true,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Barracks",
@@ -710,9 +768,11 @@
         }
       ],
       "primarySkill": "Combat",
-      "secondarySkill": "Athletics",
-      "tertiarySkill": "Discipline",
-      "isEssential": false
+      "secondarySkill": "Perception",
+      "tertiarySkill": "",
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Library",
@@ -826,10 +886,12 @@
           "minLevel": 3
         }
       ],
-      "primarySkill": "Research",
-      "secondarySkill": "Lore",
-      "tertiarySkill": "Education",
-      "isEssential": false
+      "primarySkill": "Lore",
+      "secondarySkill": "Research",
+      "tertiarySkill": "Administration",
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "TradeOffice",
@@ -932,21 +994,56 @@
       "availableProjects": [
         {
           "projectName": "Trade Mission",
-          "minLevel": 1
+          "minLevel": 1,
+          "description": "Send a caravan along an established trade route. Cargo is committed at launch; expected returns are computed from the destination's rates, demand, and reputation.",
+          "durationWeeks": 0,
+          "initialCost": [],
+          "outcomeType": "InApp",
+          "roll": "None",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers", "Destination", "Cargo" ],
+          "bonusSkills": [ "Trade", "Connections" ],
+          "successYield": []
         },
         {
           "projectName": "Establish Trade Route",
-          "minLevel": 2
+          "minLevel": 2,
+          "description": "Open a new destination for trade missions. The roll decides the quality of the opening terms. Pays no income of its own.",
+          "durationWeeks": 0,
+          "initialCost": [ { "resourceType": "Gold", "amount": 100 } ],
+          "outcomeType": "InApp",
+          "roll": "Required",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers", "Destination", "Difficulty" ],
+          "bonusSkills": [ "Trade", "Connections" ],
+          "successYield": []
         },
         {
-          "projectName": "Merchant Guild",
-          "minLevel": 3
+          "projectName": "Trade Fair",
+          "minLevel": 1,
+          "description": "Host a week-long fair. A small one-off gold return scaled by assigned Trade skill, Trade Office level, and Reputation, plus a little of the good you choose as the fair's focus. Repeatable.",
+          "durationWeeks": 1,
+          "initialCost": [
+            { "resourceType": "Gold", "amount": 10 },
+            { "resourceType": "Food", "amount": 5 }
+          ],
+          "outcomeType": "InApp",
+          "roll": "None",
+          "minWorkers": 1,
+          "maxWorkers": 0,
+          "setupPrompts": [ "Workers", "Focus" ],
+          "bonusSkills": [ "Trade", "Connections" ],
+          "successYield": []
         }
       ],
-      "primarySkill": "Mining",
-      "secondarySkill": "Labor",
-      "tertiarySkill": "",
-      "isEssential": true
+      "primarySkill": "Trade",
+      "secondarySkill": "Connections",
+      "tertiarySkill": "Administration",
+      "isEssential": true,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Stables",
@@ -1034,10 +1131,12 @@
           "minLevel": 2
         }
       ],
-      "primarySkill": "AnimalHandling",
-      "secondarySkill": "Labor",
-      "tertiarySkill": "Athletics",
-      "isEssential": false
+      "primarySkill": "Labor",
+      "secondarySkill": "",
+      "tertiarySkill": "",
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Tavern",
@@ -1151,10 +1250,12 @@
           "minLevel": 3
         }
       ],
-      "primarySkill": "Hospitality",
-      "secondarySkill": "Persuasion",
-      "tertiarySkill": "Entertainment",
-      "isEssential": false
+      "primarySkill": "Trade",
+      "secondarySkill": "Perception",
+      "tertiarySkill": "Connections",
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "MasonsYard",
@@ -1264,10 +1365,12 @@
           "minLevel": 2
         }
       ],
-      "primarySkill": "Masonry",
+      "primarySkill": "Stoneworking",
       "secondarySkill": "Crafting",
       "tertiarySkill": "Labor",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Workshop",
@@ -1382,9 +1485,11 @@
         }
       ],
       "primarySkill": "Crafting",
-      "secondarySkill": "Artistry",
+      "secondarySkill": "Survival",
       "tertiarySkill": "Labor",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Granary",
@@ -1425,7 +1530,7 @@
       "workerProductionBonus": [
         {
           "resourceType": "Food",
-          "skill": "Organization",
+          "skill": "Administration",
           "bonusValue": 0.5
         }
       ],
@@ -1453,10 +1558,12 @@
           "minLevel": 2
         }
       ],
-      "primarySkill": "Farming",
-      "secondarySkill": "Labor",
-      "tertiarySkill": "Survival",
-      "isEssential": true
+      "primarySkill": "Administration",
+      "secondarySkill": "Farming",
+      "tertiarySkill": "Labor",
+      "isEssential": true,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     },
     {
       "type": "Quarry",
@@ -1582,8 +1689,95 @@
       ],
       "primarySkill": "Mining",
       "secondarySkill": "Labor",
+      "tertiarySkill": "Stoneworking",
+      "isEssential": true,
+      "isCentralBuilding": false,
+      "requiresSteward": false
+    },
+    {
+      "type": "Keep",
+      "requiredConstructionPoints": 150,
+      "maxLevel": 5,
+      "workerSlotsScaling": [
+        {
+          "level": 1,
+          "workerSlots": 1
+        },
+        {
+          "level": 2,
+          "workerSlots": 1
+        },
+        {
+          "level": 3,
+          "workerSlots": 1
+        },
+        {
+          "level": 4,
+          "workerSlots": 1
+        },
+        {
+          "level": 5,
+          "workerSlots": 1
+        }
+      ],
+      "productionScaling": [],
+      "upkeepScaling": [
+        {
+          "level": 1,
+          "resourceType": "Gold",
+          "baseValue": 4
+        },
+        {
+          "level": 2,
+          "resourceType": "Gold",
+          "baseValue": 8
+        },
+        {
+          "level": 3,
+          "resourceType": "Gold",
+          "baseValue": 12
+        },
+        {
+          "level": 4,
+          "resourceType": "Gold",
+          "baseValue": 16
+        },
+        {
+          "level": 5,
+          "resourceType": "Gold",
+          "baseValue": 20
+        }
+      ],
+      "workerProductionBonus": [],
+      "constructionCost": [
+        {
+          "resourceType": "Gold",
+          "amount": 500
+        },
+        {
+          "resourceType": "Wood",
+          "amount": 100
+        },
+        {
+          "resourceType": "Stone",
+          "amount": 200
+        },
+        {
+          "resourceType": "Iron",
+          "amount": 50
+        },
+        {
+          "resourceType": "Luxury",
+          "amount": 25
+        }
+      ],
+      "availableProjects": [],
+      "primarySkill": "Administration",
+      "secondarySkill": "Connections",
       "tertiarySkill": "",
-      "isEssential": true
+      "isEssential": true,
+      "isCentralBuilding": true,
+      "requiresSteward": true
     },
     {
       "type": "Greenhouse",
@@ -1687,7 +1881,9 @@
       "primarySkill": "Farming",
       "secondarySkill": "Survival",
       "tertiarySkill": "Medicine",
-      "isEssential": false
+      "isEssential": false,
+      "isCentralBuilding": false,
+      "requiresSteward": false
     }
   ]
 }

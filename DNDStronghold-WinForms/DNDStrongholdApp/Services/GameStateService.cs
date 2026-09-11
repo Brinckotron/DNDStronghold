@@ -25,6 +25,7 @@ namespace DNDStrongholdApp.Services
         
         // DM Mode flag
         private bool _dmMode = false;
+        private readonly List<(string BuildingId, string ProjectId)> _pendingProjectCompletions = new();
         public bool DMMode
         {
             get => _dmMode;
@@ -149,6 +150,18 @@ namespace DNDStrongholdApp.Services
                 _currentStronghold.Buildings.AddRange(initialBuildings);
             }
             
+            // Always add a Keep as the central building for any stronghold
+            var keep = new Building("Keep")
+            {
+                Name = "Keep",
+                ConstructionStatus = BuildingStatus.Complete,
+                Level = 1
+            };
+            _currentStronghold.Buildings.Add(keep);
+            
+            // Ensure the Keep has a Steward assigned
+            EnsureKeepHasSteward();
+            
             // Add NPCs if provided
             if (initialNPCs != null && initialNPCs.Count > 0)
             {
@@ -197,14 +210,25 @@ namespace DNDStrongholdApp.Services
             // Process buildings
             ProcessConstructionAndRepairs();
             
+            TradeService.ReconcileOccupancy(_currentStronghold);
+
+            // Process building projects
+            ProcessProjects();
+
             // Process missions
             ProcessMissions();
+
+            // Background trade drift and notable market events
+            ProcessTradeRoutes();
             
             // Process resources
             ProcessResources();
             
             // Process hunger progression after resource consumption
             ProcessHungerProgression();
+            
+            // Process morale changes
+            ProcessWeeklyMorale();
             
             // Generate weekly report
             GenerateWeeklyReport(previousResourceAmounts);
@@ -263,7 +287,361 @@ namespace DNDStrongholdApp.Services
                 }
             }
         }
-        
+
+        private void ProcessProjects()
+        {
+            if (_currentStronghold?.Buildings == null) return;
+
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                if (building.CurrentProject == null) continue;
+                building.CurrentProject.HasTicked = true;
+                building.CurrentProject.TimeRemaining = Math.Max(0, building.CurrentProject.TimeRemaining - 1);
+                if (building.CurrentProject.TimeRemaining <= 0)
+                {
+                    _pendingProjectCompletions.Add((building.Id, building.CurrentProject.Id));
+                }
+            }
+        }
+
+        public List<(Building Building, Project Project)> DrainPendingProjectCompletions()
+        {
+            var result = new List<(Building, Project)>();
+            if (_currentStronghold?.Buildings == null)
+            {
+                _pendingProjectCompletions.Clear();
+                return result;
+            }
+
+            foreach (var building in _currentStronghold.Buildings)
+            {
+                if (building.CurrentProject != null && building.CurrentProject.TimeRemaining <= 0)
+                    result.Add((building, building.CurrentProject));
+            }
+
+            _pendingProjectCompletions.Clear();
+            return result;
+        }
+
+        public ProjectCompletionResult FinishProject(string buildingId, int? d20Total, bool skipped, bool notify = true)
+        {
+            var result = new ProjectCompletionResult();
+            var building = _currentStronghold?.Buildings.Find(b => b.Id == buildingId);
+            if (building?.CurrentProject == null)
+            {
+                result.Summary = "No active project.";
+                return result;
+            }
+
+            var project = building.CurrentProject;
+            var buildingData = new LoadBuildingDataCommand().Execute();
+            var buildingInfo = buildingData.buildings.Find(b => b.type == building.TypeName);
+            int bonus = ProjectResolutionService.ComputeBonus(building, buildingInfo, project, _currentStronghold.NPCs);
+            result.Bonus = bonus;
+            result.DC = project.DC;
+
+            if (string.Equals(project.Name, "Trade Fair", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Tier = ProjectResultTier.Success;
+                result.YieldGranted = ProjectResolutionService.ComputeTradeFairYield(
+                    building, project, _currentStronghold.NPCs, _currentStronghold.Reputation);
+                string broughtIn = ProjectResolutionService.FormatCosts(result.YieldGranted);
+                result.Summary = project.FairFocusResource is ResourceType focus
+                    ? $"The fair focused on {focus} and brought in {broughtIn}."
+                    : $"The fair brought in {broughtIn}.";
+            }
+            else if (string.Equals(project.Name, "Trade Mission", StringComparison.OrdinalIgnoreCase))
+            {
+                result = ResolveTradeMission(building, project);
+            }
+            else if (string.Equals(project.Name, "Establish Trade Route", StringComparison.OrdinalIgnoreCase))
+            {
+                result = ResolveEstablishTradeRoute(building, project, d20Total, skipped, bonus);
+            }
+            else
+            {
+                result = ResolveGenericProject(building, project, d20Total, skipped, bonus);
+            }
+
+            GrantResources(result.YieldGranted);
+            ProjectResolutionService.AwardProjectSkillXp(project, buildingInfo, _currentStronghold.NPCs);
+
+            string journalBody =
+                $"{project.Name} at {building.Name} finished as {result.Tier}." +
+                (string.IsNullOrEmpty(project.Commission) ? "" : $" Commission: {project.Commission}.") +
+                $" Workers: {project.AssignedWorkers.Count}." +
+                (project.RollMode != ProjectRollMode.None && result.D20Total.HasValue
+                    ? $" Roll {result.D20Total}+{result.Bonus} vs DC {result.DC}."
+                    : "") +
+                $" Yield: {ProjectResolutionService.FormatCosts(result.YieldGranted)}." +
+                (string.IsNullOrEmpty(result.Mishap) ? "" : $" {result.Mishap}") +
+                (string.IsNullOrEmpty(result.Summary) ? "" : $" {result.Summary}");
+
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.ProjectComplete,
+                $"{project.Name} complete",
+                journalBody.Trim()));
+
+            ClearTradeOccupancy(project);
+            building.CurrentProject = null;
+            if (notify)
+                OnGameStateChanged();
+            return result;
+        }
+
+        private ProjectCompletionResult ResolveGenericProject(
+            Building building, Project project, int? d20Total, bool skipped, int bonus)
+        {
+            var result = new ProjectCompletionResult { Bonus = bonus, DC = project.DC };
+            ProjectResultTier tier = ProjectResultTier.Success;
+
+            if (project.RollMode == ProjectRollMode.Required)
+            {
+                int roll = d20Total ?? 1;
+                result.D20Total = roll;
+                tier = ProjectResolutionService.GetResultTier(roll, bonus, project.DC);
+            }
+            else if (project.RollMode == ProjectRollMode.Optional && !skipped && d20Total.HasValue)
+            {
+                result.D20Total = d20Total;
+                tier = ProjectResolutionService.GetResultTier(d20Total.Value, bonus, project.DC);
+            }
+
+            result.Tier = tier;
+            result.YieldGranted = ProjectResolutionService.ScaleYield(project.SuccessYield, tier);
+            result.Mishap = ProjectResolutionService.DefaultMishap(project.Name, tier);
+            result.Summary = project.OutcomeType == ProjectOutcomeType.Table
+                ? $"Recorded as {tier} for the table."
+                : $"Resolved as {tier}. Returned {ProjectResolutionService.FormatCosts(result.YieldGranted)}.";
+            return result;
+        }
+
+        private ProjectCompletionResult ResolveTradeMission(Building building, Project project)
+        {
+            var result = new ProjectCompletionResult { Tier = ProjectResultTier.Success, DC = 0 };
+            var route = _currentStronghold.TradeRoutes.Find(r => r.Id == project.TradeRouteId);
+            var (fraction, mishap) = TradeService.RollCargoLoss(route, _currentStronghold);
+            var expected = project.ExpectedReturn ?? new List<ResourceCost>();
+            result.Mishap = mishap;
+            if (fraction <= 0)
+            {
+                result.Tier = ProjectResultTier.Failure;
+                result.YieldGranted = new List<ResourceCost>();
+                result.Summary = $"The caravan to {route?.Name ?? "the destination"} was lost. Cargo already sent is gone.";
+                return result;
+            }
+
+            var packed = expected;
+            var returnedCargo = new List<ResourceCost>();
+            string shortfallNote = string.Empty;
+            if (route != null)
+            {
+                (packed, returnedCargo, shortfallNote) = TradeService.PackReturn(
+                    route, _currentStronghold, project, _currentStronghold.NPCs);
+                TradeService.ApplyMissionStock(route, project, packed, returnedCargo);
+            }
+
+            var comingBack = packed
+                .Select(c => new ResourceCost { ResourceType = c.ResourceType, Amount = c.Amount })
+                .ToList();
+            foreach (var item in returnedCargo)
+            {
+                var existing = comingBack.Find(c => c.ResourceType == item.ResourceType);
+                if (existing != null)
+                    existing.Amount += item.Amount;
+                else
+                    comingBack.Add(new ResourceCost { ResourceType = item.ResourceType, Amount = item.Amount });
+            }
+            result.YieldGranted = TradeService.ApplyLoss(comingBack, fraction);
+            if (fraction < 1m)
+            {
+                result.Tier = ProjectResultTier.Partial;
+                result.Summary = $"The caravan to {route?.Name ?? "the destination"} returned with {ProjectResolutionService.FormatCosts(result.YieldGranted)} (partial).";
+            }
+            else
+            {
+                result.Tier = ProjectResultTier.Success;
+                result.Summary = $"The caravan to {route?.Name ?? "the destination"} returned with {ProjectResolutionService.FormatCosts(result.YieldGranted)}.";
+            }
+            if (!string.IsNullOrEmpty(shortfallNote))
+                result.Summary += " " + shortfallNote;
+            return result;
+        }
+
+        private ProjectCompletionResult ResolveEstablishTradeRoute(
+            Building building, Project project, int? d20Total, bool skipped, int bonus)
+        {
+            var result = new ProjectCompletionResult { Bonus = bonus, DC = project.DC };
+            int roll = d20Total ?? 1;
+            result.D20Total = roll;
+            var tier = ProjectResolutionService.GetResultTier(roll, bonus, project.DC);
+            result.Tier = tier;
+
+            var dest = project.CustomDestination
+                ?? TradeDestinationService.GetInstance().GetById(project.TradeDestinationId ?? "");
+            if (dest == null)
+            {
+                result.YieldGranted = CopyCosts(project.InitialCost);
+                result.Summary = "The destination is no longer in the catalog. The establishment cost was returned.";
+                result.Tier = ProjectResultTier.Failure;
+                return result;
+            }
+
+            if (TradeService.HasOpenRouteTo(_currentStronghold, dest.Id))
+            {
+                result.YieldGranted = CopyCosts(project.InitialCost);
+                result.Summary = $"A route to {dest.Name} is already open. The establishment cost was returned.";
+                return result;
+            }
+
+            var route = TradeService.CreateRoute(
+                dest, tier, _currentStronghold.CurrentWeek, _currentStronghold.YearsSinceFoundation);
+            _currentStronghold.TradeRoutes.Add(route);
+            result.CreatedRoute = route;
+            result.Mishap = tier switch
+            {
+                ProjectResultTier.Failure => "First contact went poorly. The route is open, but prices are bad until the relationship settles.",
+                ProjectResultTier.Partial => "Terms are uneven. Rates will drift toward the local market over the coming weeks.",
+                _ => string.Empty
+            };
+            result.Summary = tier switch
+            {
+                ProjectResultTier.Exceptional => $"Opened a route to {dest.Name} on excellent terms ({dest.DistanceWeeks} week trip).",
+                ProjectResultTier.Success => $"Opened a route to {dest.Name} ({dest.DistanceWeeks} week trip).",
+                ProjectResultTier.Partial => $"Opened a route to {dest.Name} on uneven terms ({dest.DistanceWeeks} week trip).",
+                _ => $"Opened a route to {dest.Name} on poor terms ({dest.DistanceWeeks} week trip). Rates will improve as the market settles."
+            };
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.TradeRouteEstablished,
+                $"Trade route to {dest.Name} established",
+                $"Founding terms: {tier}. Distance: {route.DistanceWeeks} weeks. Demand: {string.Join(", ", route.CurrentDemand)}."));
+            return result;
+        }
+
+        private void ClearTradeOccupancy(Project project)
+        {
+            if (string.IsNullOrEmpty(project.TradeRouteId) || _currentStronghold.TradeRoutes == null) return;
+            var route = _currentStronghold.TradeRoutes.Find(r => r.Id == project.TradeRouteId);
+            if (route != null && route.ActiveMissionProjectId == project.Id)
+                route.ActiveMissionProjectId = null;
+        }
+
+        public void CancelBuildingProject(string buildingId)
+        {
+            var building = _currentStronghold?.Buildings.Find(b => b.Id == buildingId);
+            if (building?.CurrentProject == null) return;
+            var project = building.CurrentProject;
+            if (!project.CanCancelSameTurn) return;
+
+            GrantResources(project.InitialCost);
+            ClearTradeOccupancy(project);
+            building.CancelProject();
+            OnGameStateChanged();
+        }
+
+        public void DamageBuilding(string buildingId, int damageAmount)
+        {
+            var building = _currentStronghold?.Buildings.Find(b => b.Id == buildingId);
+            if (building == null) return;
+
+            var cancelled = building.Damage(damageAmount);
+            if (cancelled != null)
+                ClearTradeOccupancy(cancelled);
+            TradeService.ReconcileOccupancy(_currentStronghold);
+            OnGameStateChanged();
+        }
+
+        private static List<ResourceCost> CopyCosts(List<ResourceCost>? costs)
+        {
+            if (costs == null) return new List<ResourceCost>();
+            return costs
+                .Select(c => new ResourceCost { ResourceType = c.ResourceType, Amount = c.Amount })
+                .ToList();
+        }
+
+        private void GrantResources(List<ResourceCost> grants)
+        {
+            if (grants == null) return;
+            foreach (var grant in grants)
+            {
+                var resource = _currentStronghold.Resources.Find(r => r.Type == grant.ResourceType);
+                if (resource == null) continue;
+                resource.Amount += grant.Amount;
+                if (grant.ResourceType == ResourceType.Gold)
+                    _currentStronghold.Treasury = resource.Amount;
+            }
+        }
+
+        private void ProcessTradeRoutes()
+        {
+            if (_currentStronghold == null) return;
+            _currentStronghold.TradeRoutes ??= new List<TradeRoute>();
+            _currentStronghold.TradeMarketEvents ??= new List<TradeMarketEvent>();
+
+            TradeService.ReconcileOccupancy(_currentStronghold);
+            TradeService.DriftOpenRoutes(_currentStronghold);
+            TradeService.TickSettlementStocks(_currentStronghold);
+            TradeService.TickMarketEvents(_currentStronghold);
+            var ev = TradeService.TryCreateMarketEvent(_currentStronghold);
+            if (ev != null)
+                RecordTradeMarketEvent(ev, notify: false);
+        }
+
+        public void RecordTradeMarketEvent(TradeMarketEvent ev, bool notify = true)
+        {
+            if (ev == null || _currentStronghold == null) return;
+            _currentStronghold.TradeMarketEvents ??= new List<TradeMarketEvent>();
+            if (!_currentStronghold.TradeMarketEvents.Contains(ev))
+                _currentStronghold.TradeMarketEvents.Add(ev);
+
+            var route = _currentStronghold.TradeRoutes?.Find(r => r.Id == ev.RouteId);
+            if (route != null)
+                TradeService.ApplyEventImmediateEffects(route, ev);
+
+            string description = !string.IsNullOrWhiteSpace(ev.Notes)
+                ? ev.Notes.Trim()
+                : ev.Kind switch
+                {
+                    TradeMarketEventKind.DemandSpike =>
+                        $"{ev.RouteName} will pay well for {ev.ResourceType} for {ev.WeeksRemaining} weeks.",
+                    TradeMarketEventKind.Surplus =>
+                        $"{ev.RouteName} has a surplus of {ev.ResourceType} for {ev.WeeksRemaining} weeks.",
+                    TradeMarketEventKind.TradeCollapse =>
+                        $"{ev.RouteName}'s rates have collapsed to failure-tier terms for {ev.WeeksRemaining} weeks.",
+                    TradeMarketEventKind.Drought =>
+                        $"{ev.RouteName} is in drought. Food stores and harvests are failing, and they will pay well for food for {ev.WeeksRemaining} weeks.",
+                    TradeMarketEventKind.Bandits =>
+                        $"Bandits plague the road to {ev.RouteName} for {ev.WeeksRemaining} weeks. Caravans are more likely to lose cargo.",
+                    TradeMarketEventKind.GuildFavor =>
+                        $"{ev.RouteName}'s merchant guild favors you. Rates are exceptional for {ev.WeeksRemaining} weeks.",
+                    TradeMarketEventKind.Quarantine =>
+                        $"{ev.RouteName} is under quarantine for {ev.WeeksRemaining} weeks. No new caravans can be sent.",
+                    _ => ev.DefaultSummary
+                };
+
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.TradeMarketEvent,
+                ev.Summary,
+                description));
+
+            if (notify)
+                OnGameStateChanged();
+        }
+
+        public string CloseTradeRoute(string routeId)
+        {
+            var error = TradeService.CloseRoute(_currentStronghold, routeId);
+            if (string.IsNullOrEmpty(error))
+                OnGameStateChanged();
+            return error;
+        }
+
         // Process missions (progress, completion, etc.)
         private void ProcessMissions()
         {
@@ -496,6 +874,18 @@ namespace DNDStrongholdApp.Services
             {
                 string json = File.ReadAllText(filePath);
                 _currentStronghold = JsonSerializer.Deserialize<Stronghold>(json);
+
+                // Older saves predate skills that have since been added
+                if (_currentStronghold != null)
+                {
+                    _currentStronghold.TradeRoutes ??= new List<TradeRoute>();
+                    _currentStronghold.TradeMarketEvents ??= new List<TradeMarketEvent>();
+                    TradeService.ReconcileOccupancy(_currentStronghold);
+                    foreach (var npc in _currentStronghold.NPCs)
+                    {
+                        npc.EnsureSkillsInitialized();
+                    }
+                }
                 
                 // Notify listeners that the game state has changed
                 OnGameStateChanged();
@@ -548,7 +938,8 @@ namespace DNDStrongholdApp.Services
                 _currentStronghold = new Stronghold
                 {
                     Name = testData.StrongholdName,
-                    Location = testData.StrongholdLocation
+                    Location = testData.StrongholdLocation,
+                    Reputation = testData.Reputation
                 };
 
                 // Clear default resources and add standard starting resources
@@ -568,7 +959,8 @@ namespace DNDStrongholdApp.Services
                         var building = new Building(buildingData.Type)
                         {
                             Name = buildingData.Name,
-                            ConstructionStatus = constructionStatus
+                            ConstructionStatus = constructionStatus,
+                            Level = buildingData.Level > 0 ? buildingData.Level : 1
                         };
                         _currentStronghold.Buildings.Add(building);
                     }
@@ -620,6 +1012,21 @@ namespace DNDStrongholdApp.Services
                     }
                 }
 
+                // Always ensure a Keep exists (central building requirement)
+                if (!_currentStronghold.Buildings.Any(b => b.TypeName == "Keep"))
+                {
+                    var keep = new Building("Keep")
+                    {
+                        Name = "Keep",
+                        ConstructionStatus = BuildingStatus.Complete,
+                        Level = 1
+                    };
+                    _currentStronghold.Buildings.Add(keep);
+                }
+                
+                // Ensure the Keep has a Steward assigned
+                EnsureKeepHasSteward();
+
                 // Add initial journal entry
                 _currentStronghold.Journal.Add(new JournalEntry(
                     _currentStronghold.CurrentWeek,
@@ -645,6 +1052,7 @@ namespace DNDStrongholdApp.Services
         {
             public string StrongholdName { get; set; } = "New Stronghold";
             public string StrongholdLocation { get; set; } = "Unknown";
+            public int Reputation { get; set; } = 0;
             public List<TestBuildingData> Buildings { get; set; } = new List<TestBuildingData>();
             public List<TestNPCData> NPCs { get; set; } = new List<TestNPCData>();
             public List<TestAssignmentData> Assignments { get; set; } = new List<TestAssignmentData>();
@@ -655,6 +1063,7 @@ namespace DNDStrongholdApp.Services
             public string Type { get; set; } = "";
             public string Name { get; set; } = "";
             public string ConstructionStatus { get; set; } = "Complete";
+            public int Level { get; set; } = 1;
         }
 
         public class TestNPCData
@@ -741,6 +1150,62 @@ namespace DNDStrongholdApp.Services
             OnGameStateChanged();
         }
         
+        // Ensure Keep always has a Steward assigned
+        public void EnsureKeepHasSteward()
+        {
+            var keep = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "Keep");
+            if (keep == null) return;
+            
+            // Check if Keep already has a Steward assigned
+            var hasSteward = _currentStronghold.NPCs.Any(npc => 
+                npc.Assignment.Type == AssignmentType.Building && 
+                npc.Assignment.TargetId == keep.Id &&
+                npc.Title == "Steward");
+            
+            if (!hasSteward)
+            {
+                // Find an available NPC to assign as Steward, or create one if none available
+                var availableNpc = _currentStronghold.NPCs.FirstOrDefault(npc => 
+                    npc.Assignment.Type == AssignmentType.Unassigned);
+                
+                if (availableNpc == null)
+                {
+                    // Create a new NPC to serve as Steward
+                    availableNpc = new NPC(NPCType.Administrator)
+                    {
+                        Name = "Steward",
+                        Title = "Steward"
+                    };
+                    availableNpc.GenerateBio();
+                    _currentStronghold.NPCs.Add(availableNpc);
+                }
+                
+                // Assign as Steward to the Keep
+                availableNpc.Assignment = new NPCAssignment
+                {
+                    Type = AssignmentType.Building,
+                    TargetId = keep.Id,
+                    TargetName = keep.Name
+                };
+                availableNpc.Title = "Steward";
+                
+                // Ensure the Keep has at least one worker slot assigned
+                if (!keep.AssignedWorkers.Contains(availableNpc.Id))
+                {
+                    keep.AssignedWorkers.Add(availableNpc.Id);
+                }
+                
+                // Add journal entry
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    "Steward Assigned",
+                    $"{availableNpc.Name} has been assigned as Steward of the Keep."
+                ));
+            }
+        }
+        
         // Assign workers to a building
         public void AssignWorkersToBuilding(string buildingId, List<string> npcIds)
         {
@@ -758,10 +1223,17 @@ namespace DNDStrongholdApp.Services
             }
             
             // First, unassign any regular workers currently assigned to this building (but not construction crew)
+            // Special case: Don't unassign Stewards from the Keep
             foreach (var npc in _currentStronghold.NPCs)
             {
                 if (npc.Assignment.Type == AssignmentType.Building && npc.Assignment.TargetId == buildingId && !building.DedicatedConstructionCrew.Contains(npc.Id))
                 {
+                    // Don't unassign Stewards from the Keep
+                    if (building.TypeName == "Keep" && npc.Title == "Steward")
+                    {
+                        continue;
+                    }
+                    
                     npc.Assignment = new NPCAssignment
                     {
                         Type = AssignmentType.Unassigned,
@@ -771,8 +1243,22 @@ namespace DNDStrongholdApp.Services
                 }
             }
             
-            // Clear the building's assigned workers list
-            building.AssignedWorkers.Clear();
+            // Clear the building's assigned workers list, but preserve Stewards for the Keep
+            if (building.TypeName == "Keep")
+            {
+                // Keep only Stewards in the assigned workers list
+                var stewardIds = _currentStronghold.NPCs
+                    .Where(npc => npc.Assignment.Type == AssignmentType.Building && 
+                                 npc.Assignment.TargetId == buildingId && 
+                                 npc.Title == "Steward")
+                    .Select(npc => npc.Id)
+                    .ToList();
+                building.AssignedWorkers = stewardIds;
+            }
+            else
+            {
+                building.AssignedWorkers.Clear();
+            }
             
             // Assign the new workers
             foreach (var npcId in npcIds)
@@ -954,8 +1440,24 @@ namespace DNDStrongholdApp.Services
                         .Where(npc => npc != null)
                         .ToList();
 
-                    // Update production based on current workers
-                    building.UpdateProduction(assignedNPCs);
+                    // Update production based on current workers and morale
+                    var moraleStatus = GetMoraleStatus();
+                    building.UpdateProduction(assignedNPCs, moraleStatus);
+                    
+                    // Add journal entry if morale affected production
+                    if (!string.IsNullOrEmpty(building.LastMoraleJournalMessage))
+                    {
+                        _currentStronghold.Journal.Add(new JournalEntry(
+                            _currentStronghold.CurrentWeek,
+                            _currentStronghold.YearsSinceFoundation,
+                            JournalEntryType.Event,
+                            "Morale Production Effect",
+                            building.LastMoraleJournalMessage
+                        ));
+                        
+                        // Clear the message after adding to journal
+                        building.LastMoraleJournalMessage = null;
+                    }
 
                     // Calculate worker salaries (Gold upkeep)
                     int totalSalaries = assignedNPCs.Sum(worker => 
@@ -1297,6 +1799,218 @@ namespace DNDStrongholdApp.Services
             }
 
             return false;
+        }
+
+        // Process weekly morale changes
+        private void ProcessWeeklyMorale()
+        {
+            // 1. Update baseline based on current structural conditions
+            UpdateMoraleBaseline();
+            
+            // 2. Calculate drift components
+            int baseDrift = CalculateBaseDrift();
+            int eventDrift = GetEventModifiers();
+            int conditionDrift = GetConditionModifiers();
+            
+            // 3. Total drift = sum of all modifiers
+            int totalDrift = baseDrift + eventDrift + conditionDrift;
+            
+            // 4. Apply drift to current morale
+            int previousMorale = _currentStronghold.CurrentMorale;
+            _currentStronghold.CurrentMorale += totalDrift;
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
+            
+            // 5. Process temporary effects (reduce duration)
+            ProcessTemporaryMoraleEffects();
+            
+            // 6. Log morale change if significant
+            if (Math.Abs(totalDrift) >= 5)
+            {
+                string changeDirection = totalDrift > 0 ? "improved" : "declined";
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    "Morale Change",
+                    $"Stronghold morale has {changeDirection} to {_currentStronghold.CurrentMorale}."
+                ));
+            }
+        }
+
+        // Update morale baseline based on structural conditions
+        private void UpdateMoraleBaseline()
+        {
+            int newBaseline = 50; // Default neutral
+            
+            // Starving NPCs temporarily lower baseline
+            int starvingCount = _currentStronghold.NPCs.Count(n => n.HungerState == HungerStatus.Starving);
+            newBaseline -= starvingCount * 5;
+            
+            // Morale buildings permanently raise baseline
+            var moraleBuildings = _currentStronghold.Buildings.Where(b => b.MoraleBonus > 0);
+            newBaseline += moraleBuildings.Sum(b => b.MoraleBonus);
+            
+            // Apply temporary effects
+            foreach (var effect in _currentStronghold.TemporaryMoraleEffects)
+            {
+                newBaseline += effect.MoraleBonus;
+            }
+            
+            _currentStronghold.MoraleBaseline = Math.Clamp(newBaseline, 0, 100);
+        }
+
+        // Calculate base drift toward baseline
+        private int CalculateBaseDrift()
+        {
+            if (_currentStronghold.CurrentMorale > _currentStronghold.MoraleBaseline)
+                return -Math.Min(3, _currentStronghold.CurrentMorale - _currentStronghold.MoraleBaseline); // Drift down
+            else if (_currentStronghold.CurrentMorale < _currentStronghold.MoraleBaseline)
+                return Math.Min(3, _currentStronghold.MoraleBaseline - _currentStronghold.CurrentMorale); // Drift up
+            else
+                return 0; // At baseline
+        }
+
+        // Get event-based morale modifiers
+        private int GetEventModifiers()
+        {
+            int drift = 0;
+            
+            // TODO: Add mission results, NPC deaths, abandonments, feast events
+            // This will be implemented when we integrate with the event system
+            
+            return drift;
+        }
+
+        // Get condition-based morale modifiers
+        private int GetConditionModifiers()
+        {
+            int drift = 0;
+            
+            // Starving NPCs reduce morale
+            int starvingCount = _currentStronghold.NPCs.Count(n => n.HungerState == HungerStatus.Starving);
+            drift -= starvingCount * 2;
+            
+            // TODO: Add active morale projects, building conditions, etc.
+            
+            return drift;
+        }
+
+        // Process temporary morale effects (reduce duration)
+        private void ProcessTemporaryMoraleEffects()
+        {
+            var effectsToRemove = new List<TemporaryMoraleEffect>();
+            
+            foreach (var effect in _currentStronghold.TemporaryMoraleEffects)
+            {
+                effect.DurationWeeks--;
+                if (effect.DurationWeeks <= 0)
+                {
+                    effectsToRemove.Add(effect);
+                }
+            }
+            
+            foreach (var effect in effectsToRemove)
+            {
+                _currentStronghold.TemporaryMoraleEffects.Remove(effect);
+            }
+        }
+
+        // Get current morale status
+        public MoraleStatus GetMoraleStatus()
+        {
+            return _currentStronghold.CurrentMorale switch
+            {
+                >= 81 => MoraleStatus.Excellent,
+                >= 61 => MoraleStatus.Good,
+                >= 41 => MoraleStatus.Fair,
+                >= 21 => MoraleStatus.Poor,
+                _ => MoraleStatus.Critical
+            };
+        }
+
+        // Add temporary morale effect
+        public void AddTemporaryMoraleEffect(string name, int bonus, int durationWeeks, string description)
+        {
+            var effect = new TemporaryMoraleEffect
+            {
+                Name = name,
+                MoraleBonus = bonus,
+                DurationWeeks = durationWeeks,
+                Description = description
+            };
+            
+            _currentStronghold.TemporaryMoraleEffects.Add(effect);
+        }
+
+        // Event-based morale changes
+        public void OnSuccessfulMission(string missionName)
+        {
+            _currentStronghold.CurrentMorale += 10;
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
+            
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "Mission Success",
+                $"Successful completion of {missionName} has boosted stronghold morale!"
+            ));
+        }
+
+        public void OnFailedMission(string missionName)
+        {
+            _currentStronghold.CurrentMorale -= 10;
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
+            
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "Mission Failure",
+                $"The failure of {missionName} has lowered stronghold morale."
+            ));
+        }
+
+        public void OnNPCDeath(string npcName)
+        {
+            _currentStronghold.CurrentMorale -= 20;
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
+            
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "NPC Death",
+                $"The death of {npcName} has shaken the stronghold's morale."
+            ));
+        }
+
+        public void OnNPCAbandonment(string npcName)
+        {
+            _currentStronghold.CurrentMorale -= 15;
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
+            
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "NPC Abandonment",
+                $"{npcName} has abandoned the stronghold, lowering morale."
+            ));
+        }
+
+        public void OnFeastEvent()
+        {
+            _currentStronghold.CurrentMorale += 15;
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
+            
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "Feast Event",
+                "A grand feast has greatly boosted stronghold morale!"
+            ));
         }
     }
 } 

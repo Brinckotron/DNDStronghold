@@ -649,6 +649,10 @@ namespace DNDStrongholdApp.Forms
                 case NPCType.Merchant:
                     mandatorySkills["Trade"] = 1;
                     break;
+
+                case NPCType.Administrator:
+                    mandatorySkills["Administration"] = 1;
+                    break;
             }
             
             return mandatorySkills;

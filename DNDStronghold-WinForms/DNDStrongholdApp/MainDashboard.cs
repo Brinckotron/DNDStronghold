@@ -142,8 +142,19 @@ public partial class MainDashboard : Form
                 editor.ShowDialog();
             }
         };
+
+        ToolStripMenuItem tradeDataEditorItem = new ToolStripMenuItem("Trade Data Editor");
+        tradeDataEditorItem.Click += (s, e) =>
+        {
+            using (var editor = new Forms.TradeDataEditor())
+            {
+                editor.ShowDialog();
+            }
+            RefreshTradeTab();
+        };
         
         toolsMenu.DropDownItems.Add(buildingDataEditorItem);
+        toolsMenu.DropDownItems.Add(tradeDataEditorItem);
 
         // Add DM Mode toggle
         ToolStripMenuItem dmModeItem = new ToolStripMenuItem("DM Mode");
@@ -192,6 +203,7 @@ public partial class MainDashboard : Form
         TabPage buildingsTab = new TabPage("Buildings");
         TabPage npcsTab = new TabPage("NPCs");
         TabPage resourcesTab = new TabPage("Resources");
+        TabPage tradeTab = new TabPage("Trade");
         TabPage journalTab = new TabPage("Journal");
         TabPage missionsTab = new TabPage("Missions");
         
@@ -200,6 +212,7 @@ public partial class MainDashboard : Form
         _tabControl.TabPages.Add(buildingsTab);
         _tabControl.TabPages.Add(npcsTab);
         _tabControl.TabPages.Add(resourcesTab);
+        _tabControl.TabPages.Add(tradeTab);
         _tabControl.TabPages.Add(journalTab);
         _tabControl.TabPages.Add(missionsTab);
         
@@ -211,6 +224,7 @@ public partial class MainDashboard : Form
         InitializeBuildingsTab(buildingsTab);
         InitializeNPCsTab(npcsTab);
         InitializeResourcesTab(resourcesTab);
+        InitializeTradeTab(tradeTab);
         InitializeJournalTab(journalTab);
         InitializeMissionsTab(missionsTab);
     }
@@ -273,17 +287,20 @@ public partial class MainDashboard : Form
         TableLayoutPanel rightLayout = new TableLayoutPanel();
         rightLayout.Dock = DockStyle.Fill;
         rightLayout.ColumnCount = 1;
-        rightLayout.RowCount = 3;
-        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 38F)); // Resources (tall)
-        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 47F)); // NPCs (medium)
-        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 15F)); // Controls (small)
+        rightLayout.RowCount = 4;
+        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 32F)); // Resources
+        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 38F)); // NPCs
+        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 18F)); // Trade
+        rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 12F)); // Controls
         
         GroupBox resourceSummaryPanel = CreateResourceSummaryPanel();
         GroupBox npcSummaryPanel = CreateNPCSummaryPanel();
+        GroupBox tradeSummaryPanel = CreateTradeSummaryPanel();
         GroupBox controlsPanel = CreateControlsPanel();
         rightLayout.Controls.Add(resourceSummaryPanel, 0, 0);
         rightLayout.Controls.Add(npcSummaryPanel, 0, 1);
-        rightLayout.Controls.Add(controlsPanel, 0, 2);
+        rightLayout.Controls.Add(tradeSummaryPanel, 0, 2);
+        rightLayout.Controls.Add(controlsPanel, 0, 3);
         
         // Add left and right layouts to main layout
         mainLayout.Controls.Add(leftLayout, 0, 0);
@@ -304,7 +321,7 @@ public partial class MainDashboard : Form
         TableLayoutPanel layout = new TableLayoutPanel();
         layout.Dock = DockStyle.Fill;
         layout.ColumnCount = 2;
-        layout.RowCount = 3;
+        layout.RowCount = 4;
         
         // Add labels
         layout.Controls.Add(new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight }, 0, 0);
@@ -315,6 +332,9 @@ public partial class MainDashboard : Form
         
         layout.Controls.Add(new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight }, 0, 2);
         layout.Controls.Add(new Label { Text = _stronghold.Level.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLevel" }, 1, 2);
+        
+        layout.Controls.Add(new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight }, 0, 3);
+        layout.Controls.Add(new Label { Text = $"{_stronghold.CurrentMorale}/100", TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdMorale" }, 1, 3);
         
         groupBox.Controls.Add(layout);
         return groupBox;
@@ -488,6 +508,27 @@ public partial class MainDashboard : Form
         // Add column click handler for sorting
         listView.ColumnClick += DashboardBuildingsListView_ColumnClick;
         
+        groupBox.Controls.Add(listView);
+        return groupBox;
+    }
+
+    private GroupBox CreateTradeSummaryPanel()
+    {
+        GroupBox groupBox = new GroupBox();
+        groupBox.Text = "Trade";
+        groupBox.Dock = DockStyle.Fill;
+        groupBox.Margin = new Padding(5);
+        groupBox.Tag = "TradeSummaryPanel";
+
+        ListView listView = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            Tag = "TradeSummaryList"
+        };
+        listView.Columns.Add("Item", 220);
+        listView.Columns.Add("Detail", 180);
         groupBox.Controls.Add(listView);
         return groupBox;
     }
@@ -1079,6 +1120,137 @@ public partial class MainDashboard : Form
         placeholder.Dock = DockStyle.Fill;
         placeholder.TextAlign = ContentAlignment.MiddleCenter;
         tab.Controls.Add(placeholder);
+    }
+
+    private void InitializeTradeTab(TabPage tab)
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 2,
+            Padding = new Padding(10)
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48F));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 68F));
+
+        var eventsBox = new GroupBox { Text = "Market events", Dock = DockStyle.Fill, Tag = "TradeEventsBox" };
+        var eventsList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            ShowItemToolTips = true,
+            Tag = "TradeEventsList"
+        };
+        eventsList.Columns.Add("Event", 640);
+        eventsList.Columns.Add("Weeks", 70);
+        eventsBox.Controls.Add(eventsList);
+        eventsBox.Resize += (_, _) =>
+        {
+            if (eventsList.Columns.Count >= 2)
+                eventsList.Columns[0].Width = Math.Max(200, eventsList.ClientSize.Width - 80);
+        };
+        layout.Controls.Add(eventsBox, 0, 0);
+        layout.SetColumnSpan(eventsBox, 2);
+
+        var routesBox = new GroupBox { Text = "Established routes", Dock = DockStyle.Fill };
+        var routesLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+        routesLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        routesLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+        var routeButtons = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        routeButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        routeButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        var routesList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "TradeRoutesList"
+        };
+        routesList.Columns.Add("Name", 130);
+        routesList.Columns.Add("Type", 70);
+        routesList.Columns.Add("Distance", 70);
+        routesList.Columns.Add("Status", 70);
+        routesList.Columns.Add("Demand", 110);
+        routesList.Columns.Add("Caravan", 140);
+        routesList.Columns.Add("Send", 70);
+        routesList.SelectedIndexChanged += TradeRoutesList_SelectedIndexChanged;
+        routesList.MouseClick += TradeRoutesList_MouseClick;
+        routesList.DoubleClick += (_, _) => SendCaravanForSelectedRoute();
+        var sendButton = new Button
+        {
+            Text = "Send caravan",
+            Dock = DockStyle.Fill,
+            Tag = "SendCaravanButton",
+            Enabled = false
+        };
+        sendButton.Click += (_, _) => SendCaravanForSelectedRoute();
+        var editButton = new Button
+        {
+            Text = "Edit route",
+            Dock = DockStyle.Fill,
+            Tag = "EditTradeRouteButton",
+            Visible = _gameStateService.DMMode,
+            Enabled = false
+        };
+        editButton.Click += (_, _) => EditSelectedTradeRoute();
+        routeButtons.Controls.Add(sendButton, 0, 0);
+        routeButtons.Controls.Add(editButton, 1, 0);
+        routesLayout.Controls.Add(routesList, 0, 0);
+        routesLayout.Controls.Add(routeButtons, 0, 1);
+        routesBox.Controls.Add(routesLayout);
+        layout.Controls.Add(routesBox, 0, 1);
+
+        var detailBox = new GroupBox { Text = "Route details", Dock = DockStyle.Fill };
+        var detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150F));
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
+        detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        var routeSummary = new Label
+        {
+            Dock = DockStyle.Fill,
+            Tag = "TradeRouteSummaryLabel",
+            Padding = new Padding(4, 4, 4, 0),
+            Text = "Select a route."
+        };
+        var caravanSummary = new Label
+        {
+            Dock = DockStyle.Fill,
+            Tag = "TradeCaravanSummaryLabel",
+            Padding = new Padding(4, 0, 4, 4),
+            Text = "No caravan on this route."
+        };
+        var ratesList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "TradeRatesList"
+        };
+        ratesList.Columns.Add("Resource", 90);
+        ratesList.Columns.Add("Buy", 60);
+        ratesList.Columns.Add("Sell", 60);
+        ratesList.Columns.Add("Can buy", 70);
+        ratesList.Columns.Add("Available", 70);
+        ratesList.Columns.Add("Notes", 160);
+        detailLayout.Controls.Add(routeSummary, 0, 0);
+        detailLayout.Controls.Add(caravanSummary, 0, 1);
+        detailLayout.Controls.Add(ratesList, 0, 2);
+        detailBox.Controls.Add(detailLayout);
+        detailBox.Resize += (_, _) =>
+        {
+            if (ratesList.Columns.Count >= 6)
+                ratesList.Columns[5].Width = Math.Max(80, ratesList.ClientSize.Width - 360);
+        };
+
+        layout.Controls.Add(detailBox, 1, 1);
+        tab.Controls.Add(layout);
     }
 
     private void InitializeBuildingsTab(TabPage tab)
@@ -1878,7 +2050,7 @@ public partial class MainDashboard : Form
             RowCount = 2,
             Padding = new Padding(5)
         };
-        projectsInfoPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 120F)); // Current project info
+        projectsInfoPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 175F)); // Current project info
         projectsInfoPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // Project workers list
 
         // Current project info panel
@@ -1912,6 +2084,30 @@ public partial class MainDashboard : Form
             Text = "Time Remaining: N/A"
         };
 
+        Label projectBonusLabel = new Label
+        {
+            Tag = "ProjectBonusLabel",
+            Location = new Point(10, 80),
+            Size = new Size(280, 20),
+            Text = ""
+        };
+
+        Label projectCargoLabel = new Label
+        {
+            Tag = "ProjectCargoLabel",
+            Location = new Point(10, 100),
+            Size = new Size(280, 32),
+            Text = ""
+        };
+
+        Label projectReturnLabel = new Label
+        {
+            Tag = "ProjectReturnLabel",
+            Location = new Point(10, 132),
+            Size = new Size(280, 32),
+            Text = ""
+        };
+
         Button cancelProjectButton = new Button
         {
             Text = "Cancel",
@@ -1926,6 +2122,9 @@ public partial class MainDashboard : Form
         currentProjectPanel.Controls.Add(currentProjectLabel);
         currentProjectPanel.Controls.Add(projectNameLabel);
         currentProjectPanel.Controls.Add(projectTimeLabel);
+        currentProjectPanel.Controls.Add(projectBonusLabel);
+        currentProjectPanel.Controls.Add(projectCargoLabel);
+        currentProjectPanel.Controls.Add(projectReturnLabel);
         currentProjectPanel.Controls.Add(cancelProjectButton);
         projectsInfoPanel.Controls.Add(currentProjectPanel, 0, 0);
 
@@ -1991,7 +2190,7 @@ public partial class MainDashboard : Form
             else
             {
                 projectsContentPanel.Visible = true;
-                projectsGroup.Height = 350; // Increased from 250 to 350 to show assigned workers listview properly
+                projectsGroup.Height = 420;
                 btn.Text = "▼";
             }
         };
@@ -2003,11 +2202,35 @@ public partial class MainDashboard : Form
         projectsGroup.Controls.Add(projectsContentPanel);
         projectsGroup.Controls.Add(projectsHeaderPanel);
 
-        // Update sections panel to have 5 rows instead of 4
-        sectionsPanel.RowCount = 5;
-        
-        // Add projects group to sections panel
-        sectionsPanel.Controls.Add(projectsGroup, 0, 4);
+        // Trade Office compact route list
+        GroupBox tradeOfficeRoutesGroup = new GroupBox
+        {
+            Text = "Trade Routes",
+            Dock = DockStyle.Top,
+            Height = 140,
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 0, 10),
+            Tag = "TradeOfficeRoutesGroup",
+            Visible = false
+        };
+        ListView tradeOfficeRoutesList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "TradeOfficeRoutesListView"
+        };
+        tradeOfficeRoutesList.Columns.Add("Route", 120);
+        tradeOfficeRoutesList.Columns.Add("Status", 70);
+        tradeOfficeRoutesList.Columns.Add("Caravan", 90);
+        tradeOfficeRoutesList.DoubleClick += TradeOfficeRoutesList_DoubleClick;
+        tradeOfficeRoutesGroup.Controls.Add(tradeOfficeRoutesList);
+
+        // Update sections panel to have 6 rows
+        sectionsPanel.RowCount = 6;
+        sectionsPanel.Controls.Add(tradeOfficeRoutesGroup, 0, 4);
+        sectionsPanel.Controls.Add(projectsGroup, 0, 5);
 
         tab.Controls.Add(mainLayout);
     }
@@ -2037,6 +2260,9 @@ public partial class MainDashboard : Form
 
     private void NextTurnButton_Click(object sender, EventArgs e)
     {
+        // Finish any project already at 0 weeks (dismissed dialog, food-block last turn, etc.)
+        ResolveCompletedProjects();
+
         // Check for food shortage or starving NPCs before advancing
         if (CheckForFoodShortage() || CheckForStarvingNPCs())
         {
@@ -2044,9 +2270,21 @@ public partial class MainDashboard : Form
         }
         else
         {
-            // No issues, proceed directly
             _gameStateService.AdvanceWeek();
+            ResolveCompletedProjects();
         }
+    }
+
+    private void ResolveCompletedProjects()
+    {
+        var pending = _gameStateService.DrainPendingProjectCompletions();
+        foreach (var (building, project) in pending)
+        {
+            using var dialog = new ProjectCompletionDialog(building, project, _stronghold, _gameStateService);
+            dialog.ShowDialog(this);
+        }
+        if (pending.Count > 0)
+            _gameStateService.OnGameStateChanged();
     }
 
     private void SaveButton_Click(object sender, EventArgs e)
@@ -2103,6 +2341,7 @@ public partial class MainDashboard : Form
         RefreshBuildingsTab();
         RefreshNPCsTab();
         RefreshResourcesTab();
+        RefreshTradeTab();
         RefreshJournalTab();
         RefreshMissionsTab();
     }
@@ -2125,10 +2364,13 @@ public partial class MainDashboard : Form
             case 3: // Resources
                 RefreshResourcesTab();
                 break;
-            case 4: // Journal
+            case 4: // Trade
+                RefreshTradeTab();
+                break;
+            case 5: // Journal
                 RefreshJournalTab();
                 break;
-            case 5: // Missions
+            case 6: // Missions
                 RefreshMissionsTab();
                 break;
         }
@@ -2143,10 +2385,27 @@ public partial class MainDashboard : Form
             var nameLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdName");
             var locationLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLocation");
             var levelLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLevel");
+            var moraleLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdMorale");
             
             if (nameLabel != null) nameLabel.Text = _stronghold.Name;
             if (locationLabel != null) locationLabel.Text = _stronghold.Location;
             if (levelLabel != null) levelLabel.Text = _stronghold.Level.ToString();
+            if (moraleLabel != null)
+            {
+                var moraleStatus = _gameStateService.GetMoraleStatus();
+                moraleLabel.Text = $"{_stronghold.CurrentMorale}/100 ({moraleStatus})";
+                
+                // Color coding based on morale level
+                moraleLabel.ForeColor = moraleStatus switch
+                {
+                    MoraleStatus.Excellent => Color.DarkGreen,
+                    MoraleStatus.Good => Color.Green,
+                    MoraleStatus.Fair => Color.Black,
+                    MoraleStatus.Poor => Color.Orange,
+                    MoraleStatus.Critical => Color.Red,
+                    _ => Color.Black
+                };
+            }
         }
 
         // Update Building Summary Panel
@@ -2315,6 +2574,43 @@ public partial class MainDashboard : Form
                 UpdateRationingButtonState(rationingButton);
             }
         }
+
+        RefreshDashboardTradeSummary();
+    }
+
+    private void RefreshDashboardTradeSummary()
+    {
+        var panel = FindControl<GroupBox>(_tabControl.TabPages[0], "TradeSummaryPanel");
+        if (panel == null) return;
+        var listView = FindControl<ListView>(panel, "TradeSummaryList");
+        if (listView == null) return;
+        listView.Items.Clear();
+
+        _stronghold.TradeMarketEvents ??= new List<TradeMarketEvent>();
+        _stronghold.TradeRoutes ??= new List<TradeRoute>();
+        foreach (var ev in _stronghold.TradeMarketEvents.Where(e => e.WeeksRemaining > 0))
+        {
+            var item = new ListViewItem(ev.Summary);
+            item.SubItems.Add($"{ev.WeeksRemaining}w");
+            item.ForeColor = Color.DarkGoldenrod;
+            item.ToolTipText = string.IsNullOrWhiteSpace(ev.Notes) ? ev.Summary : ev.Notes;
+            listView.Items.Add(item);
+        }
+
+        foreach (var building in _stronghold.Buildings.Where(b => b.CurrentProject != null && b.CurrentProject.Name == "Trade Mission"))
+        {
+            var project = building.CurrentProject;
+            var route = _stronghold.TradeRoutes.Find(r => r.Id == project.TradeRouteId);
+            var item = new ListViewItem($"Caravan to {route?.Name ?? "destination"}");
+            item.SubItems.Add($"{project.TimeRemaining}w · sent {ProjectResolutionService.FormatCosts(project.CargoOut)} → {ProjectResolutionService.FormatCosts(project.ExpectedReturn)}");
+            item.ToolTipText = $"Sent: {ProjectResolutionService.FormatCosts(project.CargoOut)}\nExpected: {ProjectResolutionService.FormatCosts(project.ExpectedReturn)}";
+            listView.Items.Add(item);
+        }
+
+        if (listView.Items.Count == 0)
+        {
+            listView.Items.Add(new ListViewItem("No active caravans or market events"));
+        }
     }
 
     private void RefreshBuildingsTab()
@@ -2322,6 +2618,7 @@ public partial class MainDashboard : Form
         var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
         if (buildingsListView == null) return;
 
+        string keepSelectedId = _selectedBuildingId;
         buildingsListView.Items.Clear();
 
         foreach (var building in _stronghold.Buildings)
@@ -2379,6 +2676,19 @@ public partial class MainDashboard : Form
         if (_lastSortedColumn != -1)
         {
             buildingsListView.ListViewItemSorter = new BuildingsListViewSorter(_lastSortedColumn, _lastSortOrder);
+        }
+
+        if (!string.IsNullOrEmpty(keepSelectedId))
+        {
+            foreach (ListViewItem item in buildingsListView.Items)
+            {
+                if ((string)item.Tag == keepSelectedId)
+                {
+                    item.Selected = true;
+                    item.EnsureVisible();
+                    break;
+                }
+            }
         }
     }
 
@@ -2519,7 +2829,7 @@ public partial class MainDashboard : Form
 
     private void RefreshJournalTab()
     {
-        var journalListView = FindControl<ListView>(_tabControl.TabPages[4], "JournalListView");
+        var journalListView = FindControl<ListView>(_tabControl.TabPages[5], "JournalListView");
         if (journalListView == null) return;
 
         journalListView.Items.Clear();
@@ -2535,7 +2845,7 @@ public partial class MainDashboard : Form
 
     private void RefreshMissionsTab()
     {
-        var missionsListView = FindControl<ListView>(_tabControl.TabPages[5], "MissionsListView");
+        var missionsListView = FindControl<ListView>(_tabControl.TabPages[6], "MissionsListView");
         if (missionsListView == null) return;
 
         missionsListView.Items.Clear();
@@ -2546,6 +2856,268 @@ public partial class MainDashboard : Form
             item.SubItems.Add($"{mission.WeeksRemaining} weeks");
             item.Tag = mission;
             missionsListView.Items.Add(item);
+        }
+    }
+
+    private void RefreshTradeTab()
+    {
+        if (_tabControl.TabPages.Count < 5) return;
+        var tradeTab = _tabControl.TabPages[4];
+        var routesList = FindControl<ListView>(tradeTab, "TradeRoutesList");
+        var eventsList = FindControl<ListView>(tradeTab, "TradeEventsList");
+        if (routesList == null) return;
+
+        string? selectedId = routesList.SelectedItems.Count > 0 ? routesList.SelectedItems[0].Tag as string : null;
+        routesList.Items.Clear();
+        _stronghold.TradeRoutes ??= new List<TradeRoute>();
+        foreach (var route in _stronghold.TradeRoutes)
+        {
+            string caravan = "—";
+            if (route.IsOccupied)
+            {
+                var building = _stronghold.Buildings.Find(b => b.CurrentProject?.Id == route.ActiveMissionProjectId);
+                caravan = building?.CurrentProject != null
+                    ? $"{building.CurrentProject.TimeRemaining}w · {ProjectResolutionService.FormatCosts(building.CurrentProject.CargoOut)}"
+                    : "in transit";
+            }
+            var item = new ListViewItem(route.Name);
+            item.SubItems.Add(route.SettlementType.ToString());
+            item.SubItems.Add($"{route.DistanceWeeks}w");
+            item.SubItems.Add(route.Status.ToString());
+            item.SubItems.Add(TradeService.FormatDemand(route, _stronghold));
+            item.SubItems.Add(caravan);
+            bool canSend = TradeService.CanSendCaravan(route, _stronghold);
+            item.UseItemStyleForSubItems = false;
+            var sendCell = item.SubItems.Add(canSend ? "Send" : "—");
+            if (canSend)
+                sendCell.ForeColor = Color.RoyalBlue;
+            item.Tag = route.Id;
+            if (route.Status == TradeRouteStatus.Closed) item.ForeColor = Color.Gray;
+            else if (TradeService.HasRouteEvent(_stronghold, route, TradeMarketEventKind.Quarantine))
+                item.ForeColor = Color.DimGray;
+            routesList.Items.Add(item);
+            if (selectedId == route.Id) item.Selected = true;
+        }
+
+        if (eventsList != null)
+        {
+            eventsList.Items.Clear();
+            _stronghold.TradeMarketEvents ??= new List<TradeMarketEvent>();
+            foreach (var ev in _stronghold.TradeMarketEvents)
+            {
+                var item = new ListViewItem(ev.Summary);
+                item.SubItems.Add($"{ev.WeeksRemaining}w");
+                item.ToolTipText = string.IsNullOrWhiteSpace(ev.Notes) ? ev.Summary : ev.Notes;
+                eventsList.Items.Add(item);
+            }
+            if (eventsList.Items.Count == 0)
+                eventsList.Items.Add(new ListViewItem("No notable market events"));
+        }
+
+        if (routesList.SelectedItems.Count == 0 && routesList.Items.Count > 0)
+            routesList.Items[0].Selected = true;
+        else
+            ShowSelectedTradeRoute();
+    }
+
+    private void TradeRoutesList_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        ShowSelectedTradeRoute();
+    }
+
+    private void TradeRoutesList_MouseClick(object? sender, MouseEventArgs e)
+    {
+        var list = sender as ListView;
+        if (list == null) return;
+        var hit = list.HitTest(e.Location);
+        if (hit.Item == null || hit.SubItem == null) return;
+        if (hit.Item.SubItems.IndexOf(hit.SubItem) != 6) return;
+        OpenTradeMissionForRoute(hit.Item.Tag as string);
+    }
+
+    private void SendCaravanForSelectedRoute()
+    {
+        var tradeTab = _tabControl.TabPages[4];
+        var routesList = FindControl<ListView>(tradeTab, "TradeRoutesList");
+        if (routesList == null || routesList.SelectedItems.Count == 0) return;
+        OpenTradeMissionForRoute(routesList.SelectedItems[0].Tag as string);
+    }
+
+    private void EditSelectedTradeRoute()
+    {
+        if (!_gameStateService.DMMode) return;
+        var tradeTab = _tabControl.TabPages[4];
+        var routesList = FindControl<ListView>(tradeTab, "TradeRoutesList");
+        if (routesList == null || routesList.SelectedItems.Count == 0) return;
+        var routeId = routesList.SelectedItems[0].Tag as string;
+        var route = _stronghold.TradeRoutes.Find(r => r.Id == routeId);
+        if (route == null) return;
+
+        using var dialog = new DmTradeRouteDialog(route, _stronghold);
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        if (dialog.CreatedEvent != null)
+            _gameStateService.RecordTradeMarketEvent(dialog.CreatedEvent, notify: false);
+
+        _gameStateService.OnGameStateChanged();
+    }
+
+    private void TradeOfficeRoutesList_DoubleClick(object? sender, EventArgs e)
+    {
+        var list = sender as ListView;
+        if (list == null || list.SelectedItems.Count == 0) return;
+        OpenTradeMissionForRoute(list.SelectedItems[0].Tag as string);
+    }
+
+    private void OpenTradeMissionForRoute(string? routeId)
+    {
+        if (string.IsNullOrEmpty(routeId)) return;
+
+        var route = _stronghold.TradeRoutes.Find(r => r.Id == routeId);
+        if (route != null && route.IsOccupied)
+        {
+            MessageBox.Show("A caravan is already on this route.", "Trade Mission",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var offices = _stronghold.Buildings
+            .Where(b => b.TypeName == "TradeOffice" && b.ConstructionStatus == BuildingStatus.Complete)
+            .ToList();
+        if (offices.Count == 0)
+        {
+            bool hasOffice = _stronghold.Buildings.Any(b => b.TypeName == "TradeOffice");
+            MessageBox.Show(
+                hasOffice
+                    ? "The Trade Office must be intact before a new caravan can leave. A caravan already on the road will still return."
+                    : "Build a Trade Office before sending a caravan.",
+                "Trade Mission",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        Building? office = null;
+        if (!string.IsNullOrEmpty(_selectedBuildingId))
+        {
+            var selected = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+            if (selected != null && offices.Contains(selected) && selected.CurrentProject == null)
+                office = selected;
+        }
+        office ??= offices.FirstOrDefault(b => b.CurrentProject == null && b.AssignedWorkers.Count > 0)
+            ?? offices.FirstOrDefault(b => b.CurrentProject == null);
+        if (office == null)
+        {
+            MessageBox.Show("The Trade Office is already running a project.", "Trade Mission",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        OpenAvailableProjectsDialog(
+            preselectProjectName: "Trade Mission",
+            preselectRouteId: routeId,
+            checkFirstWorker: true,
+            building: office);
+    }
+
+    private void ShowSelectedTradeRoute()
+    {
+        var tradeTab = _tabControl.TabPages[4];
+        var routesList = FindControl<ListView>(tradeTab, "TradeRoutesList");
+        var ratesList = FindControl<ListView>(tradeTab, "TradeRatesList");
+        var routeSummary = FindControl<Label>(tradeTab, "TradeRouteSummaryLabel");
+        var caravanSummary = FindControl<Label>(tradeTab, "TradeCaravanSummaryLabel");
+        if (routesList == null || ratesList == null) return;
+        ratesList.Items.Clear();
+        if (routeSummary != null)
+            routeSummary.Text = "Select a route.";
+        if (caravanSummary != null)
+            caravanSummary.Text = "No caravan on this route.";
+        var sendButton = FindControl<Button>(tradeTab, "SendCaravanButton");
+        if (sendButton != null)
+            sendButton.Enabled = false;
+        var editButton = FindControl<Button>(tradeTab, "EditTradeRouteButton");
+        if (editButton != null)
+            editButton.Enabled = false;
+        if (routesList.SelectedItems.Count == 0) return;
+        var route = _stronghold.TradeRoutes.Find(r => r.Id == (string)routesList.SelectedItems[0].Tag);
+        if (route == null) return;
+        TradeService.EnsureRouteStock(route);
+        if (sendButton != null)
+            sendButton.Enabled = TradeService.CanSendCaravan(route, _stronghold);
+        if (editButton != null)
+            editButton.Enabled = true;
+
+        if (routeSummary != null)
+        {
+            string specialty = route.Specialty.Count == 0 ? "—" : string.Join(", ", route.Specialty);
+            string demand = TradeService.FormatDemand(route, _stronghold);
+            string founded = $"Founded: {route.FoundingQuality}";
+            if (route.EstablishedWeek > 0)
+                founded += $"  ·  Week {route.EstablishedWeek}, Year {route.EstablishedYear}";
+            var dest = TradeDestinationService.GetInstance().GetById(route.DestinationId);
+            string notes = !string.IsNullOrWhiteSpace(route.Notes)
+                ? route.Notes.Trim()
+                : (dest?.Notes ?? "").Trim();
+            if (!string.IsNullOrEmpty(notes))
+                notes = "\n" + notes;
+            string extra = "";
+            if (TradeService.HasRouteEvent(_stronghold, route, TradeMarketEventKind.Quarantine))
+                extra += "  ·  Quarantine";
+            else if (TradeService.HasRouteEvent(_stronghold, route, TradeMarketEventKind.Bandits))
+                extra += "  ·  Bandits on the road";
+            routeSummary.Text =
+                $"{route.Name}  ·  {route.SettlementType}  ·  {route.DistanceWeeks} week trip  ·  {route.Status}{extra}\n" +
+                $"{founded}\n" +
+                $"Specialty (cheap to buy): {specialty}\n" +
+                $"Demand (pays well for what you send): {demand}" +
+                notes;
+        }
+
+        if (caravanSummary != null && !route.IsOccupied)
+        {
+            if (TradeService.HasRouteEvent(_stronghold, route, TradeMarketEventKind.Quarantine))
+                caravanSummary.Text = "Quarantine: no new caravans until it lifts.";
+            else if (TradeService.HasRouteEvent(_stronghold, route, TradeMarketEventKind.Bandits))
+                caravanSummary.Text = "Bandits on the road. Caravans are more likely to lose cargo.";
+        }
+
+        if (caravanSummary != null && route.IsOccupied)
+        {
+            var host = _stronghold.Buildings.Find(b => b.CurrentProject?.Id == route.ActiveMissionProjectId);
+            var project = host?.CurrentProject;
+            if (project != null)
+            {
+                caravanSummary.Text =
+                    $"{project.TimeRemaining} weeks remaining.\n" +
+                    $"Sent: {ProjectResolutionService.FormatCosts(project.CargoOut)}\n" +
+                    $"Expected return: {ProjectResolutionService.FormatCosts(project.ExpectedReturn)}";
+            }
+            else
+            {
+                caravanSummary.Text = "Caravan in transit.";
+            }
+        }
+
+        foreach (var rate in route.Rates.OrderBy(r => r.ResourceType))
+        {
+            var notes = new List<string>();
+            if (rate.ResourceType != ResourceType.Gold)
+            {
+                if (TradeService.HasDemand(route, rate.ResourceType, _stronghold)) notes.Add("Demand");
+                if (route.Specialty.Contains(rate.ResourceType)) notes.Add("Specialty");
+                if (!rate.CanBuy) notes.Add("Not sold here");
+                else if (rate.Available <= 0) notes.Add("Sold out");
+            }
+            var item = new ListViewItem(rate.ResourceType.ToString());
+            item.SubItems.Add(rate.ResourceType == ResourceType.Gold ? "1.00" : rate.BuyRate.ToString("0.00"));
+            item.SubItems.Add(rate.ResourceType == ResourceType.Gold
+                ? "1.00"
+                : (rate.CanBuy ? rate.SellRate.ToString("0.00") : "—"));
+            item.SubItems.Add(rate.CanBuy || rate.ResourceType == ResourceType.Gold ? "Yes" : "No");
+            item.SubItems.Add(rate.CanBuy || rate.ResourceType == ResourceType.Gold ? rate.Available.ToString() : "—");
+            item.SubItems.Add(rate.ResourceType == ResourceType.Gold || notes.Count == 0 ? "—" : string.Join(", ", notes));
+            ratesList.Items.Add(item);
         }
     }
 
@@ -2701,6 +3273,12 @@ public partial class MainDashboard : Form
         if (adjustResourceButton != null)
         {
             adjustResourceButton.Visible = _gameStateService.DMMode;
+        }
+
+        var editTradeRouteButton = FindControl<Button>(_tabControl.TabPages[4], "EditTradeRouteButton");
+        if (editTradeRouteButton != null)
+        {
+            editTradeRouteButton.Visible = _gameStateService.DMMode;
         }
     }
 
@@ -3769,9 +4347,45 @@ public partial class MainDashboard : Form
                 var projectsSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectsSummaryLabel");
                 var projectNameLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectNameLabel");
                 var projectTimeLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectTimeLabel");
+                var projectBonusLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectBonusLabel");
+                var projectCargoLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectCargoLabel");
+                var projectReturnLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectReturnLabel");
                 var cancelProjectButton = FindControl<Button>(_tabControl.TabPages[1], "CancelProjectButton");
                 var availableProjectsButton = FindControl<Button>(_tabControl.TabPages[1], "AvailableProjectsButton");
                 var projectWorkersListView = FindControl<ListView>(_tabControl.TabPages[1], "ProjectWorkersListView");
+                var tradeOfficeGroup = FindControl<GroupBox>(_tabControl.TabPages[1], "TradeOfficeRoutesGroup");
+                var tradeOfficeList = FindControl<ListView>(_tabControl.TabPages[1], "TradeOfficeRoutesListView");
+
+                if (tradeOfficeGroup != null)
+                {
+                    bool isTradeOffice = building?.TypeName == "TradeOffice";
+                    tradeOfficeGroup.Visible = isTradeOffice;
+                    if (isTradeOffice && tradeOfficeList != null)
+                    {
+                        tradeOfficeList.Items.Clear();
+                        foreach (var route in _stronghold.TradeRoutes)
+                        {
+                            string caravan = "—";
+                            if (route.IsOccupied)
+                            {
+                                var host = _stronghold.Buildings.Find(b => b.CurrentProject?.Id == route.ActiveMissionProjectId);
+                                caravan = host?.CurrentProject != null
+                                    ? $"{host.CurrentProject.TimeRemaining}w · {ProjectResolutionService.FormatCosts(host.CurrentProject.CargoOut)}"
+                                    : "in transit";
+                            }
+                            var item = new ListViewItem(route.Name);
+                            item.SubItems.Add(
+                                TradeService.HasRouteEvent(_stronghold, route, TradeMarketEventKind.Quarantine)
+                                    ? "Quarantine"
+                                    : route.Status.ToString());
+                            item.SubItems.Add(caravan);
+                            item.Tag = route.Id;
+                            tradeOfficeList.Items.Add(item);
+                        }
+                        if (tradeOfficeList.Items.Count == 0)
+                            tradeOfficeList.Items.Add(new ListViewItem("No established routes"));
+                    }
+                }
 
                 // Add null check for building to prevent crashes when expanding sections without a building selected
                 if (building == null)
@@ -3779,6 +4393,8 @@ public partial class MainDashboard : Form
                     if (projectsSummaryLabel != null) projectsSummaryLabel.Text = "No building selected";
                     if (projectNameLabel != null) projectNameLabel.Text = "None";
                     if (projectTimeLabel != null) projectTimeLabel.Text = "Time Remaining: N/A";
+                    if (projectCargoLabel != null) projectCargoLabel.Text = "";
+                    if (projectReturnLabel != null) projectReturnLabel.Text = "";
                     if (cancelProjectButton != null) cancelProjectButton.Visible = false;
                     if (availableProjectsButton != null) availableProjectsButton.Enabled = false;
                     if (projectWorkersListView != null) projectWorkersListView.Items.Clear();
@@ -3796,9 +4412,60 @@ public partial class MainDashboard : Form
                     
                     if (projectTimeLabel != null)
                         projectTimeLabel.Text = $"Time Remaining: {building.CurrentProject.TimeRemaining} weeks";
+
+                    if (projectBonusLabel != null)
+                    {
+                        var data = new LoadBuildingDataCommand().Execute();
+                        var info = data.buildings.Find(b => b.type == building.TypeName);
+                        int bonus = ProjectResolutionService.ComputeBonus(building, info, building.CurrentProject, _stronghold.NPCs);
+                        projectBonusLabel.Text = building.CurrentProject.RollMode == ProjectRollMode.None
+                            ? "No table roll"
+                            : $"DC {building.CurrentProject.DC}, bonus +{bonus}";
+                    }
+
+                    if (string.Equals(building.CurrentProject.Name, "Trade Mission", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (projectCargoLabel != null)
+                            projectCargoLabel.Text = $"Sent: {ProjectResolutionService.FormatCosts(building.CurrentProject.CargoOut)}";
+                        if (projectReturnLabel != null)
+                            projectReturnLabel.Text = $"Expected: {ProjectResolutionService.FormatCosts(building.CurrentProject.ExpectedReturn)}";
+                    }
+                    else if (string.Equals(building.CurrentProject.Name, "Trade Fair", StringComparison.OrdinalIgnoreCase)
+                        && building.CurrentProject.FairFocusResource is ResourceType fairFocus)
+                    {
+                        if (projectCargoLabel != null)
+                            projectCargoLabel.Text = $"Focus: {fairFocus}";
+                        if (projectReturnLabel != null)
+                        {
+                            string take = ProjectResolutionService.FormatCosts(building.CurrentProject.ExpectedReturn);
+                            projectReturnLabel.Text = take == "None"
+                                ? "From stalls: none this week"
+                                : $"From stalls: {take}";
+                        }
+                    }
+                    else
+                    {
+                        if (projectCargoLabel != null) projectCargoLabel.Text = "";
+                        if (projectReturnLabel != null) projectReturnLabel.Text = "";
+                    }
                     
                     if (cancelProjectButton != null)
-                        cancelProjectButton.Visible = true;
+                    {
+                        if (building.CurrentProject.TimeRemaining <= 0)
+                        {
+                            cancelProjectButton.Visible = true;
+                            cancelProjectButton.Text = "Complete";
+                        }
+                        else if (building.CurrentProject.CanCancelSameTurn)
+                        {
+                            cancelProjectButton.Visible = true;
+                            cancelProjectButton.Text = "Cancel";
+                        }
+                        else
+                        {
+                            cancelProjectButton.Visible = false;
+                        }
+                    }
 
                     if (availableProjectsButton != null)
                         availableProjectsButton.Enabled = false;
@@ -3833,9 +4500,16 @@ public partial class MainDashboard : Form
                     
                     if (projectTimeLabel != null)
                         projectTimeLabel.Text = "Time Remaining: N/A";
+                    if (projectBonusLabel != null)
+                        projectBonusLabel.Text = "";
+                    if (projectCargoLabel != null) projectCargoLabel.Text = "";
+                    if (projectReturnLabel != null) projectReturnLabel.Text = "";
                     
                     if (cancelProjectButton != null)
+                    {
                         cancelProjectButton.Visible = false;
+                        cancelProjectButton.Text = "Cancel";
+                    }
 
                     // Check if projects are available - add null check for building
                     bool hasAvailableProjects = false;
@@ -3928,6 +4602,8 @@ public partial class MainDashboard : Form
         var projectsSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectsSummaryLabel");
         var projectNameLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectNameLabel");
         var projectTimeLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectTimeLabel");
+        var projectCargoLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectCargoLabel");
+        var projectReturnLabel = FindControl<Label>(_tabControl.TabPages[1], "ProjectReturnLabel");
         var cancelProjectButton = FindControl<Button>(_tabControl.TabPages[1], "CancelProjectButton");
         var availableProjectsButton = FindControl<Button>(_tabControl.TabPages[1], "AvailableProjectsButton");
         var projectWorkersListView = FindControl<ListView>(_tabControl.TabPages[1], "ProjectWorkersListView");
@@ -3948,7 +4624,13 @@ public partial class MainDashboard : Form
         if (projectsSummaryLabel != null) projectsSummaryLabel.Text = "No building selected";
         if (projectNameLabel != null) projectNameLabel.Text = "None";
         if (projectTimeLabel != null) projectTimeLabel.Text = "Time Remaining: N/A";
-        if (cancelProjectButton != null) cancelProjectButton.Visible = false;
+        if (projectCargoLabel != null) projectCargoLabel.Text = "";
+        if (projectReturnLabel != null) projectReturnLabel.Text = "";
+        if (cancelProjectButton != null)
+        {
+            cancelProjectButton.Visible = false;
+            cancelProjectButton.Text = "Cancel";
+        }
         if (availableProjectsButton != null) availableProjectsButton.Enabled = false;
         if (projectWorkersListView != null) projectWorkersListView.Items.Clear();
 
@@ -4229,38 +4911,52 @@ public partial class MainDashboard : Form
 
     private void AvailableProjects_Click(object sender, EventArgs e)
     {
-        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+        OpenAvailableProjectsDialog();
+    }
 
-        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+    private void OpenAvailableProjectsDialog(
+        string? preselectProjectName = null,
+        string? preselectRouteId = null,
+        bool checkFirstWorker = false,
+        Building? building = null)
+    {
+        building ??= string.IsNullOrEmpty(_selectedBuildingId)
+            ? null
+            : _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
         if (building == null || building.ConstructionStatus != BuildingStatus.Complete) return;
 
-        // Check if there's already a project running
         if (building.CurrentProject != null)
         {
-            MessageBox.Show("This building already has an active project. Please cancel it first.", 
+            MessageBox.Show("This building already has an active project. Please cancel it first.",
                 "Project Already Active", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        // Get available projects from building data
         var getProjectsCommand = new GetAvailableProjectsCommand(building);
         var availableProjects = getProjectsCommand.Execute();
         if (!availableProjects.Any())
         {
-            MessageBox.Show("No projects are available for this building at its current level.", 
+            MessageBox.Show("No projects are available for this building at its current level.",
                 "No Projects Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        // Show available projects dialog
-        using (var projectDialog = new AvailableProjectsDialog(building, availableProjects, _stronghold.NPCs, _stronghold.Resources))
+        using (var projectDialog = new AvailableProjectsDialog(
+            building,
+            availableProjects,
+            _stronghold.NPCs,
+            _stronghold.Resources,
+            _stronghold,
+            preselectProjectName,
+            preselectRouteId,
+            checkFirstWorker))
         {
             if (projectDialog.ShowDialog() == DialogResult.OK)
             {
-                // Project was started, refresh the display
+                _gameStateService.OnGameStateChanged();
                 RefreshBuildingsTab();
-                
-                // Re-select the same building to update the details
+                RefreshTradeTab();
+
                 var buildingsListView = FindControl<ListView>(_tabControl.TabPages[1], "BuildingsListView");
                 if (buildingsListView != null)
                 {
@@ -4284,15 +4980,33 @@ public partial class MainDashboard : Form
         var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
         if (building == null || building.CurrentProject == null) return;
 
+        if (building.CurrentProject.TimeRemaining <= 0)
+        {
+            ResolveCompletedProjects();
+            return;
+        }
+
+        if (!building.CurrentProject.CanCancelSameTurn)
+        {
+            MessageBox.Show(
+                "This project has already left. It can only be canceled on the same week it was started.",
+                "Cannot cancel",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        string refund = ProjectResolutionService.FormatCosts(building.CurrentProject.InitialCost);
         var result = MessageBox.Show(
-            $"Are you sure you want to cancel the project '{building.CurrentProject.Name}'?\n\nThis will stop all progress on the project.",
+            $"Cancel '{building.CurrentProject.Name}' this week?\n\n" +
+            $"It has not left yet, so resources will be returned: {refund}.",
             "Cancel Project",
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Question);
 
         if (result == DialogResult.Yes)
         {
-            building.CancelProject();
+            _gameStateService.CancelBuildingProject(building.Id);
             _gameStateService.OnGameStateChanged();
             
             // Re-select the same building to refresh the details
@@ -4970,6 +5684,7 @@ public partial class MainDashboard : Form
         {
             // User chose to continue anyway (only available when no food shortage)
             _gameStateService.AdvanceWeek();
+            ResolveCompletedProjects();
         }
         // If result is Cancel with food shortage, do nothing (user closed dialog without action)
     }

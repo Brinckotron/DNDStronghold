@@ -76,9 +76,9 @@ namespace DNDStrongholdApp.Forms
                 Width = 440,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            // Load building types from BuildingTypeService
+            // Load building types from BuildingTypeService (excluding central buildings like Keep)
             var buildingTypeService = BuildingTypeService.GetInstance();
-            var availableTypes = buildingTypeService.GetAvailableBuildingTypes();
+            var availableTypes = buildingTypeService.GetAvailableBuildingTypesExcludingCentral();
             _buildingTypeComboBox.Items.AddRange(availableTypes.ToArray());
             _buildingTypeComboBox.SelectedIndexChanged += BuildingType_SelectedIndexChanged;
 

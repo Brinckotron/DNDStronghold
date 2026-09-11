@@ -185,6 +185,12 @@ namespace DNDStrongholdApp.Forms
             var skillList = new List<string>(basicSkills);
             skillList.Add("— Advanced Skills —");
             skillList.AddRange(advancedSkills);
+            var retiredSkills = GetRetiredSkillNames();
+            if (retiredSkills.Count > 0)
+            {
+                skillList.Add("— Retired Skills —");
+                skillList.AddRange(retiredSkills);
+            }
             // Add '-None-' option for secondary and tertiary
             var skillListWithNone = new List<string> { "-None-" };
             skillListWithNone.AddRange(skillList);
@@ -192,19 +198,26 @@ namespace DNDStrongholdApp.Forms
             secondarySkillCombo.Items.AddRange(skillListWithNone.ToArray());
             tertiarySkillCombo.Items.AddRange(skillListWithNone.ToArray());
 
-            primarySkillCombo.SelectedIndexChanged += (s, e) => { if (currentBuilding != null && !primarySkillCombo.SelectedItem.ToString().StartsWith("—")) currentBuilding.primarySkill = primarySkillCombo.SelectedItem.ToString(); };
+            primarySkillCombo.SelectedIndexChanged += (s, e) => {
+                if (currentBuilding != null)
+                {
+                    var val = NormalizeSkillSelection(primarySkillCombo);
+                    if (!string.IsNullOrEmpty(val))
+                    {
+                        currentBuilding.primarySkill = val;
+                    }
+                }
+            };
             secondarySkillCombo.SelectedIndexChanged += (s, e) => {
                 if (currentBuilding != null)
                 {
-                    var val = secondarySkillCombo.SelectedItem.ToString();
-                    currentBuilding.secondarySkill = (val == "-None-") ? string.Empty : val;
+                    currentBuilding.secondarySkill = NormalizeSkillSelection(secondarySkillCombo);
                 }
             };
             tertiarySkillCombo.SelectedIndexChanged += (s, e) => {
                 if (currentBuilding != null)
                 {
-                    var val = tertiarySkillCombo.SelectedItem.ToString();
-                    currentBuilding.tertiarySkill = (val == "-None-") ? string.Empty : val;
+                    currentBuilding.tertiarySkill = NormalizeSkillSelection(tertiarySkillCombo);
                 }
             };
 
@@ -328,7 +341,22 @@ namespace DNDStrongholdApp.Forms
             };
             projectsDataGrid.Columns.Add("ProjectName", "Project Name");
             projectsDataGrid.Columns.Add("MinLevel", "Min Level");
+            projectsDataGrid.Columns.Add("Duration", "Duration");
+            var outcomeCol = new DataGridViewComboBoxColumn { Name = "Outcome", HeaderText = "Outcome" };
+            outcomeCol.Items.AddRange("Table", "Hybrid", "InApp");
+            projectsDataGrid.Columns.Add(outcomeCol);
+            var rollCol = new DataGridViewComboBoxColumn { Name = "Roll", HeaderText = "Roll" };
+            rollCol.Items.AddRange("None", "Optional", "Required");
+            projectsDataGrid.Columns.Add(rollCol);
+            projectsDataGrid.Columns.Add("MinWorkers", "Min Workers");
+            projectsDataGrid.Columns.Add("MaxWorkers", "Max Workers");
+            projectsDataGrid.Columns.Add("Cost", "Cost (Gold:10, Food:5)");
+            projectsDataGrid.Columns.Add("Yield", "Yield");
+            projectsDataGrid.Columns.Add("SetupPrompts", "Setup prompts");
+            projectsDataGrid.Columns.Add("BonusSkills", "Bonus skills");
+            projectsDataGrid.Columns.Add("Description", "Description");
             projectsDataGrid.CellValueChanged += (s, e) => UpdateAvailableProjects();
+            projectsDataGrid.DataError += (s, e) => { e.ThrowException = false; };
             tabProjects.Controls.Add(projectsDataGrid);
 
             // Worker Bonus Tab
@@ -347,9 +375,11 @@ namespace DNDStrongholdApp.Forms
             var bonusSkillCol = new DataGridViewComboBoxColumn { Name = "Skill", HeaderText = "Skill" };
             var allSkills = Enum.GetNames(typeof(DNDStrongholdApp.Models.BasicSkill)).ToList();
             allSkills.AddRange(Enum.GetNames(typeof(DNDStrongholdApp.Models.AdvancedSkill)));
+            allSkills.AddRange(GetRetiredSkillNames());
             bonusSkillCol.Items.AddRange(allSkills.ToArray());
             dgvWorkerBonus.Columns.Add(bonusSkillCol);
             dgvWorkerBonus.Columns.Add(new DataGridViewTextBoxColumn { Name = "BonusValue", HeaderText = "Bonus Value" });
+            dgvWorkerBonus.DataError += WorkerBonusGrid_DataError;
             tabWorkerBonus.Controls.Add(dgvWorkerBonus);
 
             // Add all tabs
@@ -443,7 +473,20 @@ namespace DNDStrongholdApp.Forms
             projectsDataGrid.Rows.Clear();
             foreach (var proj in currentBuilding.availableProjects)
             {
-                projectsDataGrid.Rows.Add(proj.projectName, proj.minLevel);
+                projectsDataGrid.Rows.Add(
+                    proj.projectName,
+                    proj.minLevel,
+                    proj.durationWeeks,
+                    string.IsNullOrEmpty(proj.outcomeType) ? "InApp" : proj.outcomeType,
+                    string.IsNullOrEmpty(proj.roll) ? "None" : proj.roll,
+                    proj.minWorkers > 0 ? proj.minWorkers : 1,
+                    proj.maxWorkers,
+                    FormatCostList(proj.initialCost),
+                    FormatCostList(proj.successYield),
+                    proj.setupPrompts == null ? "" : string.Join(", ", proj.setupPrompts),
+                    proj.bonusSkills == null ? "" : string.Join(", ", proj.bonusSkills),
+                    proj.description
+                );
             }
 
             // Update construction costs
@@ -480,9 +523,9 @@ namespace DNDStrongholdApp.Forms
                     upkeepScaling = new List<LevelUpkeepValue>(),
                     constructionCost = new List<ResourceCostInfo>(),
                     availableProjects = new List<AvailableProjectInfo>(),
-                    primarySkill = primarySkillCombo.SelectedItem?.ToString() ?? string.Empty,
-                    secondarySkill = secondarySkillCombo.SelectedItem?.ToString() ?? string.Empty,
-                    tertiarySkill = tertiarySkillCombo.SelectedItem?.ToString() ?? string.Empty,
+                    primarySkill = NormalizeSkillSelection(primarySkillCombo),
+                    secondarySkill = NormalizeSkillSelection(secondarySkillCombo),
+                    tertiarySkill = NormalizeSkillSelection(tertiarySkillCombo),
                     workerProductionBonus = new List<WorkerBonusInfo>()
                 };
                 buildingData.buildings.Add(currentBuilding);
@@ -493,11 +536,13 @@ namespace DNDStrongholdApp.Forms
             currentBuilding.maxLevel = (int)numMaxLevel.Value;
 
             // Update skills
-            currentBuilding.primarySkill = primarySkillCombo.SelectedItem?.ToString() ?? string.Empty;
-            var sec = secondarySkillCombo.SelectedItem?.ToString() ?? string.Empty;
-            currentBuilding.secondarySkill = (sec == "-None-") ? string.Empty : sec;
-            var ter = tertiarySkillCombo.SelectedItem?.ToString() ?? string.Empty;
-            currentBuilding.tertiarySkill = (ter == "-None-") ? string.Empty : ter;
+            string primary = NormalizeSkillSelection(primarySkillCombo);
+            if (!string.IsNullOrEmpty(primary))
+            {
+                currentBuilding.primarySkill = primary;
+            }
+            currentBuilding.secondarySkill = NormalizeSkillSelection(secondarySkillCombo);
+            currentBuilding.tertiarySkill = NormalizeSkillSelection(tertiarySkillCombo);
 
             // Update worker slots scaling
             currentBuilding.workerSlotsScaling.Clear();
@@ -588,10 +633,24 @@ namespace DNDStrongholdApp.Forms
                 if (row.IsNewRow) continue;
                 if (row.Cells[0].Value != null && row.Cells[1].Value != null)
                 {
+                    int.TryParse(Convert.ToString(row.Cells["MinLevel"].Value), out int minLevel);
+                    int.TryParse(Convert.ToString(row.Cells["Duration"].Value), out int duration);
+                    int.TryParse(Convert.ToString(row.Cells["MinWorkers"].Value), out int minWorkers);
+                    int.TryParse(Convert.ToString(row.Cells["MaxWorkers"].Value), out int maxWorkers);
                     currentBuilding.availableProjects.Add(new AvailableProjectInfo
                     {
-                        projectName = row.Cells[0].Value.ToString(),
-                        minLevel = Convert.ToInt32(row.Cells[1].Value)
+                        projectName = row.Cells["ProjectName"].Value.ToString(),
+                        minLevel = minLevel,
+                        durationWeeks = duration,
+                        outcomeType = Convert.ToString(row.Cells["Outcome"].Value) ?? "InApp",
+                        roll = Convert.ToString(row.Cells["Roll"].Value) ?? "None",
+                        minWorkers = minWorkers > 0 ? minWorkers : 1,
+                        maxWorkers = maxWorkers,
+                        initialCost = ParseCostList(Convert.ToString(row.Cells["Cost"].Value)),
+                        successYield = ParseCostList(Convert.ToString(row.Cells["Yield"].Value)),
+                        setupPrompts = SplitList(Convert.ToString(row.Cells["SetupPrompts"].Value)),
+                        bonusSkills = SplitList(Convert.ToString(row.Cells["BonusSkills"].Value)),
+                        description = Convert.ToString(row.Cells["Description"].Value) ?? ""
                     });
                 }
             }
@@ -619,6 +678,62 @@ namespace DNDStrongholdApp.Forms
             {
                 buildingData = new BuildingData();
             }
+        }
+
+        // Skill names still referenced by BuildingData.json that no longer exist in the skill
+        // enums. They have to stay selectable: a combo box column rejects a cell value it does
+        // not contain, and the plain combo boxes silently keep their previous selection instead.
+        private List<string> GetRetiredSkillNames()
+        {
+            var known = new HashSet<string>(Enum.GetNames(typeof(BasicSkill)));
+            foreach (string skillName in Enum.GetNames(typeof(AdvancedSkill)))
+            {
+                known.Add(skillName);
+            }
+
+            var retired = new SortedSet<string>();
+            foreach (var building in buildingData?.buildings ?? new List<BuildingInfo>())
+            {
+                var referenced = new List<string>
+                {
+                    building.primarySkill,
+                    building.secondarySkill,
+                    building.tertiarySkill
+                };
+                referenced.AddRange(building.workerProductionBonus.Select(bonus => bonus.skill));
+
+                foreach (string skillName in referenced)
+                {
+                    if (!string.IsNullOrEmpty(skillName) && !known.Contains(skillName))
+                    {
+                        retired.Add(skillName);
+                    }
+                }
+            }
+
+            return retired.ToList();
+        }
+
+        // Separator rows and the '-None-' placeholder are selectable, so they must not reach the data
+        private static string NormalizeSkillSelection(ComboBox combo)
+        {
+            string selected = combo.SelectedItem?.ToString() ?? string.Empty;
+            if (selected == "-None-" || selected.StartsWith("—"))
+            {
+                return string.Empty;
+            }
+
+            return selected;
+        }
+
+        private void WorkerBonusGrid_DataError(object? sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
+            MessageBox.Show(
+                $"'{dgvWorkerBonus.Rows[e.RowIndex].Cells[e.ColumnIndex].Value}' is not a value this column accepts.",
+                "Building Data Editor",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
 
         private void UpdateWorkerSlotsScaling()
@@ -691,15 +806,56 @@ namespace DNDStrongholdApp.Forms
             currentBuilding.availableProjects.Clear();
             foreach (DataGridViewRow row in projectsDataGrid.Rows)
             {
+                if (row.IsNewRow) continue;
                 if (row.Cells[0].Value != null && row.Cells[1].Value != null)
                 {
+                    int.TryParse(Convert.ToString(row.Cells["MinLevel"].Value), out int minLevel);
+                    int.TryParse(Convert.ToString(row.Cells["Duration"].Value), out int duration);
+                    int.TryParse(Convert.ToString(row.Cells["MinWorkers"].Value), out int minWorkers);
+                    int.TryParse(Convert.ToString(row.Cells["MaxWorkers"].Value), out int maxWorkers);
                     currentBuilding.availableProjects.Add(new AvailableProjectInfo
                     {
-                        projectName = row.Cells[0].Value.ToString(),
-                        minLevel = Convert.ToInt32(row.Cells[1].Value)
+                        projectName = row.Cells["ProjectName"].Value.ToString(),
+                        minLevel = minLevel,
+                        durationWeeks = duration,
+                        outcomeType = Convert.ToString(row.Cells["Outcome"].Value) ?? "InApp",
+                        roll = Convert.ToString(row.Cells["Roll"].Value) ?? "None",
+                        minWorkers = minWorkers > 0 ? minWorkers : 1,
+                        maxWorkers = maxWorkers,
+                        initialCost = ParseCostList(Convert.ToString(row.Cells["Cost"].Value)),
+                        successYield = ParseCostList(Convert.ToString(row.Cells["Yield"].Value)),
+                        setupPrompts = SplitList(Convert.ToString(row.Cells["SetupPrompts"].Value)),
+                        bonusSkills = SplitList(Convert.ToString(row.Cells["BonusSkills"].Value)),
+                        description = Convert.ToString(row.Cells["Description"].Value) ?? ""
                     });
                 }
             }
+        }
+
+        private static string FormatCostList(List<ResourceCostInfo>? costs)
+        {
+            if (costs == null || costs.Count == 0) return "";
+            return string.Join(", ", costs.Select(c => $"{c.resourceType}:{c.amount}"));
+        }
+
+        private static List<ResourceCostInfo> ParseCostList(string? text)
+        {
+            var list = new List<ResourceCostInfo>();
+            if (string.IsNullOrWhiteSpace(text)) return list;
+            foreach (var part in text.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var bits = part.Split(':', StringSplitOptions.TrimEntries);
+                if (bits.Length < 2) continue;
+                if (!int.TryParse(bits[1], out int amount)) continue;
+                list.Add(new ResourceCostInfo { resourceType = bits[0], amount = amount });
+            }
+            return list;
+        }
+
+        private static List<string> SplitList(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return new List<string>();
+            return text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         }
 
         private void AddNewBuildingType_Click(object sender, EventArgs e)

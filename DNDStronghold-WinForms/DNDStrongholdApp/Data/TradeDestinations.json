@@ -1,0 +1,290 @@
+{
+  "Destinations": [
+    {
+      "Id": "millcreek",
+      "Name": "Millcreek",
+      "SettlementType": "Village",
+      "DistanceWeeks": 1,
+      "MinReputation": 0,
+      "Specialty": [
+        "Food",
+        "Stone"
+      ],
+      "DefaultDemand": [
+        "Luxury"
+      ],
+      "Resources": [
+        {
+          "ResourceType": "Gold",
+          "BuyRate": 1,
+          "SellRate": 1,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 150
+        },
+        {
+          "ResourceType": "Food",
+          "BuyRate": 0.68,
+          "SellRate": 0.56,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 48
+        },
+        {
+          "ResourceType": "Wood",
+          "BuyRate": 1.70,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Stone",
+          "BuyRate": 0.68,
+          "SellRate": 0.56,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 48
+        },
+        {
+          "ResourceType": "Iron",
+          "BuyRate": 1.70,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Luxury",
+          "BuyRate": 3.40,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        }
+      ],
+      "Notes": "A farming village with a small quarry. Food and stone are cheap and available; they pay well for a taste of luxury."
+    },
+    {
+      "Id": "hearthwood",
+      "Name": "Hearthwood",
+      "SettlementType": "Town",
+      "DistanceWeeks": 3,
+      "MinReputation": 5,
+      "Specialty": [
+        "Wood"
+      ],
+      "DefaultDemand": [
+        "Food",
+        "Iron"
+      ],
+      "Resources": [
+        {
+          "ResourceType": "Gold",
+          "BuyRate": 1,
+          "SellRate": 1,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 400
+        },
+        {
+          "ResourceType": "Food",
+          "BuyRate": 1.00,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Wood",
+          "BuyRate": 1.60,
+          "SellRate": 1.40,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 80
+        },
+        {
+          "ResourceType": "Stone",
+          "BuyRate": 1.00,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Iron",
+          "BuyRate": 2.00,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Luxury",
+          "BuyRate": 4.00,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        }
+      ],
+      "Notes": "A forest-border town built around a sawmill. Timber is their main production; they always need food and iron."
+    },
+    {
+      "Id": "calderis",
+      "Name": "Calderis",
+      "SettlementType": "City",
+      "DistanceWeeks": 5,
+      "MinReputation": 15,
+      "Specialty": [
+        "Luxury"
+      ],
+      "DefaultDemand": [
+        "Food",
+        "Wood",
+        "Stone",
+        "Iron"
+      ],
+      "Resources": [
+        {
+          "ResourceType": "Gold",
+          "BuyRate": 1,
+          "SellRate": 1,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 1200
+        },
+        {
+          "ResourceType": "Food",
+          "BuyRate": 1.15,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Wood",
+          "BuyRate": 2.30,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Stone",
+          "BuyRate": 1.15,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Iron",
+          "BuyRate": 2.30,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Luxury",
+          "BuyRate": 3.68,
+          "SellRate": 2.94,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 64
+        }
+      ],
+      "Notes": "A distant merchant city. Luxury goods are plentiful, and the markets pay well for everyday bulk resources."
+    },
+    {
+      "Id": "morkenain",
+      "Name": "Morkena\u00EFn",
+      "SettlementType": "Castle",
+      "DistanceWeeks": 2,
+      "MinReputation": 8,
+      "Specialty": [
+        "Luxury"
+      ],
+      "DefaultDemand": [
+        "Iron",
+        "Food"
+      ],
+      "Resources": [
+        {
+          "ResourceType": "Gold",
+          "BuyRate": 1,
+          "SellRate": 1,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 300
+        },
+        {
+          "ResourceType": "Food",
+          "BuyRate": 1.10,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Wood",
+          "BuyRate": 2.20,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Stone",
+          "BuyRate": 1.10,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Iron",
+          "BuyRate": 2.20,
+          "SellRate": 0,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": false,
+          "Available": 0
+        },
+        {
+          "ResourceType": "Luxury",
+          "BuyRate": 3.52,
+          "SellRate": 3.36,
+          "TargetBuyRate": 0,
+          "TargetSellRate": 0,
+          "CanBuy": true,
+          "Available": 24
+        }
+      ],
+      "Notes": "A nearby castle-hold. The garrison pays well for iron and food, and can spare a little luxury in return."
+    }
+  ]
+}

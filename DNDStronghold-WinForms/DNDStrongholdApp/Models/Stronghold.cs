@@ -21,7 +21,14 @@ namespace DNDStrongholdApp.Models
         public List<JournalEntry> Journal { get; set; } = new List<JournalEntry>();
         public List<Mission> ActiveMissions { get; set; } = new List<Mission>();
         public List<Mission> AvailableMissions { get; set; } = new List<Mission>();
+        public List<TradeRoute> TradeRoutes { get; set; } = new List<TradeRoute>();
+        public List<TradeMarketEvent> TradeMarketEvents { get; set; } = new List<TradeMarketEvent>();
         public WeeklyReport? CurrentWeeklyReport { get; set; } = null;
+        
+        // Morale System
+        public int CurrentMorale { get; set; } = 50; // Current morale level (0-100)
+        public int MoraleBaseline { get; set; } = 50; // Resting point for morale (0-100)
+        public List<TemporaryMoraleEffect> TemporaryMoraleEffects { get; set; } = new List<TemporaryMoraleEffect>();
 
         // Constructor
         public Stronghold()

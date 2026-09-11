@@ -509,15 +509,7 @@ namespace DNDStrongholdApp.Commands
 
                     foreach (var projectInfo in availableProjectInfos)
                     {
-                        var project = new Project
-                        {
-                            Name = projectInfo.projectName,
-                            Description = GetProjectDescription(projectInfo.projectName),
-                            Duration = GetProjectDuration(projectInfo.projectName),
-                            TimeRemaining = GetProjectDuration(projectInfo.projectName),
-                            InitialCost = GetProjectCosts(projectInfo.projectName),
-                            AssignedWorkers = new List<string>()
-                        };
+                        var project = CreateProjectFromInfo(projectInfo);
                         availableProjects.Add(project);
                     }
                 }
@@ -532,40 +524,61 @@ namespace DNDStrongholdApp.Commands
 
         public bool CanExecute() => _building != null;
 
-        private string GetProjectDescription(string projectName)
+        private static Project CreateProjectFromInfo(AvailableProjectInfo projectInfo)
         {
-            return projectName switch
+            var duration = projectInfo.durationWeeks > 0 ? projectInfo.durationWeeks : 0;
+            var project = new Project
             {
-                "Patrol" => "Send workers to patrol the area around the stronghold, providing security and gathering information about nearby threats.",
-                "Reconnaissance" => "Conduct detailed scouting missions to gather intelligence about distant locations and potential opportunities.",
-                "Craft Equipment" => "Produce specialized equipment that can be used by the stronghold or traded for resources.",
-                "Craft Alchemical Item" => "Create potions, elixirs, and other alchemical items for various purposes.",
-                _ => "A special project that provides unique benefits to the stronghold."
+                Name = projectInfo.projectName,
+                Description = string.IsNullOrWhiteSpace(projectInfo.description)
+                    ? "A special project that provides unique benefits to the stronghold."
+                    : projectInfo.description,
+                Duration = duration,
+                TimeRemaining = duration,
+                InitialCost = ParseCosts(projectInfo.initialCost),
+                AssignedWorkers = new List<string>(),
+                OutcomeType = ParseOutcome(projectInfo.outcomeType),
+                RollMode = ParseRoll(projectInfo.roll),
+                MinWorkers = projectInfo.minWorkers > 0 ? projectInfo.minWorkers : 1,
+                MaxWorkers = projectInfo.maxWorkers,
+                BonusSkills = projectInfo.bonusSkills?.Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
+                    ?? new List<string>(),
+                SetupPrompts = projectInfo.setupPrompts?.ToList() ?? new List<string>(),
+                SuccessYield = ParseCosts(projectInfo.successYield)
             };
+
+            if (project.SetupPrompts.Count == 0)
+                project.SetupPrompts.Add("Workers");
+
+            return project;
         }
 
-        private int GetProjectDuration(string projectName)
+        private static List<ResourceCost> ParseCosts(List<ResourceCostInfo>? infos)
         {
-            return projectName switch
+            var costs = new List<ResourceCost>();
+            if (infos == null) return costs;
+            foreach (var info in infos)
             {
-                "Patrol" => 2,
-                "Reconnaissance" => 4,
-                "Craft Equipment" => 3,
-                "Craft Alchemical Item" => 2,
-                _ => 3
-            };
+                if (string.IsNullOrWhiteSpace(info.resourceType)) continue;
+                if (!Enum.TryParse(info.resourceType, true, out ResourceType type)) continue;
+                if (info.amount <= 0) continue;
+                costs.Add(new ResourceCost { ResourceType = type, Amount = info.amount });
+            }
+            return costs;
         }
 
-        private List<ResourceCost> GetProjectCosts(string projectName)
+        private static ProjectOutcomeType ParseOutcome(string? value)
         {
-            return projectName switch
-            {
-                "Patrol" => new List<ResourceCost> { new ResourceCost { ResourceType = ResourceType.Food, Amount = 5 } },
-                "Reconnaissance" => new List<ResourceCost> { new ResourceCost { ResourceType = ResourceType.Food, Amount = 10 }, new ResourceCost { ResourceType = ResourceType.Gold, Amount = 20 } },
-                "Craft Equipment" => new List<ResourceCost> { new ResourceCost { ResourceType = ResourceType.Iron, Amount = 5 }, new ResourceCost { ResourceType = ResourceType.Wood, Amount = 3 } },
-                "Craft Alchemical Item" => new List<ResourceCost> { new ResourceCost { ResourceType = ResourceType.Gold, Amount = 30 } },
-                _ => new List<ResourceCost>()
-            };
+            return Enum.TryParse<ProjectOutcomeType>(value, true, out var parsed)
+                ? parsed
+                : ProjectOutcomeType.InApp;
+        }
+
+        private static ProjectRollMode ParseRoll(string? value)
+        {
+            return Enum.TryParse<ProjectRollMode>(value, true, out var parsed)
+                ? parsed
+                : ProjectRollMode.None;
         }
     }
 

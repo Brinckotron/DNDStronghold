@@ -96,6 +96,37 @@ namespace DNDStrongholdApp.Services
         }
 
         /// <summary>
+        /// Gets available building types excluding central buildings (like Keep)
+        /// </summary>
+        public List<string> GetAvailableBuildingTypesExcludingCentral()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(_jsonPath) && File.Exists(_jsonPath))
+                {
+                    string json = File.ReadAllText(_jsonPath);
+                    var buildingData = JsonSerializer.Deserialize<BuildingData>(json);
+                    if (buildingData?.buildings != null)
+                    {
+                        return buildingData.buildings
+                            .Where(b => !string.IsNullOrEmpty(b.type) && !b.isCentralBuilding)
+                            .Select(b => b.type)
+                            .Distinct()
+                            .OrderBy(type => type)
+                            .ToList();
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // If there's an error, fall back to regular method
+            }
+            
+            // Fallback to regular method if JSON parsing fails
+            return GetAvailableBuildingTypes();
+        }
+
+        /// <summary>
         /// Checks if a building type is valid/available
         /// </summary>
         public bool IsBuildingTypeValid(string typeName)

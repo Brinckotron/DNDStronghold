@@ -1,6 +1,7 @@
 {
   "strongholdName": "New Stronghold",
   "strongholdLocation": "Unknown",
+  "reputation": 10,
   "buildings": [
     {
       "type": "Farm",
@@ -21,6 +22,12 @@
       "type": "Laboratory",
       "name": "Research Laboratory",
       "constructionStatus": "Complete"
+    },
+    {
+      "type": "TradeOffice",
+      "name": "Trade Office",
+      "constructionStatus": "Complete",
+      "level": 2
     }
   ],
   "npcs": [
@@ -64,6 +71,11 @@
     {
       "buildingType": "Laboratory",
       "npcTypes": ["Scholar", "Scholar"],
+      "maxWorkers": 2
+    },
+    {
+      "buildingType": "TradeOffice",
+      "npcTypes": ["Merchant", "Merchant"],
       "maxWorkers": 2
     }
   ]

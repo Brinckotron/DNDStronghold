@@ -12,6 +12,7 @@ namespace DNDStrongholdApp.Models
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public NPCType Type { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
         public NPCGender Gender { get; set; } = NPCGender.Male;
         public List<Skill> Skills { get; set; } = new List<Skill>();
         public NPCAssignment Assignment { get; set; } = new NPCAssignment();
@@ -66,34 +67,7 @@ namespace DNDStrongholdApp.Models
         // Initialize all skills at level 0
         private void InitializeSkills()
         {
-            // Add all basic skills at level 0
-            foreach (string skillName in Enum.GetNames(typeof(BasicSkill)))
-            {
-                Skills.Add(new Skill 
-                { 
-                    Name = skillName, 
-                    Level = 0, 
-                    Description = $"Basic {skillName} skill",
-                    Type = SkillType.Basic,
-                    Experience = 0,
-                    Specialization = 0f
-                });
-            }
-
-            // Add all advanced skills at level 0
-            foreach (string skillName in Enum.GetNames(typeof(AdvancedSkill)))
-            {
-                Skills.Add(new Skill 
-                { 
-                    Name = skillName, 
-                    Level = 0, 
-                    Description = $"Advanced {skillName} skill",
-                    Type = SkillType.Advanced,
-                    IsLearned = false,
-                    Experience = 0,
-                    Specialization = 0f
-                });
-            }
+            EnsureSkillsInitialized();
 
             // Set initial skill levels and specializations based on NPC type
             switch (Type)
@@ -143,6 +117,41 @@ namespace DNDStrongholdApp.Models
                     SetSkillSpecialization("Trade", 0.2f);
                     SetSkillSpecialization("Connections", 0.2f);
                     break;
+                    
+                case NPCType.Administrator:
+                    Skills.Find(s => s.Name == "Administration").Level = 1;
+                    SetSkillSpecialization("Administration", 0.3f);
+                    SetSkillSpecialization("Connections", 0.3f);
+                    break;
+            }
+        }
+
+        // Add any skill missing from this NPC's list at level 0. New NPCs start empty;
+        // NPCs restored from a save made before a skill existed are missing that skill.
+        public void EnsureSkillsInitialized()
+        {
+            foreach (string skillName in Enum.GetNames(typeof(BasicSkill)))
+            {
+                if (Skills.Any(s => s.Name == skillName)) continue;
+
+                Skills.Add(new Skill
+                {
+                    Name = skillName,
+                    Description = $"Basic {skillName} skill",
+                    Type = SkillType.Basic
+                });
+            }
+
+            foreach (string skillName in Enum.GetNames(typeof(AdvancedSkill)))
+            {
+                if (Skills.Any(s => s.Name == skillName)) continue;
+
+                Skills.Add(new Skill
+                {
+                    Name = skillName,
+                    Description = $"Advanced {skillName} skill",
+                    Type = SkillType.Advanced
+                });
             }
         }
 
@@ -433,7 +442,8 @@ namespace DNDStrongholdApp.Models
         Scout,
         Artisan,
         Scholar,
-        Merchant
+        Merchant,
+        Administrator
     }
 
     public enum NPCGender
@@ -509,7 +519,8 @@ namespace DNDStrongholdApp.Models
         Smithing,
         Arcana,
         Faith,
-        Connections
+        Connections,
+        Administration
     }
 
     public enum SkillType
@@ -621,6 +632,25 @@ public enum RationLevel
     Full = 0,
     Half = 1,
     None = 2
+}
+
+public enum MoraleStatus
+{
+    Critical,    // 0-20: Very low morale, high abandonment risk
+    Poor,        // 21-40: Low morale, reduced production chances
+    Fair,        // 41-60: Average morale, normal production
+    Good,        // 61-80: High morale, production boost chances
+    Excellent    // 81-100: Very high morale, frequent production boosts
+}
+
+public class TemporaryMoraleEffect
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Name { get; set; } = "";
+    public int MoraleBonus { get; set; } = 0;
+    public int DurationWeeks { get; set; } = 1;
+    public string Description { get; set; } = "";
+    public DateTime CreatedWeek { get; set; } = DateTime.Now;
 }
 
     // Class to hold name data from JSON file
