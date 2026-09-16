@@ -21,6 +21,7 @@ namespace DNDStrongholdApp.Forms
         private NumericUpDown numRequiredConstructionPoints;
         private NumericUpDown numMaxLevel;
         private DataGridView dgvWorkerSlotsScaling;
+        private DataGridView dgvDefenseScaling;
         private DataGridView dgvProductionScaling;
         private DataGridView dgvUpkeepScaling;
         private ComboBox primarySkillCombo;
@@ -296,6 +297,19 @@ namespace DNDStrongholdApp.Forms
             dgvWorkerSlotsScaling.CellValueChanged += (s, e) => UpdateWorkerSlotsScaling();
             tabWorkerSlots.Controls.Add(dgvWorkerSlotsScaling);
 
+            var tabDefense = new TabPage("Defense Scaling");
+            dgvDefenseScaling = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AllowUserToAddRows = true,
+                AllowUserToDeleteRows = true
+            };
+            dgvDefenseScaling.Columns.Add("Level", "Level");
+            dgvDefenseScaling.Columns.Add("Defense", "Defense");
+            dgvDefenseScaling.CellValueChanged += (s, e) => UpdateDefenseScaling();
+            tabDefense.Controls.Add(dgvDefenseScaling);
+
             // Production Scaling Tab
             var tabProduction = new TabPage("Production Scaling");
             dgvProductionScaling = new DataGridView
@@ -385,6 +399,7 @@ namespace DNDStrongholdApp.Forms
             // Add all tabs
             tabControl.TabPages.Add(tabConstructionCosts);
             tabControl.TabPages.Add(tabWorkerSlots);
+            tabControl.TabPages.Add(tabDefense);
             tabControl.TabPages.Add(tabProduction);
             tabControl.TabPages.Add(tabUpkeep);
             tabControl.TabPages.Add(tabProjects);
@@ -447,6 +462,15 @@ namespace DNDStrongholdApp.Forms
             foreach (var scaling in currentBuilding.workerSlotsScaling)
             {
                 dgvWorkerSlotsScaling.Rows.Add(scaling.level, scaling.workerSlots);
+            }
+
+            dgvDefenseScaling.Rows.Clear();
+            if (currentBuilding.defenseScaling != null)
+            {
+                foreach (var scaling in currentBuilding.defenseScaling)
+                {
+                    dgvDefenseScaling.Rows.Add(scaling.level, scaling.defense);
+                }
             }
 
             // Update production scaling
@@ -522,6 +546,7 @@ namespace DNDStrongholdApp.Forms
                     productionScaling = new List<LevelResourceValue>(),
                     upkeepScaling = new List<LevelUpkeepValue>(),
                     constructionCost = new List<ResourceCostInfo>(),
+                    defenseScaling = new List<DefenseScaling>(),
                     availableProjects = new List<AvailableProjectInfo>(),
                     primarySkill = NormalizeSkillSelection(primarySkillCombo),
                     secondarySkill = NormalizeSkillSelection(secondarySkillCombo),
@@ -555,6 +580,21 @@ namespace DNDStrongholdApp.Forms
                     {
                         level = Convert.ToInt32(row.Cells[0].Value),
                         workerSlots = Convert.ToInt32(row.Cells[1].Value)
+                    });
+                }
+            }
+
+            currentBuilding.defenseScaling ??= new List<DefenseScaling>();
+            currentBuilding.defenseScaling.Clear();
+            foreach (DataGridViewRow row in dgvDefenseScaling.Rows)
+            {
+                if (row.IsNewRow) continue;
+                if (row.Cells[0].Value != null && row.Cells[1].Value != null)
+                {
+                    currentBuilding.defenseScaling.Add(new DefenseScaling
+                    {
+                        level = Convert.ToInt32(row.Cells[0].Value),
+                        defense = Convert.ToInt32(row.Cells[1].Value)
                     });
                 }
             }
@@ -750,6 +790,27 @@ namespace DNDStrongholdApp.Forms
                     {
                         level = Convert.ToInt32(row.Cells[0].Value),
                         workerSlots = Convert.ToInt32(row.Cells[1].Value)
+                    });
+                }
+            }
+        }
+
+        private void UpdateDefenseScaling()
+        {
+            var building = currentBuilding;
+            if (building == null) return;
+
+            building.defenseScaling ??= new List<DefenseScaling>();
+            building.defenseScaling.Clear();
+            foreach (DataGridViewRow row in dgvDefenseScaling.Rows)
+            {
+                if (row.IsNewRow) continue;
+                if (row.Cells[0].Value != null && row.Cells[1].Value != null)
+                {
+                    building.defenseScaling.Add(new DefenseScaling
+                    {
+                        level = Convert.ToInt32(row.Cells[0].Value),
+                        defense = Convert.ToInt32(row.Cells[1].Value)
                     });
                 }
             }

@@ -9,12 +9,12 @@ namespace DNDStrongholdApp.Forms
         private TextBox _inputTextBox;
         public string InputText => _inputTextBox.Text;
 
-        public TextInputDialog(string title, string prompt, string defaultText = "")
+        public TextInputDialog(string title, string prompt, string defaultText = "", bool password = false)
         {
-            InitializeComponents(title, prompt, defaultText);
+            InitializeComponents(title, prompt, defaultText, password);
         }
 
-        private void InitializeComponents(string title, string prompt, string defaultText)
+        private void InitializeComponents(string title, string prompt, string defaultText, bool password)
         {
             this.Text = title;
             this.Size = new Size(400, 150);
@@ -42,7 +42,8 @@ namespace DNDStrongholdApp.Forms
             {
                 Text = defaultText,
                 Dock = DockStyle.Fill,
-                Width = 350
+                Width = 350,
+                UseSystemPasswordChar = password
             };
 
             FlowLayoutPanel buttonPanel = new FlowLayoutPanel

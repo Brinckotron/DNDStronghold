@@ -71,7 +71,8 @@ namespace DNDStrongholdApp.Models
         ProjectComplete,
         TradeRouteEstablished,
         TradeRouteClosed,
-        TradeMarketEvent
+        TradeMarketEvent,
+        Raid
     }
     
     public enum ImportanceLevel

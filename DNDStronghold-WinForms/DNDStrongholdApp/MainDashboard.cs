@@ -27,6 +27,7 @@ public partial class MainDashboard : Form
     private ToolStripStatusLabel _goldLabel;
     private TabControl _tabControl;
     private Button _nextTurnButton;
+    private readonly List<ToolStripItem> _dmToolMenuItems = new();
 
     // Track last created building/NPC for selection after refresh
     private string _lastCreatedNpcId = null;
@@ -156,17 +157,52 @@ public partial class MainDashboard : Form
         toolsMenu.DropDownItems.Add(buildingDataEditorItem);
         toolsMenu.DropDownItems.Add(tradeDataEditorItem);
 
+        ToolStripMenuItem factionEditorItem = new ToolStripMenuItem("Enemy Factions");
+        factionEditorItem.Click += (s, e) =>
+        {
+            using (var editor = new FactionEditor(_gameStateService))
+            {
+                editor.ShowDialog(this);
+            }
+        };
+        ToolStripMenuItem triggerRaidItem = new ToolStripMenuItem("Trigger Raid");
+        triggerRaidItem.Click += TriggerRaidItem_Click;
+        toolsMenu.DropDownItems.Add(factionEditorItem);
+        toolsMenu.DropDownItems.Add(triggerRaidItem);
+
+        var dmToolsSeparator = new ToolStripSeparator();
+        toolsMenu.DropDownItems.Add(dmToolsSeparator);
+
+        _dmToolMenuItems.Add(buildingDataEditorItem);
+        _dmToolMenuItems.Add(tradeDataEditorItem);
+        _dmToolMenuItems.Add(factionEditorItem);
+        _dmToolMenuItems.Add(triggerRaidItem);
+        _dmToolMenuItems.Add(dmToolsSeparator);
+
         // Add DM Mode toggle
         ToolStripMenuItem dmModeItem = new ToolStripMenuItem("DM Mode");
         dmModeItem.CheckOnClick = true;
         dmModeItem.Checked = _gameStateService.DMMode;
         dmModeItem.Click += (s, e) =>
         {
+            if (dmModeItem.Checked)
+            {
+                using var prompt = new TextInputDialog("DM Mode", "Enter DM password:", password: true);
+                if (prompt.ShowDialog(this) != DialogResult.OK || prompt.InputText != "crit")
+                {
+                    dmModeItem.Checked = false;
+                    if (prompt.DialogResult == DialogResult.OK)
+                    {
+                        MessageBox.Show("Incorrect password.", "DM Mode",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    return;
+                }
+            }
+
             _gameStateService.DMMode = dmModeItem.Checked;
-            // Update DM Mode button visibility
             UpdateDMButtonVisibility();
         };
-        toolsMenu.DropDownItems.Add(new ToolStripSeparator());
         toolsMenu.DropDownItems.Add(dmModeItem);
 
         menuStrip.Items.Add(fileMenu);
@@ -174,6 +210,7 @@ public partial class MainDashboard : Form
         
         this.Controls.Add(menuStrip);
         this.MainMenuStrip = menuStrip;
+        UpdateDMToolMenuVisibility();
     }
 
     private void CreateNextTurnButton()
@@ -272,8 +309,8 @@ public partial class MainDashboard : Form
         leftLayout.Dock = DockStyle.Fill;
         leftLayout.ColumnCount = 1;
         leftLayout.RowCount = 3;
-        leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 22F)); // Stronghold Info (was 18F)
-        leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 53F)); // Buildings (was 57F)
+        leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 30F)); // Stronghold Info
+        leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F)); // Buildings
         leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F)); // Recent Events
         
         GroupBox strongholdInfoPanel = CreateStrongholdInfoPanel();
@@ -321,7 +358,7 @@ public partial class MainDashboard : Form
         TableLayoutPanel layout = new TableLayoutPanel();
         layout.Dock = DockStyle.Fill;
         layout.ColumnCount = 2;
-        layout.RowCount = 4;
+        layout.RowCount = 6;
         
         // Add labels
         layout.Controls.Add(new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight }, 0, 0);
@@ -335,6 +372,18 @@ public partial class MainDashboard : Form
         
         layout.Controls.Add(new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight }, 0, 3);
         layout.Controls.Add(new Label { Text = $"{_stronghold.CurrentMorale}/100", TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdMorale" }, 1, 3);
+
+        var defenseSnapshot = CombatService.Calculate(_stronghold);
+        layout.Controls.Add(new Label { Text = "Defense:", TextAlign = ContentAlignment.MiddleRight }, 0, 4);
+        layout.Controls.Add(new Label
+        {
+            Text = $"{defenseSnapshot.TotalDefense}  ({defenseSnapshot.BuildingDefense}+{defenseSnapshot.NpcCombat})",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Tag = "StrongholdDefense",
+            AutoEllipsis = true
+        }, 1, 4);
+        layout.Controls.Add(new Label { Text = "Perception:", TextAlign = ContentAlignment.MiddleRight }, 0, 5);
+        layout.Controls.Add(new Label { Text = defenseSnapshot.Perception.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdPerception" }, 1, 5);
         
         groupBox.Controls.Add(layout);
         return groupBox;
@@ -1391,7 +1440,7 @@ public partial class MainDashboard : Form
         {
             Text = "Basic Information",
             Dock = DockStyle.Top,
-            Height = 200,
+            Height = 230,
             Padding = new Padding(10),
             Margin = new Padding(0, 0, 0, 10)
         };
@@ -1400,7 +1449,7 @@ public partial class MainDashboard : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            RowCount = 5,
+            RowCount = 6,
             Padding = new Padding(5)
         };
 
@@ -1410,9 +1459,9 @@ public partial class MainDashboard : Form
         basicInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));  // Buttons
 
         // Add rows with equal height
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
         {
-            basicInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            basicInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 6F));
         }
 
         // Name row
@@ -1462,6 +1511,12 @@ public partial class MainDashboard : Form
         basicInfoLayout.Controls.Add(conditionLabel, 0, 4);
         basicInfoLayout.Controls.Add(conditionValue, 1, 4);
         basicInfoLayout.Controls.Add(repairButton, 2, 4);
+
+        Label defenseLabel = new Label { Text = "Defense:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        Label defenseValue = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingDefenseValue" };
+        basicInfoLayout.Controls.Add(defenseLabel, 0, 5);
+        basicInfoLayout.Controls.Add(defenseValue, 1, 5);
+        basicInfoLayout.SetColumnSpan(defenseValue, 2);
 
         basicInfoGroup.Controls.Add(basicInfoLayout);
         sectionsPanel.Controls.Add(basicInfoGroup, 0, 0);
@@ -2270,9 +2325,46 @@ public partial class MainDashboard : Form
         }
         else
         {
-            _gameStateService.AdvanceWeek();
-            ResolveCompletedProjects();
+            AdvanceWeekWithEvents();
         }
+    }
+
+    private void AdvanceWeekWithEvents()
+    {
+        ResolveRaids();
+        _gameStateService.AdvanceWeek();
+        ResolveCompletedProjects();
+    }
+
+    private void ResolveRaids()
+    {
+        _stronghold.EnsureCombatDefaults();
+        var party = CombatService.TryCreateWeeklyRaid(_stronghold);
+        if (party == null) return;
+        ShowRaid(party);
+    }
+
+    private void ShowRaid(RaidingParty party)
+    {
+        using var dialog = new RaidEventDialog(_stronghold, party, _gameStateService);
+        dialog.ShowDialog(this);
+        _gameStateService.RecordRaid(dialog.Battle);
+    }
+
+    private void TriggerRaidItem_Click(object? sender, EventArgs e)
+    {
+        _stronghold.EnsureCombatDefaults();
+        if (_stronghold.EnemyFactions.Count == 0)
+        {
+            MessageBox.Show("No enemy factions exist. Add one in Tools > Enemy Factions.",
+                "Trigger Raid", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var picker = new TriggerRaidDialog(_stronghold);
+        if (picker.ShowDialog(this) != DialogResult.OK || picker.Party == null)
+            return;
+        ShowRaid(picker.Party);
     }
 
     private void ResolveCompletedProjects()
@@ -2386,6 +2478,8 @@ public partial class MainDashboard : Form
             var locationLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLocation");
             var levelLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLevel");
             var moraleLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdMorale");
+            var defenseLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdDefense");
+            var perceptionLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdPerception");
             
             if (nameLabel != null) nameLabel.Text = _stronghold.Name;
             if (locationLabel != null) locationLabel.Text = _stronghold.Location;
@@ -2406,6 +2500,15 @@ public partial class MainDashboard : Form
                     _ => Color.Black
                 };
             }
+
+            var snapshot = CombatService.Calculate(_stronghold);
+            if (defenseLabel != null)
+            {
+                defenseLabel.Text = $"{snapshot.TotalDefense}  ({snapshot.BuildingDefense}+{snapshot.NpcCombat})";
+                defenseLabel.AutoEllipsis = true;
+            }
+            if (perceptionLabel != null)
+                perceptionLabel.Text = snapshot.Perception.ToString();
         }
 
         // Update Building Summary Panel
@@ -3280,6 +3383,15 @@ public partial class MainDashboard : Form
         {
             editTradeRouteButton.Visible = _gameStateService.DMMode;
         }
+
+        UpdateDMToolMenuVisibility();
+    }
+
+    private void UpdateDMToolMenuVisibility()
+    {
+        bool dm = _gameStateService.DMMode;
+        foreach (var item in _dmToolMenuItems)
+            item.Visible = dm;
     }
 
     private void EditBioButton_Click(object sender, EventArgs e)
@@ -4138,6 +4250,10 @@ public partial class MainDashboard : Form
                 if (buildingConditionValue != null)
                     buildingConditionValue.Text = $"{building.Condition}%";
 
+                var buildingDefenseValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingDefenseValue");
+                if (buildingDefenseValue != null)
+                    buildingDefenseValue.Text = CombatService.DescribeBuildingDefense(building);
+
                 // Update workforce section
                 var workforceSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "WorkforceSummaryLabel");
                 var workersListView = FindControl<ListView>(_tabControl.TabPages[1], "WorkersListView");
@@ -4591,6 +4707,7 @@ public partial class MainDashboard : Form
         var buildingLevelValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingLevelValue");
         var buildingStatusValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingStatusValue");
         var buildingConditionValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingConditionValue");
+        var buildingDefenseValue = FindControl<Label>(_tabControl.TabPages[1], "BuildingDefenseValue");
         var productionListView = FindControl<ListView>(_tabControl.TabPages[1], "ProductionListView");
         var upkeepListView = FindControl<ListView>(_tabControl.TabPages[1], "UpkeepListView");
         var productionSummaryLabel = FindControl<Label>(_tabControl.TabPages[1], "ProductionSummaryLabel");
@@ -4613,6 +4730,7 @@ public partial class MainDashboard : Form
         if (buildingLevelValue != null) buildingLevelValue.Text = string.Empty;
         if (buildingStatusValue != null) buildingStatusValue.Text = string.Empty;
         if (buildingConditionValue != null) buildingConditionValue.Text = string.Empty;
+        if (buildingDefenseValue != null) buildingDefenseValue.Text = string.Empty;
         if (productionListView != null) productionListView.Items.Clear();
         if (upkeepListView != null) upkeepListView.Items.Clear();
         if (productionSummaryLabel != null) productionSummaryLabel.Text = "Not Producing";
@@ -5049,7 +5167,7 @@ public partial class MainDashboard : Form
         // Default durations for common projects (in weeks)
         return projectName switch
         {
-            "Patrol" => 2,
+            "Patrol" => 1,
             "Reconnaissance" => 4,
             "Craft Equipment" => 3,
             "Craft Alchemical Item" => 2,
@@ -5683,8 +5801,7 @@ public partial class MainDashboard : Form
         else if (result == DialogResult.Cancel && !hasFoodShortage)
         {
             // User chose to continue anyway (only available when no food shortage)
-            _gameStateService.AdvanceWeek();
-            ResolveCompletedProjects();
+            AdvanceWeekWithEvents();
         }
         // If result is Cancel with food shortage, do nothing (user closed dialog without action)
     }

@@ -189,6 +189,11 @@
           "baseValue": 7
         }
       ],
+      "defenseScaling": [
+        { "level": 1, "defense": 0 },
+        { "level": 2, "defense": 2 },
+        { "level": 3, "defense": 5 }
+      ],
       "workerProductionBonus": [
         {
           "resourceType": "Food",
@@ -215,7 +220,7 @@
           "projectName": "Patrol",
           "minLevel": 1,
           "description": "Send workers to patrol the area around the stronghold, providing security and gathering information about nearby threats.",
-          "durationWeeks": 2,
+          "durationWeeks": 1,
           "initialCost": [ { "resourceType": "Food", "amount": 5 } ],
           "outcomeType": "InApp",
           "roll": "None",
@@ -734,6 +739,12 @@
           "baseValue": 6
         }
       ],
+      "defenseScaling": [
+        { "level": 1, "defense": 5 },
+        { "level": 2, "defense": 5 },
+        { "level": 3, "defense": 10 },
+        { "level": 4, "defense": 10 }
+      ],
       "workerProductionBonus": [],
       "constructionCost": [
         {
@@ -761,10 +772,6 @@
         {
           "projectName": "Guard Duty",
           "minLevel": 2
-        },
-        {
-          "projectName": "Advanced Combat Training",
-          "minLevel": 3
         }
       ],
       "primarySkill": "Combat",
@@ -1747,6 +1754,13 @@
           "resourceType": "Gold",
           "baseValue": 20
         }
+      ],
+      "defenseScaling": [
+        { "level": 1, "defense": 10 },
+        { "level": 2, "defense": 15 },
+        { "level": 3, "defense": 20 },
+        { "level": 4, "defense": 25 },
+        { "level": 5, "defense": 30 }
       ],
       "workerProductionBonus": [],
       "constructionCost": [

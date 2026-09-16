@@ -112,6 +112,19 @@ namespace DNDStrongholdApp.Forms
                         effectsPanel.Controls.Add(slotLabel);
                     }
 
+                    int currentDefense = CombatService.GetCatalogDefenseForLevel(_building.TypeName, _building.Level);
+                    int nextDefense = CombatService.GetCatalogDefenseForLevel(_building.TypeName, _building.Level + 1);
+                    if (nextDefense != currentDefense)
+                    {
+                        int boost = nextDefense - currentDefense;
+                        string sign = boost > 0 ? "+" : "";
+                        effectsPanel.Controls.Add(new Label
+                        {
+                            Text = $"Defense: {currentDefense} → {nextDefense} ({sign}{boost})",
+                            AutoSize = true
+                        });
+                    }
+
                     // Production scaling
                     var currentProduction = buildingInfo.productionScaling
                         .FirstOrDefault(p => p.level == _building.Level)?.resources ?? new List<ResourceScaling>();

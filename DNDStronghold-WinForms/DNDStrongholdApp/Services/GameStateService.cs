@@ -176,6 +176,8 @@ namespace DNDStrongholdApp.Services
                 "Stronghold Founded",
                 $"The stronghold {_currentStronghold.Name} has been founded in {_currentStronghold.Location}."
             ));
+
+            _currentStronghold.EnsureCombatDefaults();
             
             // Notify listeners that the game state has changed
             OnGameStateChanged();
@@ -226,6 +228,9 @@ namespace DNDStrongholdApp.Services
             
             // Process hunger progression after resource consumption
             ProcessHungerProgression();
+
+            // Grave injuries may kill; any death uses the same morale penalty as raids
+            ProcessHealthStates();
             
             // Process morale changes
             ProcessWeeklyMorale();
@@ -880,6 +885,7 @@ namespace DNDStrongholdApp.Services
                 {
                     _currentStronghold.TradeRoutes ??= new List<TradeRoute>();
                     _currentStronghold.TradeMarketEvents ??= new List<TradeMarketEvent>();
+                    _currentStronghold.EnsureCombatDefaults();
                     TradeService.ReconcileOccupancy(_currentStronghold);
                     foreach (var npc in _currentStronghold.NPCs)
                     {
@@ -1035,6 +1041,8 @@ namespace DNDStrongholdApp.Services
                     "Stronghold Founded",
                     $"The stronghold {_currentStronghold.Name} has been founded in {_currentStronghold.Location}."
                 ));
+
+                _currentStronghold.EnsureCombatDefaults();
 
                 // Notify listeners that the game state has changed
                 OnGameStateChanged();
@@ -1720,33 +1728,73 @@ namespace DNDStrongholdApp.Services
 
         private void AbandonStronghold(NPC npc)
         {
-            // Unassign from all buildings and projects
             foreach (var building in _currentStronghold.Buildings)
             {
                 building.AssignedWorkers.Remove(npc.Id);
                 building.DedicatedConstructionCrew.Remove(npc.Id);
-                
-                // Remove from current project if assigned
                 if (building.CurrentProject?.AssignedWorkers.Contains(npc.Id) ?? false)
-                {
                     building.CurrentProject.AssignedWorkers.Remove(npc.Id);
-                }
             }
-            
-            // Log the abandonment
-            _currentStronghold.Journal.Add(new JournalEntry(
-                _currentStronghold.CurrentWeek,
-                _currentStronghold.YearsSinceFoundation,
-                JournalEntryType.Event,
-                "💔 NPC Abandonment",
-                $"{npc.Name} ({npc.Type}) has abandoned the stronghold due to starvation. They left to find food elsewhere."
-            ));
-            
-            // Remove NPC from stronghold
+
+            string name = npc.Name;
             _currentStronghold.NPCs.Remove(npc);
+            OnNPCAbandonment(name);
         }
 
-        // Notify listeners that the game state has changed
+        public void KillNpc(NPC npc)
+        {
+            if (npc == null || _currentStronghold == null) return;
+            CombatService.UnassignNpc(_currentStronghold, npc);
+            npc.IsAlive = false;
+            npc.States.Clear();
+            _currentStronghold.NPCs.Remove(npc);
+            OnNPCDeath(npc.Name);
+        }
+
+        private void ProcessHealthStates()
+        {
+            foreach (var npc in _currentStronghold.NPCs.ToList())
+            {
+                if (!npc.IsAlive || npc.UpdateHealthState())
+                    KillNpc(npc);
+            }
+        }
+
+        public void HandleRaidCancelledProjects(List<Project> cancelled)
+        {
+            if (cancelled == null || _currentStronghold == null) return;
+            foreach (var project in cancelled)
+                ClearTradeOccupancy(project);
+            TradeService.ReconcileOccupancy(_currentStronghold);
+        }
+
+        public void RecordRaid(RaidBattle battle)
+        {
+            if (_currentStronghold == null || battle == null) return;
+            var party = battle.Party;
+            string title = party.Surprise
+                ? $"Surprise raid — {party.FactionName}"
+                : $"Raid — {party.FactionName}";
+            var entry = new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Raid,
+                title,
+                battle.FullReport);
+            entry.Importance = ImportanceLevel.High;
+            _currentStronghold.Journal.Add(entry);
+            OnRaid();
+            OnGameStateChanged();
+        }
+
+        public void RecordRaid(RaidingParty party, DefenseSnapshot snapshot)
+        {
+            if (party == null) return;
+            var battle = new RaidBattle { Party = party };
+            battle.Log.Add(CombatService.BuildRaidReport(party, snapshot ?? CombatService.Calculate(_currentStronghold)));
+            RecordRaid(battle);
+        }
+
         public void OnGameStateChanged()
         {
             // Update production/consumption rates whenever game state changes
@@ -1844,7 +1892,7 @@ namespace DNDStrongholdApp.Services
             
             // Starving NPCs temporarily lower baseline
             int starvingCount = _currentStronghold.NPCs.Count(n => n.HungerState == HungerStatus.Starving);
-            newBaseline -= starvingCount * 5;
+            newBaseline -= starvingCount * 2;
             
             // Morale buildings permanently raise baseline
             var moraleBuildings = _currentStronghold.Buildings.Where(b => b.MoraleBonus > 0);
@@ -1888,7 +1936,7 @@ namespace DNDStrongholdApp.Services
             
             // Starving NPCs reduce morale
             int starvingCount = _currentStronghold.NPCs.Count(n => n.HungerState == HungerStatus.Starving);
-            drift -= starvingCount * 2;
+            drift -= starvingCount * 1;
             
             // TODO: Add active morale projects, building conditions, etc.
             
@@ -1945,23 +1993,19 @@ namespace DNDStrongholdApp.Services
         // Event-based morale changes
         public void OnSuccessfulMission(string missionName)
         {
-            _currentStronghold.CurrentMorale += 10;
-            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
-            
+            ChangeMorale(10);
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
                 _currentStronghold.YearsSinceFoundation,
                 JournalEntryType.Event,
                 "Mission Success",
-                $"Successful completion of {missionName} has boosted stronghold morale!"
+                $"Successful completion of {missionName} has lifted stronghold morale."
             ));
         }
 
         public void OnFailedMission(string missionName)
         {
-            _currentStronghold.CurrentMorale -= 10;
-            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
-            
+            ChangeMorale(-5);
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
                 _currentStronghold.YearsSinceFoundation,
@@ -1971,25 +2015,26 @@ namespace DNDStrongholdApp.Services
             ));
         }
 
+        public void OnRaid()
+        {
+            ChangeMorale(-5);
+        }
+
         public void OnNPCDeath(string npcName)
         {
-            _currentStronghold.CurrentMorale -= 20;
-            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
-            
+            ChangeMorale(-5);
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
                 _currentStronghold.YearsSinceFoundation,
                 JournalEntryType.Event,
                 "NPC Death",
-                $"The death of {npcName} has shaken the stronghold's morale."
+                $"The death of {npcName} has lowered the stronghold's morale."
             ));
         }
 
         public void OnNPCAbandonment(string npcName)
         {
-            _currentStronghold.CurrentMorale -= 15;
-            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
-            
+            ChangeMorale(-4);
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
                 _currentStronghold.YearsSinceFoundation,
@@ -2001,16 +2046,19 @@ namespace DNDStrongholdApp.Services
 
         public void OnFeastEvent()
         {
-            _currentStronghold.CurrentMorale += 15;
-            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale, 0, 100);
-            
+            ChangeMorale(10);
             _currentStronghold.Journal.Add(new JournalEntry(
                 _currentStronghold.CurrentWeek,
                 _currentStronghold.YearsSinceFoundation,
                 JournalEntryType.Event,
                 "Feast Event",
-                "A grand feast has greatly boosted stronghold morale!"
+                "A feast has boosted stronghold morale."
             ));
+        }
+
+        private void ChangeMorale(int delta)
+        {
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale + delta, 0, 100);
         }
     }
 } 

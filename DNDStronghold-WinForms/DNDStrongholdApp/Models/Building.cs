@@ -1163,6 +1163,7 @@ namespace DNDStrongholdApp.Models
         public List<LevelUpkeepValue> upkeepScaling { get; set; } = new List<LevelUpkeepValue>();
         public List<WorkerBonusInfo> workerProductionBonus { get; set; } = new List<WorkerBonusInfo>();
         public List<ResourceCostInfo> constructionCost { get; set; } = new List<ResourceCostInfo>();
+        public List<DefenseScaling> defenseScaling { get; set; } = new List<DefenseScaling>();
         public List<AvailableProjectInfo> availableProjects { get; set; } = new List<AvailableProjectInfo>();
         public string primarySkill { get; set; } = string.Empty;
         public string secondarySkill { get; set; } = string.Empty;
@@ -1182,6 +1183,12 @@ namespace DNDStrongholdApp.Models
     {
         public int level { get; set; }
         public int workerSlots { get; set; }
+    }
+
+    public class DefenseScaling
+    {
+        public int level { get; set; }
+        public int defense { get; set; }
     }
 
     public class LevelResourceValue

@@ -21,6 +21,7 @@ namespace DNDStrongholdApp.Models
         public List<NPCTrait> Traits { get; set; } = new List<NPCTrait>();
         public int Age { get; set; } = 20; // Starting age
         public bool IsAlive { get; set; } = true;
+        public bool Hero { get; set; }
         public int Level { get; set; } = 1; // NPC level, starts at 1
         public NPCStatus Status { get; set; } = NPCStatus.Available; // Current status of the NPC
         public Bio Bio { get; set; } = new Bio(); // NPC biography/description
@@ -258,27 +259,23 @@ namespace DNDStrongholdApp.Models
             return true;
         }
 
-        // Update health states
-        public void UpdateHealthState()
+        // Returns true if this NPC died from injuries this week.
+        public bool UpdateHealthState()
         {
-            if (!IsAlive) return;
+            if (!IsAlive) return true;
 
             bool hadStates = States.Any();
+            bool died = false;
 
-            // Check for recovery or worsening of conditions
             foreach (var state in States.ToList())
             {
                 if (state.Type == NPCStateType.Sick || state.Type == NPCStateType.LightlyInjured)
                 {
-                    // 20% chance of recovery per week
                     if (new Random().Next(100) < 20)
-                    {
                         States.Remove(state);
-                    }
                 }
                 else if (state.Type == NPCStateType.GravelyInjured)
                 {
-                    // 10% chance of recovery, 5% chance of death
                     int roll = new Random().Next(100);
                     if (roll < 10)
                     {
@@ -286,17 +283,23 @@ namespace DNDStrongholdApp.Models
                     }
                     else if (roll < 15)
                     {
-                        IsAlive = false;
+                        died = true;
                         States.Clear();
+                        break;
                     }
                 }
             }
 
-            // If health states changed, update status
-            if (hadStates != States.Any())
+            if (died)
             {
-                UpdateStatus();
+                IsAlive = false;
+                return true;
             }
+
+            if (hadStates != States.Any())
+                UpdateStatus();
+
+            return false;
         }
 
         // Add a health state
