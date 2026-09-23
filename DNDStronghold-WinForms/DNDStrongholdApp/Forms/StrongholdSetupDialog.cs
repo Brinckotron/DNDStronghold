@@ -403,6 +403,7 @@ namespace DNDStrongholdApp
         private void AddNPC(NPCType type)
         {
             NPC npc = new NPC(type);
+            Services.TraitService.AssignRandomTraits(npc);
             NPCs.Add(npc);
             RefreshNPCsList();
         }

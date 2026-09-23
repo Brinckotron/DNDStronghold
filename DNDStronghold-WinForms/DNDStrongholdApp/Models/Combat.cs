@@ -195,6 +195,80 @@ namespace DNDStrongholdApp.Models
         ScoutFinished
     }
 
+    // Spells the stronghold's own Arcana casters can cast, one per caster per round.
+    public enum DefenderSpell
+    {
+        MagicMissile,
+        DefensiveBarrier,
+        MassDebuff,
+        Fireball
+    }
+
+    public class DefenderSpellDefinition
+    {
+        public DefenderSpell Spell { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public int SpellPointCost { get; init; }
+        public int RequiredArcana { get; init; }
+        public string Effect { get; init; } = string.Empty;
+    }
+
+    public static class DefenderSpellCatalog
+    {
+        public static readonly IReadOnlyList<DefenderSpellDefinition> All = new[]
+        {
+            new DefenderSpellDefinition
+            {
+                Spell = DefenderSpell.MagicMissile,
+                Name = "Magic Missile",
+                SpellPointCost = 1,
+                RequiredArcana = 1,
+                Effect = "Adds 1 damage against the attackers this round."
+            },
+            new DefenderSpellDefinition
+            {
+                Spell = DefenderSpell.DefensiveBarrier,
+                Name = "Defensive Barrier",
+                SpellPointCost = 2,
+                RequiredArcana = 2,
+                Effect = "b, c, bb and cc do not affect the defenders this round."
+            },
+            new DefenderSpellDefinition
+            {
+                Spell = DefenderSpell.MassDebuff,
+                Name = "Mass Debuff",
+                SpellPointCost = 3,
+                RequiredArcana = 3,
+                Effect = "Attackers roll the d100 twice and take the lowest result."
+            },
+            new DefenderSpellDefinition
+            {
+                Spell = DefenderSpell.Fireball,
+                Name = "Fireball",
+                SpellPointCost = 3,
+                RequiredArcana = 3,
+                Effect = "Adds 1 casualty plus aa, bb and cc to the attackers this round."
+            }
+        };
+
+        public static DefenderSpellDefinition Get(DefenderSpell spell) =>
+            All.First(s => s.Spell == spell);
+
+        public static string DisplayName(DefenderSpell spell) => Get(spell).Name;
+
+        public static IEnumerable<DefenderSpellDefinition> Castable(int arcanaLevel, int spellPointsRemaining)
+        {
+            return All.Where(s => s.RequiredArcana <= arcanaLevel && s.SpellPointCost <= spellPointsRemaining);
+        }
+    }
+
+    public class DefenderSpellCast
+    {
+        public string CasterId { get; set; } = string.Empty;
+        public string CasterName { get; set; } = string.Empty;
+        public DefenderSpell Spell { get; set; }
+    }
+
     public class RaidStatblock
     {
         public int Numbers { get; set; }
@@ -355,9 +429,60 @@ namespace DNDStrongholdApp.Models
         public int CaptureGoalTicks { get; set; }
         public bool StealthSpellCast { get; set; }
 
+        // Spells declared by the defenders for the round about to be resolved. Consumed
+        // and cleared by ResolveRound.
+        public List<DefenderSpellCast> PendingDefenderSpells { get; set; } = new List<DefenderSpellCast>();
+
+        // NPC ids that have already spent their one heroic act this raid.
+        public List<string> HeroicActsUsed { get; set; } = new List<string>();
+
+        public bool DefenderSpellActive(DefenderSpell spell) =>
+            PendingDefenderSpells != null && PendingDefenderSpells.Any(s => s.Spell == spell);
+
         public int LivingCount => Party.Combatants.Count(t => !t.IsDead);
 
         public string FullReport => string.Join(Environment.NewLine, Log);
+    }
+
+    // One dramatic thing a flagged Hero can do, once per raid.
+    public enum HeroicAct
+    {
+        Rally,
+        Interpose,
+        StrikeTrue,
+        HoldTheLine
+    }
+
+    public static class HeroicActCatalog
+    {
+        public static string Name(HeroicAct act) => act switch
+        {
+            HeroicAct.Rally => "Rally",
+            HeroicAct.Interpose => "Interpose",
+            HeroicAct.StrikeTrue => "Strike True",
+            HeroicAct.HoldTheLine => "Hold the Line",
+            _ => act.ToString()
+        };
+
+        public static string Effect(HeroicAct act) => act switch
+        {
+            HeroicAct.Rally => "After a lost d100 comparison, reroll the defenders' die before casualties are worked out.",
+            HeroicAct.Interpose => "Take a projected hit in place of another NPC. The same blow lands on the hero.",
+            HeroicAct.StrikeTrue => "Deal 1 damage to a chosen raider before the round is calculated.",
+            HeroicAct.HoldTheLine => "Step defender casualty dice down one grade (a→b, b→c, c ignored; aa→bb, bb→cc, cc ignored). The raiders gain no ground this round.",
+            _ => string.Empty
+        };
+    }
+
+    public class ProjectedCasualty
+    {
+        public NPC Npc { get; set; } = null!;
+        public string RawSeverity { get; set; } = "light";
+        public string Outcome { get; set; } = "light";
+        public string Note { get; set; } = string.Empty;
+
+        public bool IsDeath => Outcome == "death";
+        public bool IsMeaningful => Outcome != "none";
     }
 
     public class RaidRoundResult

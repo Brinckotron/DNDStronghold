@@ -113,8 +113,9 @@ namespace DNDStrongholdApp.Services
                 .Cast<NPC>()
                 .ToList();
 
-            int highestTrade = workers.Count == 0 ? 0 : workers.Max(w => GetSkillLevel(w, "Trade"));
-            int extras = Math.Max(0, workers.Count(w => GetSkillLevel(w, "Trade") >= 1) - (highestTrade >= 1 ? 1 : 0));
+            // Charismatic and Shy shift how well a trader actually works a market.
+            int highestTrade = workers.Count == 0 ? 0 : workers.Max(w => TraitService.EffectiveSocialSkill(w, "Trade"));
+            int extras = Math.Max(0, workers.Count(w => TraitService.EffectiveSocialSkill(w, "Trade") >= 1) - (highestTrade >= 1 ? 1 : 0));
             int gold = 5 + highestTrade * 4 + extras * 2 + building.Level * 5 + Math.Clamp(reputation, 0, 30);
             var yield = new List<ResourceCost>
             {

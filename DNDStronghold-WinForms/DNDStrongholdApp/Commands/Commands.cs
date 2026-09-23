@@ -291,18 +291,20 @@ namespace DNDStrongholdApp.Commands
     {
         private readonly GameStateService _gameStateService;
         private readonly Building _building;
+        private readonly bool _ignoreCosts;
         private string _buildingId;
 
-        public AddBuildingCommand(GameStateService gameStateService, Building building)
+        public AddBuildingCommand(GameStateService gameStateService, Building building, bool ignoreCosts = false)
         {
             _gameStateService = gameStateService;
             _building = building;
+            _ignoreCosts = ignoreCosts;
         }
 
         public void Execute()
         {
             _buildingId = _building.Id;
-            _gameStateService.ExecuteAddBuildingAndDeductCosts(_building);
+            _gameStateService.ExecuteAddBuildingAndDeductCosts(_building, _ignoreCosts);
         }
 
         public void Undo()
@@ -314,16 +316,18 @@ namespace DNDStrongholdApp.Commands
                 if (building != null)
                 {
                     stronghold.Buildings.Remove(building);
-                    // Restore resources
-                    foreach (var cost in building.ConstructionCost)
+                    if (!_ignoreCosts)
                     {
-                        var resource = stronghold.Resources.Find(r => r.Type == cost.ResourceType);
-                        if (resource != null)
+                        foreach (var cost in building.ConstructionCost)
                         {
-                            resource.Amount += cost.Amount;
-                            if (cost.ResourceType == ResourceType.Gold)
+                            var resource = stronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                            if (resource != null)
                             {
-                                stronghold.Treasury = resource.Amount;
+                                resource.Amount += cost.Amount;
+                                if (cost.ResourceType == ResourceType.Gold)
+                                {
+                                    stronghold.Treasury = resource.Amount;
+                                }
                             }
                         }
                     }
@@ -333,6 +337,7 @@ namespace DNDStrongholdApp.Commands
 
         public bool CanExecute()
         {
+            if (_ignoreCosts) return true;
             return new CheckResourceCostsCommand(_gameStateService, _building.ConstructionCost).Execute();
         }
     }

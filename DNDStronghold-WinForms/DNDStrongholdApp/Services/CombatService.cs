@@ -389,7 +389,7 @@ namespace DNDStrongholdApp.Services
                 return false;
             if (IsAway(npc, stronghold)) return false;
 
-            int skill = ProjectResolutionService.GetSkillLevel(npc, "Combat");
+            int skill = ProjectResolutionService.GetSkillLevel(npc, "Combat") + npc.SpellcastingLevel;
             if (skill <= 0 && IsImpaired(npc))
                 return false;
 
@@ -425,9 +425,10 @@ namespace DNDStrongholdApp.Services
         }
 
         // Base 0.5 for every fighter. Impaired trained NPCs keep the base and halve skill only.
+        // Spellcasters add their highest spellcasting skill on top of Combat.
         private static double NpcCombatValue(NPC npc)
         {
-            int skill = ProjectResolutionService.GetSkillLevel(npc, "Combat");
+            int skill = ProjectResolutionService.GetSkillLevel(npc, "Combat") + npc.SpellcastingLevel;
             double skillValue = IsImpaired(npc) ? skill / 2.0 : skill;
             return 0.5 + skillValue;
         }

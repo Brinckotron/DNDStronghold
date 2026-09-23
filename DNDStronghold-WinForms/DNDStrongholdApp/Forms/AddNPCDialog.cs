@@ -19,6 +19,9 @@ namespace DNDStrongholdApp.Forms
         private TextBox _nameTextBox;
         private Button _generateNameButton;
         private NumericUpDown _levelNumeric;
+        private CheckBox _heroCheckBox;
+        private CheckBox _spellcasterCheckBox;
+        private CheckBox _magicAssistCheckBox;
         private Panel _skillsPanel;
         private ScrollableControl _skillsContainer;
         private Dictionary<string, SkillControl> _skillControls;
@@ -240,10 +243,56 @@ namespace DNDStrongholdApp.Forms
             };
             _levelNumeric.ValueChanged += LevelNumeric_ValueChanged;
 
+            _heroCheckBox = new CheckBox
+            {
+                Text = "Hero",
+                AutoSize = true,
+                Margin = new Padding(20, 7, 10, 0)
+            };
+
+            _spellcasterCheckBox = new CheckBox
+            {
+                Text = "Spellcaster",
+                AutoSize = true,
+                Margin = new Padding(0, 7, 10, 0)
+            };
+            _spellcasterCheckBox.CheckedChanged += (s, e) => UpdateMagicAssistConstraint();
+
+            _magicAssistCheckBox = new CheckBox
+            {
+                Text = "Magic Assist",
+                AutoSize = true,
+                Enabled = false,
+                Margin = new Padding(0, 7, 0, 0)
+            };
+
+            FlowLayoutPanel flagsPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            flagsPanel.Controls.Add(_heroCheckBox);
+            flagsPanel.Controls.Add(_spellcasterCheckBox);
+            flagsPanel.Controls.Add(_magicAssistCheckBox);
+
             panel.Controls.Add(levelLabel, 0, 0);
             panel.Controls.Add(_levelNumeric, 1, 0);
+            panel.Controls.Add(flagsPanel, 2, 0);
 
             return panel;
+        }
+
+        // Magic Assist is a spellcaster-only opt-in, so it follows the Spellcaster box.
+        private void UpdateMagicAssistConstraint()
+        {
+            bool isCaster = _spellcasterCheckBox.Checked;
+            _magicAssistCheckBox.Enabled = isCaster;
+            if (!isCaster)
+            {
+                _magicAssistCheckBox.Checked = false;
+            }
         }
 
         private GroupBox CreateSkillsPanel()
@@ -868,6 +917,9 @@ namespace DNDStrongholdApp.Forms
                 CreatedNPC = new NPC(type, _nameTextBox.Text);
                 CreatedNPC.Gender = gender;
                 CreatedNPC.Level = (int)_levelNumeric.Value;
+                CreatedNPC.Hero = _heroCheckBox.Checked;
+                CreatedNPC.Spellcaster = _spellcasterCheckBox.Checked;
+                CreatedNPC.MagicAssist = _spellcasterCheckBox.Checked && _magicAssistCheckBox.Checked;
 
                 // Set skills
                 foreach (var kvp in _skillControls)

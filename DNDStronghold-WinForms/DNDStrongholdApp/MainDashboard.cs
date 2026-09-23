@@ -29,6 +29,9 @@ public partial class MainDashboard : Form
     private Button _nextTurnButton;
     private readonly List<ToolStripItem> _dmToolMenuItems = new();
 
+    // Spells out what an NPC's traits actually do on hover.
+    private readonly ToolTip _npcDetailsTooltip = new();
+
     // Track last created building/NPC for selection after refresh
     private string _lastCreatedNpcId = null;
 
@@ -1008,6 +1011,16 @@ public partial class MainDashboard : Form
         addNPCButton.Tag = "AddNPCButton";
         addNPCButton.Click += AddNPCButton_Click;
         
+        // Create Edit NPC button (only visible in DM Mode)
+        Button editNPCButton = new Button();
+        editNPCButton.Text = "Edit NPC";
+        editNPCButton.Height = 30;
+        editNPCButton.Width = 80;
+        editNPCButton.Margin = new Padding(0, 0, 5, 0);
+        editNPCButton.Visible = _gameStateService.DMMode; // Only visible in DM Mode
+        editNPCButton.Tag = "EditNPCButton";
+        editNPCButton.Click += EditNPCButton_Click;
+        
         // Create Delete NPC button (only visible in DM Mode)
         Button deleteNPCButton = new Button();
         deleteNPCButton.Text = "Delete NPC";
@@ -1020,6 +1033,7 @@ public partial class MainDashboard : Form
         
         // Add buttons to button panel
         buttonPanel.Controls.Add(addNPCButton);
+        buttonPanel.Controls.Add(editNPCButton);
         buttonPanel.Controls.Add(deleteNPCButton);
         
         // Add controls to left panel
@@ -1035,7 +1049,7 @@ public partial class MainDashboard : Form
         TableLayoutPanel detailsLayout = new TableLayoutPanel();
         detailsLayout.Dock = DockStyle.Fill;
         detailsLayout.ColumnCount = 2;
-        detailsLayout.RowCount = 7;
+        detailsLayout.RowCount = 9;
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
         detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Name
@@ -1043,6 +1057,8 @@ public partial class MainDashboard : Form
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Level
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // State
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Assignment
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Magic
+        detailsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Traits
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F)); // Skills ListView (reduced to 50%)
         detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F)); // Bio section (new 50%)
         
@@ -1061,6 +1077,12 @@ public partial class MainDashboard : Form
         
         Label assignmentLabel = new Label { Text = "Assignment:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
         Label assignmentValueLabel = new Label { Text = "", Tag = "NPCAssignment", AutoSize = true, Margin = new Padding(0, 5, 0, 5) };
+        
+        Label magicLabel = new Label { Text = "Magic:", Tag = "NPCMagicLabel", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5), Visible = false };
+        Label magicValueLabel = new Label { Text = "", Tag = "NPCMagic", AutoSize = true, Margin = new Padding(0, 5, 0, 5), Visible = false };
+        
+        Label traitsLabel = new Label { Text = "Traits:", Tag = "NPCTraitsLabel", TextAlign = ContentAlignment.MiddleRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5), Visible = false };
+        Label traitsValueLabel = new Label { Text = "", Tag = "NPCTraits", AutoSize = true, Margin = new Padding(0, 5, 0, 5), Visible = false };
         
         Label skillsLabel = new Label { Text = "Skills:", TextAlign = ContentAlignment.TopRight, AutoSize = true, Margin = new Padding(0, 5, 5, 5) };
         
@@ -1112,19 +1134,37 @@ public partial class MainDashboard : Form
         bioTextBox.Tag = "NPCBioTextBox";
         bioTextBox.Text = "";
         
+        // Magic Healing button (shown for eligible Faith casters, see UpdateNPCDetails)
+        Button magicHealingButton = new Button();
+        magicHealingButton.Text = "Magic Healing";
+        magicHealingButton.Width = 110;
+        magicHealingButton.Height = 25;
+        magicHealingButton.Tag = "MagicHealingButton";
+        magicHealingButton.Margin = new Padding(0, 5, 5, 0);
+        magicHealingButton.Visible = false;
+        magicHealingButton.Click += MagicHealingButton_Click;
+
         // Edit Bio button (only visible in DM Mode)
         Button editBioButton = new Button();
         editBioButton.Text = "Edit Bio";
-        editBioButton.Dock = DockStyle.Right;
         editBioButton.Width = 80;
         editBioButton.Height = 25;
         editBioButton.Tag = "EditBioButton";
         editBioButton.Margin = new Padding(0, 5, 0, 0);
         editBioButton.Visible = _gameStateService.DMMode; // Only visible in DM Mode
         editBioButton.Click += EditBioButton_Click;
+
+        FlowLayoutPanel bioButtonPanel = new FlowLayoutPanel();
+        bioButtonPanel.Dock = DockStyle.Fill;
+        bioButtonPanel.FlowDirection = FlowDirection.RightToLeft;
+        bioButtonPanel.WrapContents = false;
+        bioButtonPanel.AutoSize = true;
+        bioButtonPanel.Margin = new Padding(0);
+        bioButtonPanel.Controls.Add(editBioButton);
+        bioButtonPanel.Controls.Add(magicHealingButton);
         
         bioPanel.Controls.Add(bioTextBox, 0, 0);
-        bioPanel.Controls.Add(editBioButton, 0, 1);
+        bioPanel.Controls.Add(bioButtonPanel, 0, 1);
         
         // Add to details layout
         detailsLayout.Controls.Add(nameLabel, 0, 0);
@@ -1137,10 +1177,14 @@ public partial class MainDashboard : Form
         detailsLayout.Controls.Add(stateValueLabel, 1, 3);
         detailsLayout.Controls.Add(assignmentLabel, 0, 4);
         detailsLayout.Controls.Add(assignmentValueLabel, 1, 4);
-        detailsLayout.Controls.Add(skillsLabel, 0, 5);
-        detailsLayout.Controls.Add(skillsListView, 1, 5);
-        detailsLayout.Controls.Add(bioLabel, 0, 6);
-        detailsLayout.Controls.Add(bioPanel, 1, 6);
+        detailsLayout.Controls.Add(magicLabel, 0, 5);
+        detailsLayout.Controls.Add(magicValueLabel, 1, 5);
+        detailsLayout.Controls.Add(traitsLabel, 0, 6);
+        detailsLayout.Controls.Add(traitsValueLabel, 1, 6);
+        detailsLayout.Controls.Add(skillsLabel, 0, 7);
+        detailsLayout.Controls.Add(skillsListView, 1, 7);
+        detailsLayout.Controls.Add(bioLabel, 0, 8);
+        detailsLayout.Controls.Add(bioPanel, 1, 8);
         
         detailsGroupBox.Controls.Add(detailsLayout);
         
@@ -1440,7 +1484,7 @@ public partial class MainDashboard : Form
         {
             Text = "Basic Information",
             Dock = DockStyle.Top,
-            Height = 230,
+            Height = 265,
             Padding = new Padding(10),
             Margin = new Padding(0, 0, 0, 10)
         };
@@ -1449,7 +1493,7 @@ public partial class MainDashboard : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            RowCount = 6,
+            RowCount = 7,
             Padding = new Padding(5)
         };
 
@@ -1459,9 +1503,9 @@ public partial class MainDashboard : Form
         basicInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));  // Buttons
 
         // Add rows with equal height
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
         {
-            basicInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 6F));
+            basicInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 7F));
         }
 
         // Name row
@@ -1517,6 +1561,15 @@ public partial class MainDashboard : Form
         basicInfoLayout.Controls.Add(defenseLabel, 0, 5);
         basicInfoLayout.Controls.Add(defenseValue, 1, 5);
         basicInfoLayout.SetColumnSpan(defenseValue, 2);
+
+        // Magic Assist row: only shown while an assigned spellcaster can boost the work
+        Label magicAssistLabel = new Label { Text = "Magic:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingMagicAssistLabel", Visible = false };
+        Label magicAssistValue = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Tag = "BuildingMagicAssistValue", Visible = false };
+        Button magicAssistButton = new Button { Text = "Magic Assist", Dock = DockStyle.Fill, Tag = "MagicAssistButton", Visible = false };
+        magicAssistButton.Click += MagicAssistButton_Click;
+        basicInfoLayout.Controls.Add(magicAssistLabel, 0, 6);
+        basicInfoLayout.Controls.Add(magicAssistValue, 1, 6);
+        basicInfoLayout.Controls.Add(magicAssistButton, 2, 6);
 
         basicInfoGroup.Controls.Add(basicInfoLayout);
         sectionsPanel.Controls.Add(basicInfoGroup, 0, 0);
@@ -3254,7 +3307,7 @@ public partial class MainDashboard : Form
         var bioTextBox = FindControl<TextBox>(_tabControl.TabPages[2], "NPCBioTextBox");
 
         // Update basic info
-        if (nameValueLabel != null) nameValueLabel.Text = npc.Name;
+        if (nameValueLabel != null) nameValueLabel.Text = npc.Hero ? $"{npc.Name}  (Hero)" : npc.Name;
         if (typeValueLabel != null) typeValueLabel.Text = npc.Type.ToString();
         if (levelValueLabel != null) levelValueLabel.Text = npc.Level.ToString();
 
@@ -3348,6 +3401,91 @@ public partial class MainDashboard : Form
         {
             bioTextBox.Text = npc.Bio?.Text ?? "";
         }
+
+        UpdateNPCMagicRow(npc);
+        UpdateNPCTraitsRow(npc);
+    }
+
+    // Traits are rare, so the row stays hidden entirely for the ordinary majority.
+    private void UpdateNPCTraitsRow(NPC npc)
+    {
+        var traitsLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCTraitsLabel");
+        var traitsValue = FindControl<Label>(_tabControl.TabPages[2], "NPCTraits");
+
+        bool hasTraits = npc != null && npc.Traits != null && npc.Traits.Count > 0;
+
+        if (traitsLabel != null) traitsLabel.Visible = hasTraits;
+        if (traitsValue != null)
+        {
+            traitsValue.Visible = hasTraits;
+            traitsValue.Text = hasTraits
+                ? string.Join(", ", npc!.Traits.Select(t => t.Type.ToString()))
+                : string.Empty;
+            if (hasTraits)
+            {
+                _npcDetailsTooltip.SetToolTip(traitsValue,
+                    string.Join(Environment.NewLine, npc!.Traits.Select(t => $"{t.Type}: {t.GetDescription()}")));
+            }
+        }
+    }
+
+    // Spellcaster row and the Magic Healing button. Rule-driven rather than DM-gated,
+    // so it is refreshed here instead of in UpdateDMButtonVisibility.
+    private void UpdateNPCMagicRow(NPC npc)
+    {
+        var magicLabel = FindControl<Label>(_tabControl.TabPages[2], "NPCMagicLabel");
+        var magicValue = FindControl<Label>(_tabControl.TabPages[2], "NPCMagic");
+        var healButton = FindControl<Button>(_tabControl.TabPages[2], "MagicHealingButton");
+
+        bool isCaster = npc != null && npc.Spellcaster;
+
+        if (magicLabel != null) magicLabel.Visible = isCaster;
+        if (magicValue != null)
+        {
+            magicValue.Visible = isCaster;
+            if (isCaster)
+            {
+                var parts = new List<string>();
+                if (npc.FaithLevel > 0)
+                    parts.Add($"Faith {npc.FaithLevel} ({npc.HealPointsRemaining}/{npc.FaithLevel} heal points)");
+                if (npc.ArcanaLevel > 0)
+                    parts.Add($"Arcana {npc.ArcanaLevel} ({npc.SpellPointsRemaining}/{npc.ArcanaLevel} spell points)");
+                if (npc.MagicAssist)
+                    parts.Add("Magic Assist");
+                magicValue.Text = parts.Count > 0
+                    ? string.Join(", ", parts)
+                    : "Spellcaster (no Faith or Arcana yet)";
+            }
+        }
+
+        if (healButton != null)
+        {
+            bool canHeal = npc != null && MagicService.IsEligibleHealer(npc, _stronghold);
+            healButton.Visible = canHeal;
+            healButton.Enabled = canHeal && npc.HealPointsRemaining > 0;
+        }
+    }
+
+    private void MagicHealingButton_Click(object sender, EventArgs e)
+    {
+        var listView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+        if (listView == null || listView.SelectedItems.Count == 0) return;
+
+        string npcId = (string)listView.SelectedItems[0].Tag;
+        var healer = _stronghold.NPCs.Find(n => n.Id == npcId);
+        if (healer == null || !MagicService.IsEligibleHealer(healer, _stronghold)) return;
+
+        using (var dialog = new MagicHealingDialog(_stronghold, healer, raidMode: false))
+        {
+            dialog.ShowDialog(this);
+            if (dialog.AnyHealingDone)
+            {
+                _gameStateService.OnGameStateChanged();
+                RefreshNPCsTab();
+            }
+        }
+
+        UpdateNPCDetails(healer);
     }
 
     private void UpdateDMButtonVisibility()
@@ -3363,6 +3501,12 @@ public partial class MainDashboard : Form
         if (addNPCButton != null)
         {
             addNPCButton.Visible = _gameStateService.DMMode;
+        }
+        
+        var editNPCButton = FindControl<Button>(_tabControl.TabPages[2], "EditNPCButton");
+        if (editNPCButton != null)
+        {
+            editNPCButton.Visible = _gameStateService.DMMode;
         }
         
         var deleteNPCButton = FindControl<Button>(_tabControl.TabPages[2], "DeleteNPCButton");
@@ -3392,6 +3536,34 @@ public partial class MainDashboard : Form
         bool dm = _gameStateService.DMMode;
         foreach (var item in _dmToolMenuItems)
             item.Visible = dm;
+    }
+
+    private void EditNPCButton_Click(object sender, EventArgs e)
+    {
+        if (!_gameStateService.DMMode) return;
+
+        var npcsListView = FindControl<ListView>(_tabControl.TabPages[2], "NPCsListView");
+        if (npcsListView == null || npcsListView.SelectedItems.Count == 0)
+        {
+            MessageBox.Show("Select an NPC to edit.", "Edit NPC",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        string npcId = (string)npcsListView.SelectedItems[0].Tag;
+        NPC selectedNpc = _stronghold.NPCs.Find(n => n.Id == npcId);
+        if (selectedNpc == null) return;
+
+        using (var dialog = new EditNPCDialog(selectedNpc))
+        {
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        }
+
+        // Skills feed production and defense; skills and traits both feed upkeep.
+        _gameStateService.OnGameStateChanged();
+        RefreshNPCsTab();
+        ShowNPCInTab(npcId);
+        UpdateNPCDetails(selectedNpc);
     }
 
     private void EditBioButton_Click(object sender, EventArgs e)
@@ -3744,11 +3916,11 @@ public partial class MainDashboard : Form
     {
         using (var addBuildingForm = new AddBuildingForm(_stronghold))
         {
-            if (addBuildingForm.ShowDialog() == DialogResult.OK)
+            if (addBuildingForm.ShowDialog() == DialogResult.OK
+                && !string.IsNullOrEmpty(addBuildingForm.CreatedBuildingId))
             {
-                // The building has been added through GameStateService
-                // which will trigger GameStateChanged event and refresh the UI
-                // No need to manually update the ListView here
+                _selectedBuildingId = addBuildingForm.CreatedBuildingId;
+                ShowBuildingInTab(_selectedBuildingId);
             }
         }
     }
@@ -4243,9 +4415,17 @@ public partial class MainDashboard : Form
                         {
                             statusText += $" ({building.ConstructionProgress}%)";
                         }
+
+                        int pledged = MagicService.PledgedPoints(building);
+                        if (pledged > 0)
+                        {
+                            statusText += $" +{pledged} magic next week";
+                        }
                     }
                     buildingStatusValue.Text = statusText;
                 }
+
+                UpdateMagicAssistRow(building);
 
                 if (buildingConditionValue != null)
                     buildingConditionValue.Text = $"{building.Condition}%";
@@ -4731,6 +4911,7 @@ public partial class MainDashboard : Form
         if (buildingStatusValue != null) buildingStatusValue.Text = string.Empty;
         if (buildingConditionValue != null) buildingConditionValue.Text = string.Empty;
         if (buildingDefenseValue != null) buildingDefenseValue.Text = string.Empty;
+        UpdateMagicAssistRow(null);
         if (productionListView != null) productionListView.Items.Clear();
         if (upkeepListView != null) upkeepListView.Items.Clear();
         if (productionSummaryLabel != null) productionSummaryLabel.Text = "Not Producing";
@@ -4885,6 +5066,61 @@ public partial class MainDashboard : Form
                     }
                 }
             }
+    }
+
+    // Shows the Magic Assist row when an assigned spellcaster can boost the current work.
+    private void UpdateMagicAssistRow(Building? building)
+    {
+        var label = FindControl<Label>(_tabControl.TabPages[1], "BuildingMagicAssistLabel");
+        var value = FindControl<Label>(_tabControl.TabPages[1], "BuildingMagicAssistValue");
+        var button = FindControl<Button>(_tabControl.TabPages[1], "MagicAssistButton");
+
+        bool available = building != null && MagicService.CanOfferMagicAssist(building, _stronghold);
+
+        if (label != null) label.Visible = available;
+        int remaining = available ? MagicService.MaxAssistIncrements(building!, _stronghold) : 0;
+
+        if (value != null)
+        {
+            value.Visible = available;
+            if (available)
+            {
+                int pledged = MagicService.PledgedPoints(building!);
+                int casters = MagicService.AssistCasters(building!, _stronghold).Count;
+                value.Text = pledged > 0
+                    ? $"{pledged} pts pledged, {remaining} increment(s) left"
+                    : $"{casters} caster(s), up to {remaining} increment(s)";
+            }
+        }
+        if (button != null)
+        {
+            button.Visible = available;
+            button.Enabled = available && remaining > 0;
+        }
+    }
+
+    private void MagicAssistButton_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedBuildingId)) return;
+
+        var building = _stronghold.Buildings.Find(b => b.Id == _selectedBuildingId);
+        if (building == null || !MagicService.CanOfferMagicAssist(building, _stronghold)) return;
+
+        if (MagicService.MaxAssistIncrements(building, _stronghold) <= 0)
+        {
+            MessageBox.Show("The assigned spellcasters have already committed everything they can this week.",
+                "Magic Assist", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using (var dialog = new MagicAssistDialog(building, _stronghold))
+        {
+            if (dialog.ShowDialog(this) == DialogResult.OK)
+            {
+                _gameStateService.OnGameStateChanged();
+                RefreshBuildingsTab();
+            }
+        }
     }
 
     private void RepairBuilding_Click(object sender, EventArgs e)

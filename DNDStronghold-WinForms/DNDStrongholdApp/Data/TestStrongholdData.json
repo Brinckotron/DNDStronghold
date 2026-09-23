@@ -50,7 +50,10 @@
     { "type": "Scholar" },
     { "type": "Scholar" },
     { "type": "Merchant" },
-    { "type": "Merchant" }
+    { "type": "Merchant" },
+    { "type": "Militia", "title": "Hero", "hero": true, "skills": { "Combat": 4 } },
+    { "type": "Scholar", "title": "Arcanist", "spellcaster": true, "magicAssist": true, "skills": { "Arcana": 3 } },
+    { "type": "Scholar", "title": "Priest", "spellcaster": true, "magicAssist": true, "skills": { "Faith": 5 } }
   ],
   "assignments": [
     {

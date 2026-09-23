@@ -22,6 +22,8 @@ namespace DNDStrongholdApp.Models
         public int Age { get; set; } = 20; // Starting age
         public bool IsAlive { get; set; } = true;
         public bool Hero { get; set; }
+        public bool Spellcaster { get; set; }
+        public bool MagicAssist { get; set; } // Opt-in: this caster's magic can speed up building work
         public int Level { get; set; } = 1; // NPC level, starts at 1
         public NPCStatus Status { get; set; } = NPCStatus.Available; // Current status of the NPC
         public Bio Bio { get; set; } = new Bio(); // NPC biography/description
@@ -30,6 +32,38 @@ namespace DNDStrongholdApp.Models
         public HungerStatus HungerState { get; set; } = HungerStatus.WellFed;
         public int StarvationProgress { get; set; } = 0; // Progress toward starvation (0-4+)
         public RationLevel RationLevel { get; set; } = RationLevel.Full; // Default to full rations
+
+        // Magic. Spent rather than remaining so old saves load at a full pool and the
+        // pool self-corrects if the underlying skill level changes mid-week.
+        public int HealPointsUsed { get; set; } = 0;
+        public int SpellPointsUsed { get; set; } = 0;
+
+        [JsonIgnore]
+        public int FaithLevel => Spellcaster ? GetSkillLevel("Faith") : 0;
+
+        [JsonIgnore]
+        public int ArcanaLevel => Spellcaster ? GetSkillLevel("Arcana") : 0;
+
+        [JsonIgnore]
+        public int SpellcastingLevel => Math.Max(FaithLevel, ArcanaLevel);
+
+        // Separate from Spellcaster: plenty of casters have no business hurrying masonry.
+        [JsonIgnore]
+        public bool CanMagicAssist => Spellcaster && MagicAssist && SpellcastingLevel >= 1;
+
+        [JsonIgnore]
+        public int HealPointsRemaining => Math.Max(0, FaithLevel - HealPointsUsed);
+
+        [JsonIgnore]
+        public int SpellPointsRemaining => Math.Max(0, ArcanaLevel - SpellPointsUsed);
+
+        public int GetSkillLevel(string skillName)
+        {
+            if (string.IsNullOrEmpty(skillName)) return 0;
+            return Skills.FirstOrDefault(s => s.Name == skillName)?.Level ?? 0;
+        }
+
+        public bool HasTrait(NPCTraitType traitType) => Traits.Any(t => t.Type == traitType);
 
         // Constructor for a new NPC
         public NPC(NPCType type, string name = "")
@@ -213,7 +247,7 @@ namespace DNDStrongholdApp.Models
             var skill = Skills.Find(s => s.Name == skillName);
             if (skill != null)
             {
-                skill.Experience += amount;
+                skill.Experience += Services.TraitService.ModifyExperienceGain(this, amount);
                 
                 // Check if skill should level up
                 int requiredXP = (skill.Level + 1) * 100;
@@ -271,17 +305,19 @@ namespace DNDStrongholdApp.Models
             {
                 if (state.Type == NPCStateType.Sick || state.Type == NPCStateType.LightlyInjured)
                 {
-                    if (new Random().Next(100) < 20)
+                    if (Random.Shared.Next(100) < Services.TraitService.RecoveryThreshold(this, 20))
                         States.Remove(state);
                 }
                 else if (state.Type == NPCStateType.GravelyInjured)
                 {
-                    int roll = new Random().Next(100);
-                    if (roll < 10)
+                    int roll = Random.Shared.Next(100);
+                    int recovers = Services.TraitService.RecoveryThreshold(this, 10);
+                    int dies = Services.TraitService.DeathThreshold(this, recovers, 5);
+                    if (roll < recovers)
                     {
                         States.Remove(state);
                     }
-                    else if (roll < 15)
+                    else if (roll < dies)
                     {
                         died = true;
                         States.Clear();
@@ -312,6 +348,15 @@ namespace DNDStrongholdApp.Models
             {
                 States.Add(new NPCState { Type = stateType });
                 UpdateStatus(); // Update status when health state changes
+            }
+        }
+
+        // Remove a health state
+        public void RemoveHealthState(NPCStateType stateType)
+        {
+            if (States.RemoveAll(s => s.Type == stateType) > 0)
+            {
+                UpdateStatus();
             }
         }
 
@@ -585,14 +630,14 @@ namespace DNDStrongholdApp.Models
                 NPCTraitType.Glutton => "Eats more than usual (+1 food upkeep)",
                 NPCTraitType.Charitable => "Willing to work for less (-1 gold upkeep)",
                 NPCTraitType.Nibbler => "Eats less than usual (-1 food upkeep)",
-                NPCTraitType.Frail => "More susceptible to illness and injury",
-                NPCTraitType.Hardy => "More resistant to illness and injury",
-                NPCTraitType.QuickLearner => "Gains experience faster",
-                NPCTraitType.SlowLearner => "Gains experience slower",
-                NPCTraitType.Strong => "More effective at physical tasks",
-                NPCTraitType.Weak => "Less effective at physical tasks",
-                NPCTraitType.Charismatic => "Better at social interactions",
-                NPCTraitType.Shy => "Worse at social interactions",
+                NPCTraitType.Frail => "Takes worse raid wounds and recovers more slowly",
+                NPCTraitType.Hardy => "Takes lighter raid wounds and recovers more quickly",
+                NPCTraitType.QuickLearner => "Gains skill experience 50% faster",
+                NPCTraitType.SlowLearner => "Gains skill experience 50% slower",
+                NPCTraitType.Strong => "+1 construction point, +25% output from physical skills",
+                NPCTraitType.Weak => "-1 construction point, -25% output from physical skills",
+                NPCTraitType.Charismatic => "Counts as +1 Trade skill on trade projects",
+                NPCTraitType.Shy => "Counts as -1 Trade skill on trade projects",
                 _ => Description
             };
         }

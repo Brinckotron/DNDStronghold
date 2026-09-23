@@ -19,6 +19,7 @@ namespace DNDStrongholdApp.Forms
         private RichTextBox _costLabel;
         private Button _addButton;
         private Button _cancelButton;
+        private CheckBox _ignoreCostsCheck;
 
         // DM Mode controls
         private Label _dmModeLabel;
@@ -28,6 +29,8 @@ namespace DNDStrongholdApp.Forms
         private Label _constructionPointsCostLabel;
         private NumericUpDown _conditionNumeric;
         private Panel _dmModePanel;
+
+        public string CreatedBuildingId { get; private set; }
 
         public AddBuildingForm(Stronghold stronghold)
         {
@@ -41,7 +44,7 @@ namespace DNDStrongholdApp.Forms
             this.Text = "Add New Building";
             // Make form larger when in DM Mode
             this.Size = _gameStateService.DMMode ? 
-                new System.Drawing.Size(500, 600) : 
+                new System.Drawing.Size(500, 640) : 
                 new System.Drawing.Size(500, 450);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -239,11 +242,21 @@ namespace DNDStrongholdApp.Forms
                 BorderStyle = BorderStyle.None
             };
 
+            if (_gameStateService.DMMode)
+            {
+                _ignoreCostsCheck = new CheckBox
+                {
+                    Text = "Ignore costs",
+                    Location = new Point(20, _costLabel.Bottom + 6),
+                    AutoSize = true
+                };
+                _ignoreCostsCheck.CheckedChanged += (_, _) => RefreshAddEnabled();
+            }
+
             // Buttons
             _addButton = new Button
             {
                 Text = "Add Building",
-                DialogResult = DialogResult.OK,
                 Location = new Point(290, _costLabel.Top),
                 Width = 100,
                 Height = 35,
@@ -277,6 +290,7 @@ namespace DNDStrongholdApp.Forms
             if (_gameStateService.DMMode)
             {
                 controls.Add(_dmModePanel);
+                controls.Add(_ignoreCostsCheck);
             }
 
             this.Controls.AddRange(controls.ToArray());
@@ -382,7 +396,34 @@ namespace DNDStrongholdApp.Forms
                 }
             }
 
-            _addButton.Enabled = true;
+            RefreshAddEnabled();
+        }
+
+        private bool HasEnoughResources()
+        {
+            if (_buildingTypeComboBox.SelectedItem == null) return false;
+            var tempBuilding = new Building(_buildingTypeComboBox.SelectedItem.ToString());
+            foreach (var cost in tempBuilding.ConstructionCost)
+            {
+                var resource = _stronghold.Resources.Find(r => r.Type == cost.ResourceType);
+                if (resource == null || resource.Amount < cost.Amount)
+                    return false;
+            }
+            return true;
+        }
+
+        private void RefreshAddEnabled()
+        {
+            if (_buildingTypeComboBox.SelectedItem == null)
+            {
+                _addButton.Enabled = false;
+                return;
+            }
+
+            bool ignoreCosts = _gameStateService.DMMode
+                && _ignoreCostsCheck != null
+                && _ignoreCostsCheck.Checked;
+            _addButton.Enabled = ignoreCosts || HasEnoughResources();
         }
 
         private string GetBuildingDescription(BuildingType type)
@@ -457,19 +498,19 @@ namespace DNDStrongholdApp.Forms
                     building.Condition = (int)_conditionNumeric.Value;
                 }
 
-                // Add the building without deducting resources in DM Mode
-                _gameStateService.AddBuildingAndDeductCosts(building);
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-                return;
             }
 
-            // Normal mode: Add the building and deduct resources
-            if (!_gameStateService.AddBuildingAndDeductCosts(building))
+            bool ignoreCosts = _gameStateService.DMMode
+                && _ignoreCostsCheck != null
+                && _ignoreCostsCheck.Checked;
+
+            if (!_gameStateService.AddBuildingAndDeductCosts(building, ignoreCosts))
             {
                 MessageBox.Show("Failed to add building: Insufficient resources", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+
+            CreatedBuildingId = building.Id;
 
             // Show construction crew assignment dialog for new buildings in Planning state
             if (building.ConstructionStatus == BuildingStatus.Planning)

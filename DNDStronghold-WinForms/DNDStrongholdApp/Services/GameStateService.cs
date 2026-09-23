@@ -203,6 +203,14 @@ namespace DNDStrongholdApp.Services
             // Advance the week
             _currentStronghold.AdvanceWeek();
 
+            // Refresh weekly magic pools. Raids resolve before AdvanceWeek, so a raid
+            // spends the ending week's points and anything already spent is gone.
+            foreach (var npc in _currentStronghold.NPCs)
+            {
+                npc.HealPointsUsed = 0;
+                npc.SpellPointsUsed = 0;
+            }
+
             // Award XP to building workers for skills
             foreach (var building in _currentStronghold.Buildings)
             {
@@ -255,6 +263,7 @@ namespace DNDStrongholdApp.Services
                     {
                     // Calculate and apply first week's construction points
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    ApplyMagicAssist(building);
                     building.AdvanceConstruction();
                 }
             }
@@ -262,6 +271,7 @@ namespace DNDStrongholdApp.Services
                 else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
                 {
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    ApplyMagicAssist(building);
                     if (building.AdvanceConstruction())
                     {
                         // Construction completed, clear construction crew
@@ -273,6 +283,7 @@ namespace DNDStrongholdApp.Services
                 if (building.ConstructionStatus == BuildingStatus.Repairing)
                 {
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    ApplyMagicAssist(building);
                     if (building.AdvanceRepair())
                     {
                         // Repair completed, clear construction crew
@@ -284,12 +295,46 @@ namespace DNDStrongholdApp.Services
                 if (building.ConstructionStatus == BuildingStatus.Upgrading)
                 {
                     building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                    ApplyMagicAssist(building);
                     if (building.AdvanceUpgrade())
                     {
                         // Upgrade completed, clear construction crew
                         ClearConstructionCrewFromBuilding(building.Id);
                     }
                 }
+            }
+        }
+
+        // Fold paid-for spellcaster boosts into this week's construction points. Called
+        // after UpdateConstructionProgress (which zeroes the weekly total) and before the
+        // matching Advance* call that banks it.
+        private void ApplyMagicAssist(Building building)
+        {
+            if (building.PendingMagicAssist == null || building.PendingMagicAssist.Count == 0)
+                return;
+
+            int points = MagicService.ConsumeMagicAssist(building, _currentStronghold, out var voided);
+            if (points > 0)
+            {
+                building.WeeklyConstructionPoints += points;
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    $"Magic assist at {building.Name}",
+                    $"Spellcasters added {points} construction points to {building.Name} this week."
+                ));
+            }
+
+            foreach (var name in voided)
+            {
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    $"Magic assist wasted at {building.Name}",
+                    $"{name} was no longer working on {building.Name}, so their magic assist was wasted."
+                ));
             }
         }
 
@@ -978,6 +1023,15 @@ namespace DNDStrongholdApp.Services
                     if (Enum.TryParse<NPCType>(npcData.Type, out var npcType))
                     {
                         var npc = new NPC(npcType);
+                        if (!string.IsNullOrWhiteSpace(npcData.Name))
+                            npc.Name = npcData.Name.Trim();
+                        if (!string.IsNullOrWhiteSpace(npcData.Title))
+                            npc.Title = npcData.Title.Trim();
+                        npc.Hero = npcData.Hero;
+                        npc.Spellcaster = npcData.Spellcaster;
+                        npc.MagicAssist = npcData.Spellcaster && npcData.MagicAssist;
+                        ApplyTestNpcSkills(npc, npcData.Skills);
+                        TraitService.AssignRandomTraits(npc);
                         // Generate a procedural bio for test NPCs
                         npc.GenerateBio();
                         _currentStronghold.NPCs.Add(npc);
@@ -1055,6 +1109,21 @@ namespace DNDStrongholdApp.Services
             }
         }
 
+        private static void ApplyTestNpcSkills(NPC npc, Dictionary<string, int> skills)
+        {
+            if (npc == null || skills == null || skills.Count == 0) return;
+            npc.EnsureSkillsInitialized();
+            foreach (var pair in skills)
+            {
+                var skill = npc.Skills.Find(s => s.Name == pair.Key);
+                if (skill == null) continue;
+                skill.Level = Math.Clamp(pair.Value, 0, 5);
+                if (skill.Type == SkillType.Advanced && skill.Level > 0)
+                    skill.IsLearned = true;
+            }
+            npc.UpdateUpkeepCosts();
+        }
+
         // Data classes for test stronghold JSON structure
         public class TestStrongholdData
         {
@@ -1077,6 +1146,12 @@ namespace DNDStrongholdApp.Services
         public class TestNPCData
         {
             public string Type { get; set; } = "";
+            public string Name { get; set; } = "";
+            public string Title { get; set; } = "";
+            public bool Hero { get; set; }
+            public bool Spellcaster { get; set; }
+            public bool MagicAssist { get; set; }
+            public Dictionary<string, int> Skills { get; set; } = new Dictionary<string, int>();
         }
 
         public class TestAssignmentData
@@ -1087,9 +1162,9 @@ namespace DNDStrongholdApp.Services
         }
         
         // Add a new building to the stronghold
-        public bool AddBuildingAndDeductCosts(Building building)
+        public bool AddBuildingAndDeductCosts(Building building, bool ignoreCosts = false)
         {
-            var command = new AddBuildingCommand(this, building);
+            var command = new AddBuildingCommand(this, building, ignoreCosts);
             if (command.CanExecute())
             {
                 _commandInvoker.ExecuteCommand(command);
@@ -1099,12 +1174,10 @@ namespace DNDStrongholdApp.Services
         }
         
         // Internal method called by AddBuildingCommand
-        internal void ExecuteAddBuildingAndDeductCosts(Building building)
+        internal void ExecuteAddBuildingAndDeductCosts(Building building, bool ignoreCosts = false)
         {
-            // In DM Mode, skip resource checks and deductions
-            if (!_dmMode)
+            if (!ignoreCosts)
             {
-                // Deduct resources
                 foreach (var cost in building.ConstructionCost)
                 {
                     var resource = _currentStronghold.Resources.Find(r => r.Type == cost.ResourceType);
@@ -1128,7 +1201,9 @@ namespace DNDStrongholdApp.Services
                 _currentStronghold.YearsSinceFoundation,
                 JournalEntryType.BuildingPlanned,
                 title,
-                $"A new building has been planned for construction. Resources have been allocated."
+                ignoreCosts
+                    ? "A new building has been added. Construction costs were waived."
+                    : "A new building has been planned for construction. Resources have been allocated."
             ));
             
             OnGameStateChanged();
@@ -1184,6 +1259,7 @@ namespace DNDStrongholdApp.Services
                         Name = "Steward",
                         Title = "Steward"
                     };
+                    TraitService.AssignRandomTraits(availableNpc);
                     availableNpc.GenerateBio();
                     _currentStronghold.NPCs.Add(availableNpc);
                 }

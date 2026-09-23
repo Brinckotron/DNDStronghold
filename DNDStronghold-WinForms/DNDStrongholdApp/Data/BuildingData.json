@@ -2,7 +2,7 @@
   "buildings": [
     {
       "type": "Farm",
-      "requiredConstructionPoints": 30,
+      "requiredConstructionPoints": 50,
       "maxLevel": 5,
       "workerSlotsScaling": [
         {
@@ -136,7 +136,7 @@
     },
     {
       "type": "Watchtower",
-      "requiredConstructionPoints": 25,
+      "requiredConstructionPoints": 40,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -257,7 +257,7 @@
     },
     {
       "type": "Smithy",
-      "requiredConstructionPoints": 50,
+      "requiredConstructionPoints": 90,
       "maxLevel": 2,
       "workerSlotsScaling": [
         {
@@ -373,7 +373,7 @@
     },
     {
       "type": "Laboratory",
-      "requiredConstructionPoints": 50,
+      "requiredConstructionPoints": 90,
       "maxLevel": 2,
       "workerSlotsScaling": [
         {
@@ -481,7 +481,7 @@
     },
     {
       "type": "Chapel",
-      "requiredConstructionPoints": 35,
+      "requiredConstructionPoints": 60,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -563,7 +563,7 @@
     },
     {
       "type": "Mine",
-      "requiredConstructionPoints": 40,
+      "requiredConstructionPoints": 70,
       "maxLevel": 4,
       "workerSlotsScaling": [
         {
@@ -696,7 +696,7 @@
     },
     {
       "type": "Barracks",
-      "requiredConstructionPoints": 45,
+      "requiredConstructionPoints": 80,
       "maxLevel": 4,
       "workerSlotsScaling": [
         {
@@ -783,7 +783,7 @@
     },
     {
       "type": "Library",
-      "requiredConstructionPoints": 40,
+      "requiredConstructionPoints": 70,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -902,7 +902,7 @@
     },
     {
       "type": "TradeOffice",
-      "requiredConstructionPoints": 35,
+      "requiredConstructionPoints": 60,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -1054,7 +1054,7 @@
     },
     {
       "type": "Stables",
-      "requiredConstructionPoints": 30,
+      "requiredConstructionPoints": 50,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -1147,7 +1147,7 @@
     },
     {
       "type": "Tavern",
-      "requiredConstructionPoints": 25,
+      "requiredConstructionPoints": 40,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -1266,7 +1266,7 @@
     },
     {
       "type": "MasonsYard",
-      "requiredConstructionPoints": 35,
+      "requiredConstructionPoints": 60,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -1381,7 +1381,7 @@
     },
     {
       "type": "Workshop",
-      "requiredConstructionPoints": 30,
+      "requiredConstructionPoints": 50,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -1500,7 +1500,7 @@
     },
     {
       "type": "Granary",
-      "requiredConstructionPoints": 25,
+      "requiredConstructionPoints": 40,
       "maxLevel": 3,
       "workerSlotsScaling": [
         {
@@ -1574,7 +1574,7 @@
     },
     {
       "type": "Quarry",
-      "requiredConstructionPoints": 45,
+      "requiredConstructionPoints": 80,
       "maxLevel": 4,
       "workerSlotsScaling": [
         {
@@ -1795,7 +1795,7 @@
     },
     {
       "type": "Greenhouse",
-      "requiredConstructionPoints": 35,
+      "requiredConstructionPoints": 60,
       "maxLevel": 2,
       "workerSlotsScaling": [
         {

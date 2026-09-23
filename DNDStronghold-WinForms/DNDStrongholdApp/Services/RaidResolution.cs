@@ -72,101 +72,269 @@ namespace DNDStrongholdApp.Services
             return battle;
         }
 
-        public static RaidRoundResult ResolveRound(RaidBattle battle, Stronghold stronghold, int attackerRoll, int defenderRoll)
+        public static List<NPC> AvailableHeroes(Stronghold stronghold, RaidBattle battle)
         {
-            var result = new RaidRoundResult();
-            if (battle == null || battle.Ended || stronghold == null)
-            {
-                result.Ended = battle?.Ended ?? true;
-                result.EndReason = battle?.EndReason ?? RaidEndReason.RaidersWiped;
-                return result;
-            }
+            if (stronghold?.NPCs == null || battle == null) return new List<NPC>();
+            var used = battle.HeroicActsUsed ?? new List<string>();
+            return stronghold.NPCs
+                .Where(n => n.Hero
+                    && n.IsAlive
+                    && CanFight(n, stronghold)
+                    && !used.Contains(n.Id))
+                .ToList();
+        }
 
-            battle.Round++;
-            result.Round = battle.Round;
-            result.AttackerRoll = Math.Clamp(attackerRoll, 1, 100);
-            result.DefenderRoll = Math.Clamp(defenderRoll, 1, 100);
+        public static void SpendHeroicAct(RaidBattle battle, NPC hero)
+        {
+            if (battle == null || hero == null) return;
+            battle.HeroicActsUsed ??= new List<string>();
+            if (!battle.HeroicActsUsed.Contains(hero.Id))
+                battle.HeroicActsUsed.Add(hero.Id);
+        }
 
+        // 1 HP on a chosen raider, applied before the round is calculated so a kill
+        // drops that troop's Strength from this comparison.
+        public static string ApplyStrikeTrue(RaidBattle battle, Stronghold stronghold, NPC hero, RaidTroop troop)
+        {
+            if (battle == null || troop == null || troop.IsDead)
+                return string.Empty;
+
+            troop.HitPoints = Math.Max(0, troop.HitPoints - 1);
+            SpendHeroicAct(battle, hero);
             var faction = FindFaction(stronghold, battle.Party.FactionId);
             RefreshLiveStats(battle.Party, faction);
-            var snapshot = Calculate(stronghold);
-            int strength = battle.Party.Stats.Strength;
-            int defense = (battle.Party.Surprise && battle.Round == 1)
-                ? snapshot.RoundOneDefense
-                : snapshot.TotalDefense;
 
-            var magic = ResolveRoundMagic(battle, stronghold);
+            string fate = troop.IsDead ? "slain" : $"{troop.HitPoints} HP left";
+            return $"{hero.Name} Strikes True at {troop.Name} ({fate}).";
+        }
 
-            result.AttackerTotal = result.AttackerRoll + strength;
-            result.DefenderTotal = result.DefenderRoll + defense;
-            int diff = result.AttackerTotal - result.DefenderTotal;
-            result.Margin = Math.Abs(diff);
-            result.AttackerWon = diff > 0;
+        public static RaidRoundResult ResolveRound(RaidBattle battle, Stronghold stronghold, int attackerRoll, int defenderRoll)
+        {
+            var preview = StartRoundResolution(battle, stronghold, attackerRoll, defenderRoll);
+            preview.ProjectCasualties();
+            return preview.Commit();
+        }
 
-            var swing = RollSwings();
-            int originalBand = CasualtyBand(result.Margin, result.AttackerWon, diff == 0);
-            int band = Math.Clamp(originalBand + magic.BuffSteps, 0, 10);
-            int tableMargin = RepresentativeMargin(band, result.Margin, originalBand);
-            CasualtiesFromMargin(tableMargin, band > 5, band == 5, swing,
-                out int attackerHits, out int defenderHits);
-            defenderHits += magic.ExtraDefenderHits;
-            if (magic.AoeCount > 0)
-                defenderHits += magic.AoeCount * LetterHits(swing, true, true, true);
-            int healed = Math.Min(magic.Heals, attackerHits);
-            attackerHits -= healed;
-            int goalTicks = GoalTicks(battle.Party.Goal, result.Margin, result.AttackerWon);
+        public static RaidRoundPreview StartRoundResolution(RaidBattle battle, Stronghold stronghold, int attackerRoll, int defenderRoll)
+        {
+            return new RaidRoundPreview(battle, stronghold, attackerRoll, defenderRoll);
+        }
 
-            var lines = new List<string>
+        // Holds a round after magic and the d100 comparison, but before swing dice and
+        // casualties. Rally mutates the defender roll here. Hold the Line remaps defender
+        // casualty dice and must be declared before ProjectCasualties. Interpose edits
+        // the projected list after.
+        public sealed class RaidRoundPreview
+        {
+            private readonly RaidBattle _battle;
+            private readonly Stronghold _stronghold;
+            private readonly EnemyFaction? _faction;
+            private readonly RoundMagic _magic;
+            private readonly DefenderMagic _defenderMagic;
+            private readonly List<string> _heroicLines = new();
+            private readonly RaidRoundResult _result = new();
+            private SwingContext? _swing;
+            private int _strength;
+            private int _defense;
+            private int _attackerHits;
+            private int _defenderHits;
+            private int _healed;
+            private int _goalTicks;
+            private int _originalBand;
+            private int _band;
+            private bool _projected;
+            private bool _holdTheLine;
+
+            public RaidRoundPreview(RaidBattle battle, Stronghold stronghold, int attackerRoll, int defenderRoll)
             {
-                $"Round {battle.Round} — {battle.Party.Goal}."
-            };
-            lines.AddRange(magic.Lines);
-            lines.Add($"Attackers d100 {result.AttackerRoll} + Strength {strength} = {result.AttackerTotal}.");
-            lines.Add($"Defenders d100 {result.DefenderRoll} + Defense {defense} = {result.DefenderTotal}.");
-            lines.Add(diff == 0
-                ? "Tie. Both sides take a glancing hit."
-                : result.AttackerWon
-                    ? $"Attackers win by {result.Margin}."
-                    : $"Defenders win by {result.Margin}.");
-            if (magic.BuffSteps > 0)
-            {
-                lines.Add(band == originalBand
-                    ? "Buff/debuff spells cannot shift the casualty table further."
-                    : $"Casualty table shifts {magic.BuffSteps} step(s) toward the attackers.");
+                _battle = battle;
+                _stronghold = stronghold;
+
+                if (battle == null || battle.Ended || stronghold == null)
+                {
+                    _result.Ended = battle?.Ended ?? true;
+                    _result.EndReason = battle?.EndReason ?? RaidEndReason.RaidersWiped;
+                    _magic = new RoundMagic();
+                    _defenderMagic = new DefenderMagic();
+                    return;
+                }
+
+                battle.Round++;
+                _result.Round = battle.Round;
+                _result.AttackerRoll = Math.Clamp(attackerRoll, 1, 100);
+                _result.DefenderRoll = Math.Clamp(defenderRoll, 1, 100);
+
+                _faction = FindFaction(stronghold, battle.Party.FactionId);
+                RefreshLiveStats(battle.Party, _faction);
+                var snapshot = Calculate(stronghold);
+                _strength = battle.Party.Stats.Strength;
+                _defense = (battle.Party.Surprise && battle.Round == 1)
+                    ? snapshot.RoundOneDefense
+                    : snapshot.TotalDefense;
+
+                _magic = ResolveRoundMagic(battle, stronghold);
+                _defenderMagic = ResolveDefenderMagic(battle);
+                RecalculateTotals();
             }
-            lines.Add(DescribeSwings(swing));
-            if (magic.AoeCount > 0)
-                lines.Add($"AoE adds {magic.AoeCount}×(a+b+c) to defender casualties.");
-            if (healed > 0)
-                lines.Add($"Heal spells negate {healed} raider casualty hit(s).");
 
-            if (attackerHits > 0)
-                lines.Add(ApplyAttackerDamage(battle, attackerHits));
-            if (defenderHits > 0)
-                lines.Add(ApplyDefenderCasualties(stronghold, battle, defenderHits));
+            public RaidRoundResult Result => _result;
+            public bool Ready => _battle != null && !_battle.Ended && _stronghold != null;
+            public bool AttackerWon => _result.AttackerWon;
+            public bool Tied => _result.AttackerTotal == _result.DefenderTotal;
+            public int Strength => _strength;
+            public int Defense => _defense;
+            public int GoalTicks => _goalTicks;
+            public bool HoldTheLineActive => _holdTheLine;
+            public List<ProjectedCasualty> DefenderCasualties { get; } = new();
 
-            bool raidersAlive = battle.LivingCount > 0;
-            if (goalTicks > 0 && raidersAlive)
-                lines.Add(ApplyGoalTicks(battle, stronghold, goalTicks, result.Margin));
-            else if (goalTicks > 0)
-                lines.Add("The raiders break before they can press their goal.");
+            public string ComparisonLine()
+            {
+                if (Tied) return "Tie. Both sides take a glancing hit.";
+                return AttackerWon
+                    ? $"Attackers win by {_result.Margin}."
+                    : $"Defenders win by {_result.Margin}.";
+            }
 
-            RefreshLiveStats(battle.Party, faction);
-            var after = Calculate(stronghold);
-            lines.Add($"Raiders: {battle.LivingCount}/{battle.StartingNumbers} left, Strength {battle.Party.Stats.Strength}, HP {battle.Party.Stats.HitPoints}.");
-            lines.Add($"Defense now {after.TotalDefense} (buildings {after.BuildingDefense} + fighters {after.NpcCombat}).");
+            public void AddHeroicLine(string line)
+            {
+                if (!string.IsNullOrWhiteSpace(line))
+                    _heroicLines.Add(line);
+            }
 
-            CheckEndOfRound(battle);
-            result.Ended = battle.Ended;
-            result.EndReason = battle.EndReason;
-            if (battle.Ended)
-                lines.Add(DescribeEnd(battle));
+            public void ApplyRally(int newDefenderRoll)
+            {
+                if (!Ready || _projected) return;
+                _result.DefenderRoll = Math.Clamp(newDefenderRoll, 1, 100);
+                RecalculateTotals();
+            }
 
-            result.Report = string.Join(Environment.NewLine, lines.Where(l => !string.IsNullOrWhiteSpace(l)));
-            battle.RoundReports.Add(result.Report);
-            battle.Log.Add(result.Report);
-            battle.Log.Add(string.Empty);
-            return result;
+            public void ProjectCasualties()
+            {
+                if (!Ready || _projected) return;
+
+                _swing = new SwingContext();
+                bool tie = Tied;
+                _originalBand = CasualtyBand(_result.Margin, _result.AttackerWon, tie);
+                _band = Math.Clamp(_originalBand + _magic.BuffSteps, 0, 10);
+                int tableMargin = RepresentativeMargin(_band, _result.Margin, _originalBand);
+                CasualtiesFromMargin(tableMargin, _band > 5, _band == 5, _swing, _defenderMagic.BarrierActive,
+                    _holdTheLine, out _attackerHits, out _defenderHits);
+                _defenderHits += _magic.ExtraDefenderHits;
+                for (int i = 0; i < _magic.AoeCount; i++)
+                    _defenderHits += ResolveAoeAgainstDefenders(_swing, _defenderMagic.BarrierActive, _holdTheLine);
+                _attackerHits += _defenderMagic.ExtraAttackerHits;
+                for (int i = 0; i < _defenderMagic.FireballCount; i++)
+                    _attackerHits += 1 + _swing.AA() + _swing.BB() + _swing.CC();
+                _healed = Math.Min(_magic.Heals, _attackerHits);
+                _attackerHits -= _healed;
+                _goalTicks = _holdTheLine
+                    ? 0
+                    : GoalTicks(_battle.Party.Goal, _result.Margin, _result.AttackerWon);
+
+                DefenderCasualties.Clear();
+                DefenderCasualties.AddRange(ProjectDefenderCasualties(_stronghold, _battle, _defenderHits));
+                _projected = true;
+            }
+
+            public bool Interpose(int index, NPC hero)
+            {
+                if (!_projected || hero == null) return false;
+                if (index < 0 || index >= DefenderCasualties.Count) return false;
+
+                var hit = DefenderCasualties[index];
+                if (!hit.IsMeaningful || hit.Npc.Id == hero.Id) return false;
+
+                string saved = hit.Npc.Name;
+                RetargetCasualty(hit, hero, DefenderCasualties.Take(index));
+                AddHeroicLine($"{hero.Name} Interposes, taking the blow meant for {saved} ({hit.Note}).");
+                return true;
+            }
+
+            public void HoldTheLine(NPC hero)
+            {
+                if (!Ready || _projected || hero == null) return;
+                _holdTheLine = true;
+                AddHeroicLine($"{hero.Name} Holds the Line. Defender dice step down (a→b, b→c, c ignored; aa→bb, bb→cc, cc ignored), and the raiders gain no ground.");
+            }
+
+            public RaidRoundResult Commit()
+            {
+                if (!Ready)
+                    return _result;
+                if (!_projected)
+                    ProjectCasualties();
+
+                int diff = _result.AttackerTotal - _result.DefenderTotal;
+                var lines = new List<string>
+                {
+                    $"Round {_battle.Round} — {_battle.Party.Goal}."
+                };
+                lines.AddRange(_heroicLines);
+                lines.AddRange(_defenderMagic.Lines);
+                lines.AddRange(_magic.Lines);
+                lines.Add($"Attackers d100 {_result.AttackerRoll} + Strength {_strength} = {_result.AttackerTotal}.");
+                lines.Add($"Defenders d100 {_result.DefenderRoll} + Defense {_defense} = {_result.DefenderTotal}.");
+                lines.Add(diff == 0
+                    ? "Tie. Both sides take a glancing hit."
+                    : _result.AttackerWon
+                        ? $"Attackers win by {_result.Margin}."
+                        : $"Defenders win by {_result.Margin}.");
+                if (_magic.BuffSteps > 0)
+                {
+                    lines.Add(_band == _originalBand
+                        ? "Buff/debuff spells cannot shift the casualty table further."
+                        : $"Casualty table shifts {_magic.BuffSteps} step(s) toward the attackers.");
+                }
+                if (_holdTheLine)
+                    lines.Add("Hold the Line: defender a→b, b→c, c ignored; aa→bb, bb→cc, cc ignored. Raiders gain no ground.");
+                if (_defenderMagic.BarrierActive)
+                    lines.Add("Defensive Barrier: b, c, bb and cc do not count against the defenders.");
+                if (_magic.AoeCount > 0)
+                    lines.Add(DescribeAoeAgainstDefenders(_magic.AoeCount, _defenderMagic.BarrierActive, _holdTheLine));
+                if (_defenderMagic.FireballCount > 0)
+                    lines.Add($"Fireball adds {_defenderMagic.FireballCount}×(1+aa+bb+cc) to raider casualties.");
+                if (_healed > 0)
+                    lines.Add($"Heal spells negate {_healed} raider casualty hit(s).");
+                if (_swing != null)
+                    lines.Add(_swing.Describe());
+
+                if (_attackerHits > 0)
+                    lines.Add(ApplyAttackerDamage(_battle, _attackerHits));
+                if (DefenderCasualties.Count > 0)
+                    lines.Add(ApplyProjectedDefenderCasualties(_stronghold, _battle, DefenderCasualties));
+
+                bool raidersAlive = _battle.LivingCount > 0;
+                if (_goalTicks > 0 && raidersAlive)
+                    lines.Add(ApplyGoalTicks(_battle, _stronghold, _goalTicks, _result.Margin));
+                else if (_goalTicks > 0)
+                    lines.Add("The raiders break before they can press their goal.");
+
+                RefreshLiveStats(_battle.Party, _faction);
+                var after = Calculate(_stronghold);
+                lines.Add($"Raiders: {_battle.LivingCount}/{_battle.StartingNumbers} left, Strength {_battle.Party.Stats.Strength}, HP {_battle.Party.Stats.HitPoints}.");
+                lines.Add($"Defense now {after.TotalDefense} (buildings {after.BuildingDefense} + fighters {after.NpcCombat}).");
+
+                CheckEndOfRound(_battle);
+                _result.Ended = _battle.Ended;
+                _result.EndReason = _battle.EndReason;
+                if (_battle.Ended)
+                    lines.Add(DescribeEnd(_battle));
+
+                _result.Report = string.Join(Environment.NewLine, lines.Where(l => !string.IsNullOrWhiteSpace(l)));
+                _battle.RoundReports.Add(_result.Report);
+                _battle.Log.Add(_result.Report);
+                _battle.Log.Add(string.Empty);
+                return _result;
+            }
+
+            private void RecalculateTotals()
+            {
+                _result.AttackerTotal = _result.AttackerRoll + _strength;
+                _result.DefenderTotal = _result.DefenderRoll + _defense;
+                int diff = _result.AttackerTotal - _result.DefenderTotal;
+                _result.Margin = Math.Abs(diff);
+                _result.AttackerWon = diff > 0;
+            }
         }
 
         public static void FinishRaid(RaidBattle battle, Stronghold stronghold, RaidEndReason? forceReason = null)
@@ -211,29 +379,51 @@ namespace DNDStrongholdApp.Services
             };
         }
 
-        private readonly struct SwingRolls
+        // a, b and c are rolled once and reused for the whole round. aa, bb and cc use the
+        // same odds but are rolled fresh on every single use, so the same term appearing
+        // twice in a formula means two separate rolls.
+        private sealed class SwingContext
         {
-            public int A { get; init; }
-            public int B { get; init; }
-            public int C { get; init; }
-            public bool AHit => A <= 75;
-            public bool BHit => B <= 50;
-            public bool CHit => C <= 25;
-        }
+            private const int AOdds = 75;
+            private const int BOdds = 50;
+            private const int COdds = 25;
 
-        private static SwingRolls RollSwings()
-        {
-            return new SwingRolls
+            private readonly List<string> _extraRolls = new();
+
+            public int A { get; }
+            public int B { get; }
+            public int C { get; }
+
+            public SwingContext()
             {
-                A = Random.Shared.Next(1, 101),
-                B = Random.Shared.Next(1, 101),
-                C = Random.Shared.Next(1, 101)
-            };
-        }
+                A = Random.Shared.Next(1, 101);
+                B = Random.Shared.Next(1, 101);
+                C = Random.Shared.Next(1, 101);
+            }
 
-        private static string DescribeSwings(SwingRolls swing)
-        {
-            return $"Swing: a {swing.A}{(swing.AHit ? " hit" : " miss")} (75%), b {swing.B}{(swing.BHit ? " hit" : " miss")} (50%), c {swing.C}{(swing.CHit ? " hit" : " miss")} (25%).";
+            public bool AHit => A <= AOdds;
+            public bool BHit => B <= BOdds;
+            public bool CHit => C <= COdds;
+
+            public int AA() => RollExtra("aa", AOdds);
+            public int BB() => RollExtra("bb", BOdds);
+            public int CC() => RollExtra("cc", COdds);
+
+            private int RollExtra(string label, int odds)
+            {
+                int roll = Random.Shared.Next(1, 101);
+                bool hit = roll <= odds;
+                _extraRolls.Add($"{label} {roll}{(hit ? " hit" : " miss")}");
+                return hit ? 1 : 0;
+            }
+
+            public string Describe()
+            {
+                string baseLine = $"Swing: a {A}{(AHit ? " hit" : " miss")} (75%), b {B}{(BHit ? " hit" : " miss")} (50%), c {C}{(CHit ? " hit" : " miss")} (25%).";
+                if (_extraRolls.Count == 0)
+                    return baseLine;
+                return baseLine + $" Individual rolls: {string.Join(", ", _extraRolls)}.";
+            }
         }
 
         private sealed class RoundMagic
@@ -321,6 +511,48 @@ namespace DNDStrongholdApp.Services
             return magic;
         }
 
+        private sealed class DefenderMagic
+        {
+            public List<string> Lines { get; } = new();
+            public int ExtraAttackerHits { get; set; }
+            public int FireballCount { get; set; }
+            public bool BarrierActive { get; set; }
+        }
+
+        // Spells the DM declared for the defenders before the rolls were entered. Spell
+        // points were already deducted at declaration time.
+        private static DefenderMagic ResolveDefenderMagic(RaidBattle battle)
+        {
+            var magic = new DefenderMagic();
+            if (battle.PendingDefenderSpells == null || battle.PendingDefenderSpells.Count == 0)
+                return magic;
+
+            foreach (var cast in battle.PendingDefenderSpells)
+            {
+                var def = DefenderSpellCatalog.Get(cast.Spell);
+                magic.Lines.Add($"{cast.CasterName} casts {def.Name} ({def.Effect})");
+
+                switch (cast.Spell)
+                {
+                    case DefenderSpell.MagicMissile:
+                        magic.ExtraAttackerHits++;
+                        break;
+                    case DefenderSpell.DefensiveBarrier:
+                        magic.BarrierActive = true;
+                        break;
+                    case DefenderSpell.Fireball:
+                        magic.FireballCount++;
+                        break;
+                    case DefenderSpell.MassDebuff:
+                        // Already applied to the attacker d100 when the roll was taken.
+                        break;
+                }
+            }
+
+            battle.PendingDefenderSpells.Clear();
+            return magic;
+        }
+
         private static string DamageAoeBuildings(RaidBattle battle, Stronghold stronghold)
         {
             int count = Random.Shared.Next(1, 3);
@@ -357,65 +589,132 @@ namespace DNDStrongholdApp.Services
             };
         }
 
-        private static int LetterHits(SwingRolls swing, bool a, bool b, bool c)
+        // A casualty entry from the table: a flat count, which of the once-per-round dice
+        // apply, and how many separate rolls of each per-use die to make.
+        private readonly struct CasualtyTerms
         {
-            int hits = 0;
-            if (a && swing.AHit) hits++;
-            if (b && swing.BHit) hits++;
-            if (c && swing.CHit) hits++;
+            public int Flat { get; init; }
+            public bool A { get; init; }
+            public bool B { get; init; }
+            public bool C { get; init; }
+            public int AA { get; init; }
+            public int BB { get; init; }
+            public int CC { get; init; }
+        }
+
+        // Defensive Barrier strips b, c, bb and cc from the defenders' own casualties.
+        // Hold the Line steps each defender die down one grade before that: a→b, b→c,
+        // c ignored; aa→bb, bb→cc, cc ignored. Barrier then applies to the remapped die.
+        private static int Resolve(CasualtyTerms terms, SwingContext swing, bool barrier, bool holdTheLine = false)
+        {
+            int hits = terms.Flat;
+
+            if (holdTheLine)
+            {
+                if (terms.A && !barrier && swing.BHit) hits++;
+                if (terms.B && !barrier && swing.CHit) hits++;
+
+                for (int i = 0; i < terms.AA; i++)
+                {
+                    if (!barrier) hits += swing.BB();
+                }
+                if (!barrier)
+                {
+                    for (int i = 0; i < terms.BB; i++) hits += swing.CC();
+                }
+                return hits;
+            }
+
+            if (terms.A && swing.AHit) hits++;
+            if (!barrier && terms.B && swing.BHit) hits++;
+            if (!barrier && terms.C && swing.CHit) hits++;
+
+            for (int i = 0; i < terms.AA; i++) hits += swing.AA();
+            if (!barrier)
+            {
+                for (int i = 0; i < terms.BB; i++) hits += swing.BB();
+                for (int i = 0; i < terms.CC; i++) hits += swing.CC();
+            }
+
             return hits;
         }
 
-        private static void CasualtiesFromMargin(int margin, bool attackerWon, bool tie, SwingRolls swing,
-            out int attackerHits, out int defenderHits)
+        // Enemy AoE is aa+bb+cc against defenders. Hold the Line remaps that the same
+        // way as the casualty table; the barrier still strips b-grade dice.
+        private static int ResolveAoeAgainstDefenders(SwingContext swing, bool barrier, bool holdTheLine)
         {
-            int loserHits;
-            int winnerHits;
+            if (holdTheLine)
+            {
+                if (barrier) return 0;
+                return swing.BB() + swing.CC();
+            }
+
+            int hits = swing.AA();
+            if (!barrier) hits += swing.BB() + swing.CC();
+            return hits;
+        }
+
+        private static string DescribeAoeAgainstDefenders(int count, bool barrier, bool holdTheLine)
+        {
+            if (holdTheLine && barrier)
+                return $"AoE adds nothing to defender casualties (Hold the Line remaps to bb/cc; barrier blocks both).";
+            if (holdTheLine)
+                return $"AoE adds {count}×(bb+cc) to defender casualties (Hold the Line; cc dropped).";
+            if (barrier)
+                return $"AoE adds {count}×aa to defender casualties (barrier blocks bb and cc).";
+            return $"AoE adds {count}×(aa+bb+cc) to defender casualties.";
+        }
+
+        private static CasualtyTerms LoserTerms(int margin)
+        {
+            if (margin <= 4)
+                return new CasualtyTerms { Flat = 1, A = true, B = true, C = true };
+            if (margin <= 9)
+                return new CasualtyTerms { Flat = 1, A = true, B = true, C = true, BB = 1, CC = 1 };
+            if (margin <= 14)
+                return new CasualtyTerms { Flat = 2, A = true, B = true, C = true, AA = 1 };
+            if (margin <= 19)
+                return new CasualtyTerms { Flat = 3, A = true, B = true, C = true, AA = 1, BB = 1 };
+            if (margin <= 24)
+                return new CasualtyTerms { Flat = 3, A = true, B = true, C = true, AA = 2, BB = 1, CC = 1 };
+            if (margin <= 29)
+                return new CasualtyTerms { Flat = 4, A = true, B = true, C = true, AA = 2, BB = 1, CC = 1 };
+
+            int flat = (margin + 4) / 5; // ceil(margin / 5)
+            return new CasualtyTerms { Flat = flat, A = true, B = true, C = true, AA = 2, BB = 1, CC = 1 };
+        }
+
+        private static CasualtyTerms WinnerTerms(int margin)
+        {
+            if (margin <= 4) return new CasualtyTerms { A = true, B = true };
+            if (margin <= 9) return new CasualtyTerms { B = true, C = true };
+            if (margin <= 19) return new CasualtyTerms { B = true };
+            return new CasualtyTerms { C = true };
+        }
+
+        private static void CasualtiesFromMargin(int margin, bool attackerWon, bool tie, SwingContext swing,
+            bool defenderBarrier, bool holdTheLine, out int attackerHits, out int defenderHits)
+        {
             if (tie)
             {
-                loserHits = LetterHits(swing, a: true, b: true, c: false);
-                winnerHits = loserHits;
-                attackerHits = loserHits;
-                defenderHits = winnerHits;
+                var tieTerms = new CasualtyTerms { A = true, B = true };
+                attackerHits = Resolve(tieTerms, swing, barrier: false);
+                defenderHits = Resolve(tieTerms, swing, defenderBarrier, holdTheLine);
                 return;
             }
 
-            if (margin <= 4)
-            {
-                loserHits = 1 + LetterHits(swing, true, true, true);
-                winnerHits = LetterHits(swing, true, true, false);
-            }
-            else if (margin <= 9)
-            {
-                loserHits = 2 + LetterHits(swing, true, true, true);
-                winnerHits = LetterHits(swing, false, true, true);
-            }
-            else if (margin <= 14)
-            {
-                loserHits = 3 + LetterHits(swing, true, true, true);
-                winnerHits = LetterHits(swing, false, true, false);
-            }
-            else if (margin <= 19)
-            {
-                loserHits = 4 + LetterHits(swing, true, true, true);
-                winnerHits = LetterHits(swing, false, true, false);
-            }
-            else
-            {
-                int guaranteed = (margin + 4) / 5;
-                loserHits = guaranteed + LetterHits(swing, true, true, true);
-                winnerHits = LetterHits(swing, false, false, true);
-            }
+            var loser = LoserTerms(margin);
+            var winner = WinnerTerms(margin);
 
             if (attackerWon)
             {
-                attackerHits = winnerHits;
-                defenderHits = loserHits;
+                attackerHits = Resolve(winner, swing, barrier: false);
+                defenderHits = Resolve(loser, swing, defenderBarrier, holdTheLine);
             }
             else
             {
-                attackerHits = loserHits;
-                defenderHits = winnerHits;
+                attackerHits = Resolve(loser, swing, barrier: false);
+                defenderHits = Resolve(winner, swing, defenderBarrier, holdTheLine);
             }
         }
 
@@ -456,6 +755,158 @@ namespace DNDStrongholdApp.Services
             return $"Raider casualties: {hits} HP ({slain}).";
         }
 
+        private static List<ProjectedCasualty> ProjectDefenderCasualties(Stronghold stronghold, RaidBattle battle, int hits)
+        {
+            var projected = new List<ProjectedCasualty>();
+            var capturedIds = new HashSet<string>(battle.PendingCaptures.Select(n => n.Id));
+            var virtualLight = new HashSet<string>();
+            var virtualGrave = new HashSet<string>();
+            var virtualDead = new HashSet<string>();
+
+            foreach (var npc in stronghold.NPCs.Where(n => n.IsAlive))
+            {
+                if (HasState(npc, NPCStateType.LightlyInjured)) virtualLight.Add(npc.Id);
+                if (HasState(npc, NPCStateType.GravelyInjured)) virtualGrave.Add(npc.Id);
+            }
+
+            for (int i = 0; i < hits; i++)
+            {
+                var pool = CasualtyPool(stronghold, capturedIds)
+                    .Where(n => !virtualDead.Contains(n.Id))
+                    .ToList();
+                if (pool.Count == 0)
+                {
+                    projected.Add(new ProjectedCasualty
+                    {
+                        Npc = new NPC(NPCType.Peasant, "no one"),
+                        RawSeverity = "none",
+                        Outcome = "none",
+                        Note = "no one left to hit"
+                    });
+                    break;
+                }
+
+                var npc = pool[Random.Shared.Next(pool.Count)];
+                var hit = ProjectOneCasualty(npc,
+                    virtualLight.Contains(npc.Id),
+                    virtualGrave.Contains(npc.Id));
+                ApplyVirtual(hit, virtualLight, virtualGrave, virtualDead);
+                projected.Add(hit);
+            }
+
+            return projected;
+        }
+
+        private static ProjectedCasualty ProjectOneCasualty(NPC npc, bool wasLight, bool wasGrave)
+        {
+            int roll = TraitService.ModifyInjuryRoll(npc, Random.Shared.Next(100));
+            string raw = RawInjurySeverity(npc.Hero, roll);
+            var (outcome, note) = ResolveInjuryOutcome(npc.Name, raw, wasLight, wasGrave);
+            return new ProjectedCasualty
+            {
+                Npc = npc,
+                RawSeverity = raw,
+                Outcome = outcome,
+                Note = note
+            };
+        }
+
+        private static void RetargetCasualty(ProjectedCasualty hit, NPC hero, IEnumerable<ProjectedCasualty> earlierHits)
+        {
+            bool wasLight = HasState(hero, NPCStateType.LightlyInjured)
+                || earlierHits.Any(h => h.Npc.Id == hero.Id && h.Outcome == "light");
+            bool wasGrave = HasState(hero, NPCStateType.GravelyInjured)
+                || earlierHits.Any(h => h.Npc.Id == hero.Id && h.Outcome == "grave");
+            var (outcome, note) = ResolveInjuryOutcome(hero.Name, hit.RawSeverity, wasLight, wasGrave);
+            hit.Npc = hero;
+            hit.Outcome = outcome;
+            hit.Note = note;
+        }
+
+        private static void ApplyVirtual(ProjectedCasualty hit, HashSet<string> light, HashSet<string> grave, HashSet<string> dead)
+        {
+            if (hit.Npc == null || hit.Outcome == "none") return;
+            if (hit.Outcome == "death")
+            {
+                dead.Add(hit.Npc.Id);
+                return;
+            }
+            if (hit.Outcome == "grave")
+            {
+                grave.Add(hit.Npc.Id);
+                light.Remove(hit.Npc.Id);
+                return;
+            }
+            if (hit.Outcome == "light")
+                light.Add(hit.Npc.Id);
+        }
+
+        private static string RawInjurySeverity(bool hero, int roll)
+        {
+            if (hero)
+            {
+                if (roll < 50) return "light";
+                if (roll < 85) return "grave";
+                return "death";
+            }
+
+            if (roll < 25) return "light";
+            if (roll < 50) return "grave";
+            return "death";
+        }
+
+        private static (string Outcome, string Note) ResolveInjuryOutcome(string name, string raw, bool wasLight, bool wasGrave)
+        {
+            if (raw == "death" || (raw == "grave" && wasGrave))
+                return ("death", $"{name} killed");
+            if (raw == "light" && wasGrave)
+                return ("none", $"{name} already gravely injured");
+            if (raw == "grave" || (raw == "light" && wasLight))
+                return ("grave", $"{name} gravely injured");
+            return ("light", $"{name} lightly injured");
+        }
+
+        private static string ApplyProjectedDefenderCasualties(Stronghold stronghold, RaidBattle battle, List<ProjectedCasualty> hits)
+        {
+            var notes = new List<string>();
+            foreach (var hit in hits)
+            {
+                if (hit.Npc == null || hit.Note == "no one left to hit")
+                {
+                    notes.Add("no one left to hit");
+                    continue;
+                }
+                notes.Add(ApplyResolvedCasualty(stronghold, battle, hit));
+            }
+
+            return $"Defender casualties: {string.Join("; ", notes)}.";
+        }
+
+        private static string ApplyResolvedCasualty(Stronghold stronghold, RaidBattle battle, ProjectedCasualty hit)
+        {
+            var npc = hit.Npc;
+            if (npc == null || !npc.IsAlive)
+                return $"{hit.Note}";
+
+            if (hit.Outcome == "death")
+            {
+                KillNpc(stronghold, battle, npc);
+                return $"{npc.Name} killed";
+            }
+
+            if (hit.Outcome == "none")
+                return hit.Note;
+
+            if (hit.Outcome == "grave")
+            {
+                npc.AddHealthState(NPCStateType.GravelyInjured);
+                return $"{npc.Name} gravely injured";
+            }
+
+            npc.AddHealthState(NPCStateType.LightlyInjured);
+            return $"{npc.Name} lightly injured";
+        }
+
         private static string ApplyDefenderCasualties(Stronghold stronghold, RaidBattle battle, int hits)
         {
             var notes = new List<string>();
@@ -487,41 +938,10 @@ namespace DNDStrongholdApp.Services
 
         private static string ApplyNpcCasualty(Stronghold stronghold, RaidBattle battle, NPC npc)
         {
-            int roll = Random.Shared.Next(100);
-            string severity;
-            if (npc.Hero)
-            {
-                if (roll < 50) severity = "light";
-                else if (roll < 85) severity = "grave";
-                else severity = "death";
-            }
-            else
-            {
-                if (roll < 25) severity = "light";
-                else if (roll < 50) severity = "grave";
-                else severity = "death";
-            }
-
-            bool wasLight = HasState(npc, NPCStateType.LightlyInjured);
-            bool wasGrave = HasState(npc, NPCStateType.GravelyInjured);
-
-            if (severity == "death" || (severity == "grave" && wasGrave))
-            {
-                KillNpc(stronghold, battle, npc);
-                return $"{npc.Name} killed";
-            }
-
-            if (severity == "light" && wasGrave)
-                return $"{npc.Name} already gravely injured";
-
-            if (severity == "grave" || (severity == "light" && wasLight))
-            {
-                npc.AddHealthState(NPCStateType.GravelyInjured);
-                return $"{npc.Name} gravely injured";
-            }
-
-            npc.AddHealthState(NPCStateType.LightlyInjured);
-            return $"{npc.Name} lightly injured";
+            var hit = ProjectOneCasualty(npc,
+                HasState(npc, NPCStateType.LightlyInjured),
+                HasState(npc, NPCStateType.GravelyInjured));
+            return ApplyResolvedCasualty(stronghold, battle, hit);
         }
 
         private static string ApplyGoalTicks(RaidBattle battle, Stronghold stronghold, int ticks, int margin)

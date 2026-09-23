@@ -29,8 +29,9 @@ namespace DNDStrongholdApp.Services
                 .Cast<NPC>()
                 .ToList();
             if (workers.Count == 0) return 1m;
-            int highest = workers.Max(w => ProjectResolutionService.GetSkillLevel(w, "Trade"));
-            int extras = Math.Max(0, workers.Count(w => ProjectResolutionService.GetSkillLevel(w, "Trade") >= 1) - (highest >= 1 ? 1 : 0));
+            // Charismatic and Shy shift how well a trader actually works a market.
+            int highest = workers.Max(w => TraitService.EffectiveSocialSkill(w, "Trade"));
+            int extras = Math.Max(0, workers.Count(w => TraitService.EffectiveSocialSkill(w, "Trade") >= 1) - (highest >= 1 ? 1 : 0));
             return 1m + highest * 0.03m + extras * 0.01m;
         }
 
