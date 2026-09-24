@@ -850,18 +850,22 @@ namespace DNDStrongholdApp.Services
                 return "death";
             }
 
-            if (roll < 25) return "light";
-            if (roll < 50) return "grave";
+            if (roll < 36) return "light";
+            if (roll < 71) return "grave";
             return "death";
         }
 
         private static (string Outcome, string Note) ResolveInjuryOutcome(string name, string raw, bool wasLight, bool wasGrave)
         {
-            if (raw == "death" || (raw == "grave" && wasGrave))
+            // Any death result, or mixing light↔grave, or stacking grave on grave → kill.
+            if (raw == "death"
+                || (raw == "grave" && wasGrave)
+                || (raw == "grave" && wasLight)
+                || (raw == "light" && wasGrave))
                 return ("death", $"{name} killed");
-            if (raw == "light" && wasGrave)
-                return ("none", $"{name} already gravely injured");
-            if (raw == "grave" || (raw == "light" && wasLight))
+            if (raw == "light" && wasLight)
+                return ("grave", $"{name} gravely injured");
+            if (raw == "grave")
                 return ("grave", $"{name} gravely injured");
             return ("light", $"{name} lightly injured");
         }

@@ -28,8 +28,18 @@ namespace DNDStrongholdApp.Models
         public int ConstructionTimeRemaining { get; set; } = 0; // in weeks
         public List<ResourceCost> ConstructionCost { get; set; } = new List<ResourceCost>();
         public int WorkerSlots { get; set; }
-        public List<string> AssignedWorkers { get; set; } = new List<string>(); // NPC IDs
-        public List<string> DedicatedConstructionCrew { get; set; } = new List<string>(); // NPC IDs temporarily assigned for construction
+        private List<string> _assignedWorkers = new List<string>();
+        public List<string> AssignedWorkers
+        {
+            get => _assignedWorkers ??= new List<string>();
+            set => _assignedWorkers = value ?? new List<string>();
+        }
+        private List<string> _dedicatedConstructionCrew = new List<string>();
+        public List<string> DedicatedConstructionCrew
+        {
+            get => _dedicatedConstructionCrew ??= new List<string>();
+            set => _dedicatedConstructionCrew = value ?? new List<string>();
+        }
         public List<ResourceProduction> BaseProduction { get; set; } = new List<ResourceProduction>();
         public List<ResourceProduction> ActualProduction { get; set; } = new List<ResourceProduction>();
         public List<ResourceCost> BaseUpkeep { get; set; } = new List<ResourceCost>();
@@ -175,8 +185,9 @@ namespace DNDStrongholdApp.Models
                     var availableWorkers = assignedNPCs;
                     if (CurrentProject != null)
                     {
-                        availableWorkers = assignedNPCs.Where(npc => 
-                            !CurrentProject.AssignedWorkers.Contains(npc.Id)).ToList();
+                        var projectWorkers = CurrentProject.AssignedWorkers ?? new List<string>();
+                        availableWorkers = assignedNPCs.Where(npc =>
+                            !projectWorkers.Contains(npc.Id)).ToList();
                     }
 
                     // If building is not functional, or no workers available, no production
@@ -733,17 +744,20 @@ namespace DNDStrongholdApp.Models
                         // Calculate base production with hunger effects
                         foreach (var worker in workers)
                         {
+                            if (worker == null) continue;
                             decimal workerBaseProduction = resource.perWorkerValue * worker.GetHungerProductionMultiplier();
                             totalProduction += workerBaseProduction;
                         }
                         
                         // Add worker skill bonuses if applicable (also affected by hunger)
-                        var applicableBonuses = buildingInfo.workerProductionBonus
-                            .Where(b => b.resourceType == resource.resourceType);
+                        var applicableBonuses = buildingInfo.workerProductionBonus?
+                            .Where(b => b.resourceType == resource.resourceType)
+                            ?? Enumerable.Empty<WorkerBonusInfo>();
                         foreach (var bonus in applicableBonuses)
                         {
                             foreach (var worker in workers)
                             {
+                                if (worker?.Skills == null) continue;
                                 var skill = worker.Skills.Find(s => s.Name == bonus.skill);
                                 if (skill != null)
                                 {
@@ -777,18 +791,20 @@ namespace DNDStrongholdApp.Models
                 var buildingInfo = buildingData?.buildings.Find(b => b.type == TypeName);
                 if (buildingInfo != null)
                 {
-                    var level = Level;
-                    var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == level);
-                    
-                    // Get assigned NPCs for this building
+                    // Idle buildings (no assigned workers) carry no upkeep — base or salaries.
                     var assignedNPCs = AssignedWorkers
                         .Select(workerId => allNPCs.Find(n => n.Id == workerId))
-                        .Where(npc => npc != null)
+                        .OfType<NPC>()
                         .ToList();
+                    if (assignedNPCs.Count == 0)
+                        return upkeep;
+
+                    var level = Level;
+                    var upkeepAtLevel = buildingInfo.upkeepScaling?.Where(u => u.level == level)
+                        ?? Enumerable.Empty<LevelUpkeepValue>();
                     
                     // Calculate worker salaries
-                    int totalSalaries = assignedNPCs.Sum(worker => 
-                        Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0)));
+                    int totalSalaries = assignedNPCs.Sum(Services.UpkeepService.WorkerSalary);
                     
                     foreach (var up in upkeepAtLevel)
                     {
@@ -1117,7 +1133,12 @@ namespace DNDStrongholdApp.Models
         public List<ResourceCost> InitialCost { get; set; } = new List<ResourceCost>();
         public int Duration { get; set; } // in weeks
         public int TimeRemaining { get; set; } // in weeks
-        public List<string> AssignedWorkers { get; set; } = new List<string>(); // NPC IDs
+        private List<string> _assignedWorkers = new List<string>();
+        public List<string> AssignedWorkers
+        {
+            get => _assignedWorkers ??= new List<string>();
+            set => _assignedWorkers = value ?? new List<string>();
+        }
         public List<ResourceProduction> OngoingEffects { get; set; } = new List<ResourceProduction>();
         public List<ResourceProduction> CompletionEffects { get; set; } = new List<ResourceProduction>();
         public bool IsActive { get; set; } = true;

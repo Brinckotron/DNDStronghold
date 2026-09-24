@@ -48,6 +48,17 @@ public partial class MainDashboard : Form
     private int _skillsSortedColumn = 1; // Default to Level column
     private SortOrder _skillsSortOrder = SortOrder.Descending;
 
+    // Journal / weekly report selection
+    private string _selectedJournalEntryId;
+    private string _selectedWeeklyReportId;
+    private bool _openWeeklyReportAfterTurn;
+    private bool _suppressJournalRefresh;
+    private Font _weeklyReportBoldFont;
+
+    private const int TabIndexJournal = 5;
+    private const int TabIndexWeeklyReport = 6;
+    private const int TabIndexMissions = 7;
+
     // Add CurrentProject property to track building projects
     private Building CurrentProject => _stronghold?.Buildings.FirstOrDefault(b => 
         b.ConstructionStatus == BuildingStatus.UnderConstruction || 
@@ -245,6 +256,7 @@ public partial class MainDashboard : Form
         TabPage resourcesTab = new TabPage("Resources");
         TabPage tradeTab = new TabPage("Trade");
         TabPage journalTab = new TabPage("Journal");
+        TabPage weeklyReportTab = new TabPage("Weekly Report");
         TabPage missionsTab = new TabPage("Missions");
         
         // Add tabs to tab control
@@ -254,6 +266,7 @@ public partial class MainDashboard : Form
         _tabControl.TabPages.Add(resourcesTab);
         _tabControl.TabPages.Add(tradeTab);
         _tabControl.TabPages.Add(journalTab);
+        _tabControl.TabPages.Add(weeklyReportTab);
         _tabControl.TabPages.Add(missionsTab);
         
         // Add tab control to form
@@ -266,6 +279,7 @@ public partial class MainDashboard : Form
         InitializeResourcesTab(resourcesTab);
         InitializeTradeTab(tradeTab);
         InitializeJournalTab(journalTab);
+        InitializeWeeklyReportTab(weeklyReportTab);
         InitializeMissionsTab(missionsTab);
     }
 
@@ -357,38 +371,72 @@ public partial class MainDashboard : Form
         groupBox.Dock = DockStyle.Fill;
         groupBox.Margin = new Padding(5);
         groupBox.Tag = "StrongholdInfoPanel";
-        
+
+        // Left: stats. Right: food/payroll management (uses the empty space).
+        var outer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(4)
+        };
+        outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
+        outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
+
         TableLayoutPanel layout = new TableLayoutPanel();
         layout.Dock = DockStyle.Fill;
         layout.ColumnCount = 2;
-        layout.RowCount = 6;
+        layout.RowCount = 7;
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         
         // Add labels
-        layout.Controls.Add(new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight }, 0, 0);
-        layout.Controls.Add(new Label { Text = _stronghold.Name, TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdName" }, 1, 0);
+        layout.Controls.Add(new Label { Text = "Name:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 0);
+        layout.Controls.Add(new Label { Text = _stronghold.Name, TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdName", AutoSize = true }, 1, 0);
         
-        layout.Controls.Add(new Label { Text = "Location:", TextAlign = ContentAlignment.MiddleRight }, 0, 1);
-        layout.Controls.Add(new Label { Text = _stronghold.Location, TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLocation" }, 1, 1);
+        layout.Controls.Add(new Label { Text = "Location:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 1);
+        layout.Controls.Add(new Label { Text = _stronghold.Location, TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLocation", AutoSize = true }, 1, 1);
         
-        layout.Controls.Add(new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight }, 0, 2);
-        layout.Controls.Add(new Label { Text = _stronghold.Level.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLevel" }, 1, 2);
+        layout.Controls.Add(new Label { Text = "Level:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 2);
+        layout.Controls.Add(new Label { Text = _stronghold.Level.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdLevel", AutoSize = true }, 1, 2);
         
-        layout.Controls.Add(new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight }, 0, 3);
-        layout.Controls.Add(new Label { Text = $"{_stronghold.CurrentMorale}/100", TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdMorale" }, 1, 3);
+        layout.Controls.Add(new Label { Text = "Morale:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 3);
+        layout.Controls.Add(new Label { Text = $"{_stronghold.CurrentMorale}/100", TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdMorale", AutoSize = true }, 1, 3);
+
+        layout.Controls.Add(new Label { Text = "Status:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 4);
+        layout.Controls.Add(new Label
+        {
+            Text = _stronghold.IsBankrupt ? "BANKRUPT" : "Solvent",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Tag = "StrongholdBankruptcy",
+            AutoSize = true,
+            ForeColor = _stronghold.IsBankrupt ? Color.Firebrick : Color.DarkGreen
+        }, 1, 4);
 
         var defenseSnapshot = CombatService.Calculate(_stronghold);
-        layout.Controls.Add(new Label { Text = "Defense:", TextAlign = ContentAlignment.MiddleRight }, 0, 4);
+        layout.Controls.Add(new Label { Text = "Defense:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 5);
         layout.Controls.Add(new Label
         {
             Text = $"{defenseSnapshot.TotalDefense}  ({defenseSnapshot.BuildingDefense}+{defenseSnapshot.NpcCombat})",
             TextAlign = ContentAlignment.MiddleLeft,
             Tag = "StrongholdDefense",
-            AutoEllipsis = true
-        }, 1, 4);
-        layout.Controls.Add(new Label { Text = "Perception:", TextAlign = ContentAlignment.MiddleRight }, 0, 5);
-        layout.Controls.Add(new Label { Text = defenseSnapshot.Perception.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdPerception" }, 1, 5);
-        
-        groupBox.Controls.Add(layout);
+            AutoEllipsis = true,
+            AutoSize = true
+        }, 1, 5);
+        layout.Controls.Add(new Label { Text = "Perception:", TextAlign = ContentAlignment.MiddleRight, AutoSize = true }, 0, 6);
+        layout.Controls.Add(new Label { Text = defenseSnapshot.Perception.ToString(), TextAlign = ContentAlignment.MiddleLeft, Tag = "StrongholdPerception", AutoSize = true }, 1, 6);
+
+        var managePanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(8, 4, 4, 4),
+            Tag = "StrongholdManagePanel"
+        };
+        AddManagementButtons(managePanel);
+
+        outer.Controls.Add(layout, 0, 0);
+        outer.Controls.Add(managePanel, 1, 0);
+        groupBox.Controls.Add(outer);
         return groupBox;
     }
 
@@ -457,9 +505,6 @@ public partial class MainDashboard : Form
         };
         
         groupBox.Controls.Add(listView);
-        
-        // Add permanent rationing management button
-        AddRationingButton(groupBox);
         
         return groupBox;
     }
@@ -676,11 +721,13 @@ public partial class MainDashboard : Form
         groupBox.Text = "Recent Events";
         groupBox.Dock = DockStyle.Fill;
         groupBox.Margin = new Padding(5);
+        groupBox.Tag = "RecentEventsPanel";
         
         ListView listView = new ListView();
         listView.Dock = DockStyle.Fill;
         listView.View = View.Details;
         listView.FullRowSelect = true;
+        listView.Tag = "RecentEventsList";
         
         // Add columns
         listView.Columns.Add("Date", 100);
@@ -695,17 +742,20 @@ public partial class MainDashboard : Form
         }
         listView.Resize += ResizeEventColumns;
         ResizeEventColumns(null, null);
-        
-        // Add items for each journal entry (most recent first)
-        foreach (var entry in _stronghold.Journal)
-        {
-            ListViewItem item = new ListViewItem(entry.Date);
-            item.SubItems.Add(entry.Title);
-            listView.Items.Add(item);
-        }
+
+        listView.DoubleClick += RecentEventsList_DoubleClick;
         
         groupBox.Controls.Add(listView);
         return groupBox;
+    }
+
+    private void RecentEventsList_DoubleClick(object sender, EventArgs e)
+    {
+        if (sender is not ListView listView || listView.SelectedItems.Count == 0)
+            return;
+        if (listView.SelectedItems[0].Tag is not string entryId)
+            return;
+        ShowJournalEntry(entryId);
     }
 
     private GroupBox CreateControlsPanel()
@@ -964,19 +1014,21 @@ public partial class MainDashboard : Form
         npcsListView.Tag = "NPCsListView";
         
         // Add columns
-        npcsListView.Columns.Add("Name", 120);
-        npcsListView.Columns.Add("Type", 80);
-        npcsListView.Columns.Add("Level", 50);
-        npcsListView.Columns.Add("Assignment", 120);
+        npcsListView.Columns.Add("Name", 140);
+        npcsListView.Columns.Add("Type", 70);
+        npcsListView.Columns.Add("Level", 45);
+        npcsListView.Columns.Add("Assignment", 110);
+        npcsListView.Columns.Add("Status", 70);
         
-        // Dynamic column widths (35%, 20%, 15%, 30%)
+        // Dynamic column widths
         void ResizeNPCsTabColumns(object s, EventArgs e)
         {
             int totalWidth = npcsListView.ClientSize.Width;
-            npcsListView.Columns[0].Width = (int)(totalWidth * 0.35);
-            npcsListView.Columns[1].Width = (int)(totalWidth * 0.20);
-            npcsListView.Columns[2].Width = (int)(totalWidth * 0.15);
-            npcsListView.Columns[3].Width = (int)(totalWidth * 0.30);
+            npcsListView.Columns[0].Width = (int)(totalWidth * 0.34);
+            npcsListView.Columns[1].Width = (int)(totalWidth * 0.16);
+            npcsListView.Columns[2].Width = (int)(totalWidth * 0.10);
+            npcsListView.Columns[3].Width = (int)(totalWidth * 0.26);
+            npcsListView.Columns[4].Width = (int)(totalWidth * 0.14);
         }
         npcsListView.Resize += ResizeNPCsTabColumns;
         ResizeNPCsTabColumns(null, null);
@@ -984,12 +1036,7 @@ public partial class MainDashboard : Form
         // Add items for each NPC
         foreach (var npc in _stronghold.NPCs)
         {
-            ListViewItem item = new ListViewItem(npc.Name);
-            item.SubItems.Add(npc.Type.ToString());
-            item.SubItems.Add(npc.Level.ToString());
-            item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-            item.Tag = npc.Id;
-            npcsListView.Items.Add(item);
+            npcsListView.Items.Add(CreateNpcListItem(npc));
         }
         
         npcsListView.SelectedIndexChanged += NPCsListView_SelectedIndexChanged;
@@ -1197,12 +1244,294 @@ public partial class MainDashboard : Form
 
     private void InitializeJournalTab(TabPage tab)
     {
-        // To be implemented
-        Label placeholder = new Label();
-        placeholder.Text = "Journal tab content will be implemented here";
-        placeholder.Dock = DockStyle.Fill;
-        placeholder.TextAlign = ContentAlignment.MiddleCenter;
-        tab.Controls.Add(placeholder);
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 2,
+            Padding = new Padding(10)
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+        var filterBar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 6,
+            RowCount = 1
+        };
+        filterBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 45F));
+        filterBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
+        filterBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 45F));
+        filterBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+        filterBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 55F));
+        filterBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+        var kindLabel = new Label { Text = "Show:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        var kindCombo = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Tag = "JournalKindFilter"
+        };
+        foreach (JournalKindGroup group in Enum.GetValues(typeof(JournalKindGroup)))
+            kindCombo.Items.Add(JournalDisplay.KindGroupLabel(group));
+        kindCombo.SelectedIndex = 0;
+        kindCombo.SelectedIndexChanged += (_, _) => RefreshJournalTab();
+
+        var weekLabel = new Label { Text = "Week:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        var weekCombo = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Tag = "JournalWeekFilter"
+        };
+        weekCombo.SelectedIndexChanged += (_, _) => RefreshJournalTab();
+
+        var searchLabel = new Label { Text = "Search:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        var searchBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Tag = "JournalSearchBox"
+        };
+        searchBox.TextChanged += (_, _) => RefreshJournalTab();
+
+        filterBar.Controls.Add(kindLabel, 0, 0);
+        filterBar.Controls.Add(kindCombo, 1, 0);
+        filterBar.Controls.Add(weekLabel, 2, 0);
+        filterBar.Controls.Add(weekCombo, 3, 0);
+        filterBar.Controls.Add(searchLabel, 4, 0);
+        filterBar.Controls.Add(searchBox, 5, 0);
+        layout.Controls.Add(filterBar, 0, 0);
+        layout.SetColumnSpan(filterBar, 2);
+
+        var journalList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            MultiSelect = false,
+            HideSelection = false,
+            Tag = "JournalListView"
+        };
+        journalList.Columns.Add("Week", 70);
+        journalList.Columns.Add("Kind", 130);
+        journalList.Columns.Add("Title", 280);
+        journalList.SelectedIndexChanged += JournalListView_SelectedIndexChanged;
+        journalList.Resize += (_, _) =>
+        {
+            if (journalList.Columns.Count >= 3)
+                journalList.Columns[2].Width = Math.Max(120, journalList.ClientSize.Width - 210);
+        };
+        layout.Controls.Add(journalList, 0, 1);
+
+        var detailPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2
+        };
+        detailPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        detailPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+
+        var detailBox = new GroupBox { Text = "Entry details", Dock = DockStyle.Fill };
+        var detailText = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            Tag = "JournalDetailText",
+            Text = "Select a journal entry."
+        };
+        detailBox.Controls.Add(detailText);
+        detailPanel.Controls.Add(detailBox, 0, 0);
+
+        var addCustomEntryButton = new Button
+        {
+            Text = "Add Custom Entry…",
+            Dock = DockStyle.Fill,
+            Tag = "AddCustomJournalButton",
+            Visible = _gameStateService.DMMode,
+            Margin = new Padding(0, 6, 0, 0)
+        };
+        addCustomEntryButton.Click += CustomJournalEntryItem_Click;
+        detailPanel.Controls.Add(addCustomEntryButton, 0, 1);
+
+        layout.Controls.Add(detailPanel, 1, 1);
+
+        tab.Controls.Add(layout);
+    }
+
+    private void InitializeWeeklyReportTab(TabPage tab)
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 2,
+            Padding = new Padding(10)
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+        var header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 1
+        };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 55F));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+        var weekLabel = new Label { Text = "Week:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+        var weekCombo = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Tag = "WeeklyReportWeekCombo"
+        };
+        weekCombo.SelectedIndexChanged += WeeklyReportWeekCombo_SelectedIndexChanged;
+        var summaryLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Tag = "WeeklyReportSummaryLabel",
+            Text = "No weekly report yet. Advance a turn to generate one."
+        };
+        header.Controls.Add(weekLabel, 0, 0);
+        header.Controls.Add(weekCombo, 1, 0);
+        header.Controls.Add(summaryLabel, 2, 0);
+        layout.Controls.Add(header, 0, 0);
+        layout.SetColumnSpan(header, 2);
+
+        var leftSplit = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3
+        };
+        leftSplit.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+        leftSplit.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
+        leftSplit.RowStyles.Add(new RowStyle(SizeType.Percent, 30F));
+
+        var resourcesBox = new GroupBox { Text = "Resources", Dock = DockStyle.Fill };
+        var resourcesList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            MultiSelect = false,
+            HideSelection = false,
+            Tag = "WeeklyReportResourcesList"
+        };
+        resourcesList.Columns.Add("Resource", 90);
+        resourcesList.Columns.Add("Current", 75);
+        resourcesList.Columns.Add("Last Turn", 85);
+        resourcesList.Columns.Add("Net Change", 95);
+        resourcesList.Columns.Add("Projected", 150);
+        resourcesList.DoubleClick += WeeklyReportResourcesList_DoubleClick;
+        resourcesList.Resize += (_, _) =>
+        {
+            if (resourcesList.Columns.Count >= 5)
+                resourcesList.Columns[4].Width = Math.Max(120, resourcesList.ClientSize.Width - 345);
+        };
+        resourcesBox.Controls.Add(resourcesList);
+        leftSplit.Controls.Add(resourcesBox, 0, 0);
+
+        var strongholdBox = new GroupBox { Text = "Stronghold", Dock = DockStyle.Fill };
+        var strongholdText = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            Tag = "WeeklyReportStrongholdText"
+        };
+        strongholdBox.Controls.Add(strongholdText);
+        leftSplit.Controls.Add(strongholdBox, 0, 1);
+
+        var scheduleBox = new GroupBox { Text = "Schedule", Dock = DockStyle.Fill };
+        var scheduleSplit = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+        scheduleSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        scheduleSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        var finishedList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "WeeklyReportFinishedList"
+        };
+        finishedList.Columns.Add("Finished this turn", 220);
+        finishedList.Columns.Add("Type", 100);
+        var upcomingList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            Tag = "WeeklyReportUpcomingList"
+        };
+        upcomingList.Columns.Add("Due next / remaining", 180);
+        upcomingList.Columns.Add("Weeks", 50);
+        upcomingList.Columns.Add("Type", 90);
+        scheduleSplit.Controls.Add(finishedList, 0, 0);
+        scheduleSplit.Controls.Add(upcomingList, 1, 0);
+        scheduleBox.Controls.Add(scheduleSplit);
+        leftSplit.Controls.Add(scheduleBox, 0, 2);
+
+        layout.Controls.Add(leftSplit, 0, 1);
+
+        var journalBox = new GroupBox { Text = "This turn's journal", Dock = DockStyle.Fill };
+        var journalLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+        journalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+        journalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
+        journalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+        var turnJournalList = new ListView
+        {
+            Dock = DockStyle.Fill,
+            View = View.Details,
+            FullRowSelect = true,
+            GridLines = true,
+            MultiSelect = false,
+            HideSelection = false,
+            Tag = "WeeklyReportJournalList"
+        };
+        turnJournalList.Columns.Add("Kind", 110);
+        turnJournalList.Columns.Add("Title", 220);
+        turnJournalList.SelectedIndexChanged += WeeklyReportJournalList_SelectedIndexChanged;
+        var turnJournalDetail = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            Tag = "WeeklyReportJournalDetail",
+            Text = "Select an entry."
+        };
+        var openJournalButton = new Button
+        {
+            Text = "Open in Journal",
+            Dock = DockStyle.Fill,
+            Tag = "WeeklyReportOpenJournalButton",
+            Enabled = false
+        };
+        openJournalButton.Click += WeeklyReportOpenJournalButton_Click;
+        journalLayout.Controls.Add(turnJournalList, 0, 0);
+        journalLayout.Controls.Add(turnJournalDetail, 0, 1);
+        journalLayout.Controls.Add(openJournalButton, 0, 2);
+        journalBox.Controls.Add(journalLayout);
+        layout.Controls.Add(journalBox, 1, 1);
+
+        tab.Controls.Add(layout);
     }
 
     private void InitializeMissionsTab(TabPage tab)
@@ -2368,6 +2697,17 @@ public partial class MainDashboard : Form
 
     private void NextTurnButton_Click(object sender, EventArgs e)
     {
+        var confirm = MessageBox.Show(
+            this,
+            $"Advance to week {_stronghold.CurrentWeek + 1}?\n\nThis cannot be undone.",
+            "Next Turn",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question,
+            MessageBoxDefaultButton.Button2);
+
+        if (confirm != DialogResult.Yes)
+            return;
+
         // Finish any project already at 0 weeks (dismissed dialog, food-block last turn, etc.)
         ResolveCompletedProjects();
 
@@ -2375,18 +2715,57 @@ public partial class MainDashboard : Form
         if (CheckForFoodShortage() || CheckForStarvingNPCs())
         {
             ShowPreTurnDialog();
+            return;
         }
-        else
+
+        if (UpkeepService.HasAnyUpkeepShortfall(_stronghold))
         {
-            AdvanceWeekWithEvents();
+            ShowPayrollPreTurnDialog();
+            return;
         }
+
+        AdvanceWeekWithEvents();
     }
 
     private void AdvanceWeekWithEvents()
     {
+        MaybeShowBankruptcyNotice();
+        _gameStateService.BeginTurnJournalCapture();
         ResolveRaids();
         _gameStateService.AdvanceWeek();
         ResolveCompletedProjects();
+        _openWeeklyReportAfterTurn = true;
+        if (_tabControl != null && _tabControl.TabPages.Count > TabIndexWeeklyReport)
+            _tabControl.SelectedIndex = TabIndexWeeklyReport;
+    }
+
+    /// <summary>
+    /// When Next Turn proceeds and the stronghold is structurally insolvent
+    /// (no cuttable payroll left; available gold &lt; Keep + Steward upkeep),
+    /// show a bankruptcy notice. The flag and weekly abandonments are applied in AdvanceWeek.
+    /// </summary>
+    private void MaybeShowBankruptcyNotice()
+    {
+        if (!UpkeepService.IsStructurallyBankrupt(_stronghold))
+            return;
+
+        int unavoidable = UpkeepService.GetUnavoidableGoldUpkeep(_stronghold);
+        int available = UpkeepService.GetGoldAvailable(_stronghold);
+        bool already = _stronghold.IsBankrupt;
+
+        MessageBox.Show(
+            this,
+            (already
+                ? "The stronghold remains BANKRUPT.\n\n"
+                : "BANKRUPTCY\n\n") +
+            $"Unavoidable upkeep (Keep + Steward): {unavoidable} gold/week\n" +
+            $"Available gold (coffers + production): {available}\n\n" +
+            "While bankrupt, one inhabitant abandons the stronghold each week " +
+            "(in addition to any abandonments from hunger or other causes).\n\n" +
+            "Recover by filling the coffers or raising income above unavoidable upkeep.",
+            already ? "Bankruptcy Continues" : "Bankruptcy",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 
     private void ResolveRaids()
@@ -2418,6 +2797,30 @@ public partial class MainDashboard : Form
         if (picker.ShowDialog(this) != DialogResult.OK || picker.Party == null)
             return;
         ShowRaid(picker.Party);
+    }
+
+    private void CustomJournalEntryItem_Click(object? sender, EventArgs e)
+    {
+        if (!_gameStateService.DMMode) return;
+
+        using var dialog = new CustomJournalEntryDialog();
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        var entry = _gameStateService.AddCustomJournalEntry(
+            dialog.EntryTitle,
+            dialog.EntryDescription,
+            dialog.EntryImportance);
+
+        MessageBox.Show(this,
+            $"Journal entry recorded for Week {_stronghold.CurrentWeek}.",
+            "Custom Journal Entry",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+
+        if (_tabControl != null && _tabControl.TabPages.Count > 0)
+            RefreshAllTabs();
+        ShowJournalEntry(entry.Id);
     }
 
     private void ResolveCompletedProjects()
@@ -2482,18 +2885,34 @@ public partial class MainDashboard : Form
 
     private void RefreshAllTabs()
     {
-        RefreshDashboardTab();
-        RefreshBuildingsTab();
-        RefreshNPCsTab();
-        RefreshResourcesTab();
-        RefreshTradeTab();
-        RefreshJournalTab();
-        RefreshMissionsTab();
+        _stronghold.EnsureCombatDefaults();
+        // Refresh each surface independently so one null-ref cannot skip Resources/rates UI.
+        TryRefreshTab(RefreshDashboardTab);
+        TryRefreshTab(RefreshBuildingsTab);
+        TryRefreshTab(RefreshNPCsTab);
+        TryRefreshTab(RefreshResourcesTab);
+        TryRefreshTab(RefreshTradeTab);
+        TryRefreshTab(RefreshJournalTab);
+        TryRefreshTab(RefreshWeeklyReportTab);
+        TryRefreshTab(RefreshMissionsTab);
+    }
+
+    private static void TryRefreshTab(Action refresh)
+    {
+        try
+        {
+            refresh();
+        }
+        catch (Exception)
+        {
+            // Keep other tabs updating; avoid modal error spam during layoff refresh.
+        }
     }
 
     private void RefreshSelectedTab()
     {
         if (_tabControl == null || _stronghold == null) return;
+        _stronghold.EnsureCombatDefaults();
 
         switch (_tabControl.SelectedIndex)
         {
@@ -2512,10 +2931,13 @@ public partial class MainDashboard : Form
             case 4: // Trade
                 RefreshTradeTab();
                 break;
-            case 5: // Journal
+            case TabIndexJournal:
                 RefreshJournalTab();
                 break;
-            case 6: // Missions
+            case TabIndexWeeklyReport:
+                RefreshWeeklyReportTab();
+                break;
+            case TabIndexMissions:
                 RefreshMissionsTab();
                 break;
         }
@@ -2531,6 +2953,7 @@ public partial class MainDashboard : Form
             var locationLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLocation");
             var levelLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdLevel");
             var moraleLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdMorale");
+            var bankruptcyLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdBankruptcy");
             var defenseLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdDefense");
             var perceptionLabel = FindControl<Label>(strongholdInfoPanel, "StrongholdPerception");
             
@@ -2552,6 +2975,12 @@ public partial class MainDashboard : Form
                     MoraleStatus.Critical => Color.Red,
                     _ => Color.Black
                 };
+            }
+
+            if (bankruptcyLabel != null)
+            {
+                bankruptcyLabel.Text = _stronghold.IsBankrupt ? "BANKRUPT" : "Solvent";
+                bankruptcyLabel.ForeColor = _stronghold.IsBankrupt ? Color.Firebrick : Color.DarkGreen;
             }
 
             var snapshot = CombatService.Calculate(_stronghold);
@@ -2711,24 +3140,25 @@ public partial class MainDashboard : Form
             if (listView != null)
             {
                 listView.Items.Clear();
-                foreach (var entry in _stronghold.Journal)
+                foreach (var entry in GetJournalNewestFirst().Take(20))
                 {
                     ListViewItem item = new ListViewItem(entry.Date);
                     item.SubItems.Add(entry.Title);
+                    item.Tag = entry.Id;
                     listView.Items.Add(item);
                 }
             }
         }
 
-        // Update rationing button state
-        var dashboardResourcePanel = FindControl<GroupBox>(_tabControl.TabPages[0], "ResourceSummaryPanel");
-        if (dashboardResourcePanel != null)
+        // Update rationing / payroll button state (beside Stronghold Information)
+        if (strongholdInfoPanel != null)
         {
-            var rationingButton = FindControl<Button>(dashboardResourcePanel, "RationingButton");
+            var rationingButton = FindControl<Button>(strongholdInfoPanel, "RationingButton");
             if (rationingButton != null)
-            {
                 UpdateRationingButtonState(rationingButton);
-            }
+            var payrollButton = FindControl<Button>(strongholdInfoPanel, "PayrollButton");
+            if (payrollButton != null)
+                UpdatePayrollButtonState(payrollButton);
         }
 
         RefreshDashboardTradeSummary();
@@ -2863,14 +3293,7 @@ public partial class MainDashboard : Form
         {
             npcsListView.Items.Clear();
             foreach (var npc in _stronghold.NPCs)
-            {
-                ListViewItem item = new ListViewItem(npc.Name);
-                item.SubItems.Add(npc.Type.ToString());
-                item.SubItems.Add(npc.Level.ToString());
-                item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
-                item.Tag = npc.Id;
-                npcsListView.Items.Add(item);
-            }
+                npcsListView.Items.Add(CreateNpcListItem(npc));
 
             // Restore selected NPC if it still exists
             if (selectedNpcId != null)
@@ -2904,6 +3327,42 @@ public partial class MainDashboard : Form
                 _lastCreatedNpcId = null;
             }
         }
+    }
+
+    private static ListViewItem CreateNpcListItem(NPC npc)
+    {
+        var item = new ListViewItem(FormatNpcNameWithSymbols(npc));
+        item.SubItems.Add(npc.Type.ToString());
+        item.SubItems.Add(npc.Level.ToString());
+        item.SubItems.Add(npc.Assignment.Type == AssignmentType.Unassigned ? "Unassigned" : npc.Assignment.TargetName);
+        item.SubItems.Add(FormatNpcStatusSymbols(npc));
+        item.Tag = npc.Id;
+        return item;
+    }
+
+    private static string FormatNpcNameWithSymbols(NPC npc)
+    {
+        string name = npc.Name ?? string.Empty;
+        if (npc.Hero)
+            name += " ★";
+        if (npc.Spellcaster)
+            name += " ✦";
+        return name;
+    }
+
+    private static string FormatNpcStatusSymbols(NPC npc)
+    {
+        if (npc?.States == null || npc.States.Count == 0)
+            return string.Empty;
+
+        var parts = new List<string>();
+        if (npc.States.Any(s => s.Type == NPCStateType.GravelyInjured))
+            parts.Add("✝"); // gravely wounded
+        if (npc.States.Any(s => s.Type == NPCStateType.LightlyInjured))
+            parts.Add("✚"); // lightly wounded
+        if (npc.States.Any(s => s.Type == NPCStateType.Sick))
+            parts.Add("☠"); // sick
+        return string.Join(" ", parts);
     }
 
     private void RefreshResourcesTab()
@@ -2985,23 +3444,507 @@ public partial class MainDashboard : Form
 
     private void RefreshJournalTab()
     {
-        var journalListView = FindControl<ListView>(_tabControl.TabPages[5], "JournalListView");
+        if (_suppressJournalRefresh) return;
+        if (_tabControl.TabPages.Count <= TabIndexJournal) return;
+        var journalTab = _tabControl.TabPages[TabIndexJournal];
+        var journalListView = FindControl<ListView>(journalTab, "JournalListView");
+        var detailText = FindControl<TextBox>(journalTab, "JournalDetailText");
+        var kindCombo = FindControl<ComboBox>(journalTab, "JournalKindFilter");
+        var weekCombo = FindControl<ComboBox>(journalTab, "JournalWeekFilter");
+        var searchBox = FindControl<TextBox>(journalTab, "JournalSearchBox");
         if (journalListView == null) return;
 
-        journalListView.Items.Clear();
-        foreach (var entry in _stronghold.Journal)
+        _suppressJournalRefresh = true;
+        try
         {
-            ListViewItem item = new ListViewItem(entry.Date);
-            item.SubItems.Add(entry.Title);
-            item.SubItems.Add(entry.Description);
-            item.Tag = entry;
-            journalListView.Items.Add(item);
+            PopulateJournalWeekFilter(weekCombo);
         }
+        finally
+        {
+            _suppressJournalRefresh = false;
+        }
+
+        var kindGroup = JournalKindGroup.All;
+        if (kindCombo != null && kindCombo.SelectedIndex >= 0
+            && kindCombo.SelectedIndex < Enum.GetValues(typeof(JournalKindGroup)).Length)
+        {
+            kindGroup = (JournalKindGroup)kindCombo.SelectedIndex;
+        }
+
+        int? weekFilter = null;
+        bool thisWeekOnly = false;
+        if (weekCombo?.SelectedItem is string weekText)
+        {
+            if (weekText == "This week")
+                thisWeekOnly = true;
+            else if (weekText != "All" && weekText.StartsWith("Week "))
+            {
+                var parts = weekText.Split(',');
+                if (parts.Length > 0 && int.TryParse(parts[0].Replace("Week ", "").Trim(), out int weekNum))
+                    weekFilter = weekNum;
+            }
+        }
+
+        string search = searchBox?.Text?.Trim() ?? string.Empty;
+
+        journalListView.BeginUpdate();
+        journalListView.Items.Clear();
+        ListViewItem selectedItem = null;
+        foreach (var entry in GetJournalNewestFirst())
+        {
+            if (kindGroup != JournalKindGroup.All && JournalDisplay.GetKindGroup(entry) != kindGroup)
+                continue;
+            if (thisWeekOnly && (entry.Week != _stronghold.CurrentWeek || entry.Year != _stronghold.YearsSinceFoundation))
+                continue;
+            if (weekFilter.HasValue && entry.Week != weekFilter.Value)
+                continue;
+            if (!string.IsNullOrEmpty(search)
+                && (entry.Title?.IndexOf(search, StringComparison.OrdinalIgnoreCase) ?? -1) < 0
+                && (entry.Description?.IndexOf(search, StringComparison.OrdinalIgnoreCase) ?? -1) < 0)
+                continue;
+
+            var item = new ListViewItem(entry.Week.ToString());
+            item.SubItems.Add(JournalDisplay.KindLabel(entry.Type));
+            item.SubItems.Add(entry.Title);
+            item.Tag = entry.Id;
+            journalListView.Items.Add(item);
+            if (entry.Id == _selectedJournalEntryId)
+                selectedItem = item;
+        }
+        journalListView.EndUpdate();
+
+        if (journalListView.Items.Count == 0)
+        {
+            if (detailText != null)
+                detailText.Text = "No entries match.";
+            return;
+        }
+
+        if (selectedItem != null)
+        {
+            selectedItem.Selected = true;
+            selectedItem.EnsureVisible();
+        }
+        else if (detailText != null && journalListView.SelectedItems.Count == 0)
+        {
+            detailText.Text = "Select a journal entry.";
+        }
+    }
+
+    private void PopulateJournalWeekFilter(ComboBox weekCombo)
+    {
+        if (weekCombo == null) return;
+        string previous = weekCombo.SelectedItem as string ?? "All";
+        var weeks = GetJournalNewestFirst()
+            .Select(e => $"Week {e.Week}, Year {e.Year}")
+            .Distinct()
+            .ToList();
+
+        weekCombo.BeginUpdate();
+        weekCombo.Items.Clear();
+        weekCombo.Items.Add("All");
+        weekCombo.Items.Add("This week");
+        foreach (var week in weeks)
+            weekCombo.Items.Add(week);
+
+        int index = weekCombo.Items.IndexOf(previous);
+        weekCombo.SelectedIndex = index >= 0 ? index : 0;
+        weekCombo.EndUpdate();
+    }
+
+    private void JournalListView_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (sender is not ListView listView || listView.SelectedItems.Count == 0)
+            return;
+        ShowJournalDetail(listView.SelectedItems[0].Tag as string);
+    }
+
+    private void ShowJournalDetail(string entryId)
+    {
+        if (_tabControl.TabPages.Count <= TabIndexJournal) return;
+        var detailText = FindControl<TextBox>(_tabControl.TabPages[TabIndexJournal], "JournalDetailText");
+        if (detailText == null) return;
+
+        var entry = _stronghold.Journal?.Find(j => j.Id == entryId);
+        if (entry == null)
+        {
+            detailText.Text = "Select a journal entry.";
+            _selectedJournalEntryId = null;
+            return;
+        }
+
+        _selectedJournalEntryId = entry.Id;
+        detailText.Text =
+            $"{entry.Date}\r\n" +
+            $"{JournalDisplay.KindLabel(entry.Type)}\r\n\r\n" +
+            $"{entry.Title}\r\n\r\n" +
+            $"{entry.Description}";
+    }
+
+    public void ShowJournalEntry(string entryId)
+    {
+        _selectedJournalEntryId = entryId;
+        if (_tabControl != null && _tabControl.TabPages.Count > TabIndexJournal)
+            _tabControl.SelectedIndex = TabIndexJournal;
+        RefreshJournalTab();
+        ShowJournalDetail(entryId);
+    }
+
+    private IEnumerable<JournalEntry> GetJournalNewestFirst()
+    {
+        _stronghold.Journal ??= new List<JournalEntry>();
+        return _stronghold.Journal
+            .Select((entry, index) => (entry, index))
+            .OrderByDescending(x => x.entry.Year)
+            .ThenByDescending(x => x.entry.Week)
+            .ThenByDescending(x => x.index)
+            .Select(x => x.entry);
+    }
+
+    private void RefreshWeeklyReportTab()
+    {
+        if (_tabControl.TabPages.Count <= TabIndexWeeklyReport) return;
+        var tab = _tabControl.TabPages[TabIndexWeeklyReport];
+        var weekCombo = FindControl<ComboBox>(tab, "WeeklyReportWeekCombo");
+        var summaryLabel = FindControl<Label>(tab, "WeeklyReportSummaryLabel");
+        var resourcesList = FindControl<ListView>(tab, "WeeklyReportResourcesList");
+        var strongholdText = FindControl<TextBox>(tab, "WeeklyReportStrongholdText");
+        var finishedList = FindControl<ListView>(tab, "WeeklyReportFinishedList");
+        var upcomingList = FindControl<ListView>(tab, "WeeklyReportUpcomingList");
+        var journalList = FindControl<ListView>(tab, "WeeklyReportJournalList");
+        var journalDetail = FindControl<TextBox>(tab, "WeeklyReportJournalDetail");
+        var openButton = FindControl<Button>(tab, "WeeklyReportOpenJournalButton");
+
+        _stronghold.WeeklyReports ??= new List<WeeklyReport>();
+
+        if (weekCombo != null)
+        {
+            weekCombo.SelectedIndexChanged -= WeeklyReportWeekCombo_SelectedIndexChanged;
+            weekCombo.Items.Clear();
+            for (int i = _stronghold.WeeklyReports.Count - 1; i >= 0; i--)
+            {
+                var report = _stronghold.WeeklyReports[i];
+                weekCombo.Items.Add(new WeeklyReportComboItem(report));
+            }
+
+            if (_openWeeklyReportAfterTurn && _stronghold.CurrentWeeklyReport != null)
+            {
+                _selectedWeeklyReportId = _stronghold.CurrentWeeklyReport.Id;
+                _openWeeklyReportAfterTurn = false;
+            }
+
+            int selectIndex = 0;
+            if (!string.IsNullOrEmpty(_selectedWeeklyReportId))
+            {
+                for (int i = 0; i < weekCombo.Items.Count; i++)
+                {
+                    if (weekCombo.Items[i] is WeeklyReportComboItem item && item.Report.Id == _selectedWeeklyReportId)
+                    {
+                        selectIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (weekCombo.Items.Count > 0)
+                weekCombo.SelectedIndex = selectIndex;
+            weekCombo.SelectedIndexChanged += WeeklyReportWeekCombo_SelectedIndexChanged;
+        }
+
+        var selectedReport = GetSelectedWeeklyReport(weekCombo);
+        if (selectedReport == null)
+        {
+            if (summaryLabel != null)
+                summaryLabel.Text = "No weekly report yet. Advance a turn to generate one.";
+            resourcesList?.Items.Clear();
+            finishedList?.Items.Clear();
+            upcomingList?.Items.Clear();
+            journalList?.Items.Clear();
+            if (strongholdText != null) strongholdText.Text = string.Empty;
+            if (journalDetail != null) journalDetail.Text = "Select an entry.";
+            if (openButton != null) openButton.Enabled = false;
+            return;
+        }
+
+        _selectedWeeklyReportId = selectedReport.Id;
+        bool isLatest = _stronghold.CurrentWeeklyReport != null
+            && selectedReport.Id == _stronghold.CurrentWeeklyReport.Id;
+
+        if (summaryLabel != null)
+        {
+            summaryLabel.Text = $"Week {selectedReport.Week}, Year {selectedReport.Year} · {selectedReport.Season}"
+                + (isLatest ? "  (latest)" : "  (archived)");
+        }
+
+        if (resourcesList != null)
+        {
+            _weeklyReportBoldFont ??= new Font(resourcesList.Font, FontStyle.Bold);
+            resourcesList.BeginUpdate();
+            resourcesList.Items.Clear();
+            foreach (var change in selectedReport.ResourceChanges)
+            {
+                int lastTurn = change.PreviousAmount;
+                int turnEndAmount = change.CurrentAmount;
+                int netChange = turnEndAmount - lastTurn;
+                int current = turnEndAmount;
+                if (isLatest)
+                {
+                    var live = _stronghold.Resources.Find(r => r.Type == change.ResourceType);
+                    if (live != null)
+                        current = live.Amount;
+                }
+
+                int projected = GetOutlookAmount(selectedReport, change.ResourceType, isLatest);
+                int projectedNet = projected - current;
+
+                string netText = netChange > 0 ? $"+{netChange}" : netChange.ToString();
+                string projectedNetText = projectedNet > 0 ? $"+{projectedNet}" : projectedNet.ToString();
+
+                var item = new ListViewItem(change.ResourceType.ToString());
+                item.UseItemStyleForSubItems = false;
+                item.SubItems.Add(current.ToString());
+                item.SubItems.Add(lastTurn.ToString());
+                item.SubItems.Add(netText);
+                item.SubItems.Add($"{projected} ({projectedNetText})");
+                item.Tag = change.ResourceType;
+
+                item.SubItems[1].Font = _weeklyReportBoldFont;
+                item.SubItems[3].ForeColor = netChange > 0 ? Color.DarkGreen
+                    : netChange < 0 ? Color.DarkRed
+                    : Color.Black;
+                item.SubItems[4].ForeColor = GetProjectedResourceColor(current, projected);
+
+                resourcesList.Items.Add(item);
+            }
+            resourcesList.EndUpdate();
+        }
+
+        if (strongholdText != null)
+        {
+            var departed = selectedReport.DepartedNpcNames != null && selectedReport.DepartedNpcNames.Count > 0
+                ? string.Join(", ", selectedReport.DepartedNpcNames)
+                : "None";
+            strongholdText.Text =
+                $"Morale: {selectedReport.MoraleBefore} → {selectedReport.MoraleAfter}\r\n" +
+                $"Population: {selectedReport.PopulationBefore} → {selectedReport.PopulationAfter}\r\n" +
+                $"Hungry: {selectedReport.HungryAfter}   Starving: {selectedReport.StarvingAfter}\r\n" +
+                $"Departed: {departed}";
+        }
+
+        if (finishedList != null)
+        {
+            finishedList.BeginUpdate();
+            finishedList.Items.Clear();
+            foreach (var done in selectedReport.CompletedProjects)
+            {
+                var item = new ListViewItem(done.Name);
+                item.SubItems.Add(done.Type);
+                finishedList.Items.Add(item);
+            }
+            if (finishedList.Items.Count == 0)
+                finishedList.Items.Add(new ListViewItem("None this turn"));
+            finishedList.EndUpdate();
+        }
+
+        if (upcomingList != null)
+        {
+            upcomingList.BeginUpdate();
+            upcomingList.Items.Clear();
+            IEnumerable<UpcomingCompletion> upcoming = selectedReport.UpcomingCompletions;
+            if (isLatest)
+                upcoming = BuildLiveUpcomingCompletions();
+
+            foreach (var next in upcoming.OrderBy(u => u.WeeksRemaining).ThenBy(u => u.Name))
+            {
+                var item = new ListViewItem(next.Name);
+                item.SubItems.Add(next.WeeksRemaining.ToString());
+                item.SubItems.Add(next.Type);
+                upcomingList.Items.Add(item);
+            }
+            if (upcomingList.Items.Count == 0)
+                upcomingList.Items.Add(new ListViewItem("None scheduled"));
+            upcomingList.EndUpdate();
+        }
+
+        if (journalList != null)
+        {
+            journalList.BeginUpdate();
+            journalList.Items.Clear();
+            foreach (var entryId in selectedReport.TurnJournalEntryIds ?? new List<string>())
+            {
+                var entry = _stronghold.Journal.Find(j => j.Id == entryId);
+                if (entry == null) continue;
+                var item = new ListViewItem(JournalDisplay.KindLabel(entry.Type));
+                item.SubItems.Add(entry.Title);
+                item.Tag = entry.Id;
+                journalList.Items.Add(item);
+            }
+            journalList.EndUpdate();
+            if (journalDetail != null)
+                journalDetail.Text = journalList.Items.Count == 0
+                    ? "No journal entries were written during this turn."
+                    : "Select an entry.";
+            if (openButton != null) openButton.Enabled = false;
+        }
+    }
+
+    private int GetOutlookAmount(WeeklyReport report, ResourceType type, bool isLatest)
+    {
+        if (isLatest)
+        {
+            var resource = _stronghold.Resources.Find(r => r.Type == type);
+            if (resource == null) return 0;
+            return Math.Max(0, resource.Amount + resource.WeeklyProduction - resource.WeeklyConsumption);
+        }
+
+        var saved = report.SavedOutlook?.Find(o => o.ResourceType == type);
+        return saved?.ProjectedAmount ?? 0;
+    }
+
+    private List<UpcomingCompletion> BuildLiveUpcomingCompletions()
+    {
+        var list = new List<UpcomingCompletion>();
+        foreach (var building in _stronghold.Buildings)
+        {
+            if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
+            {
+                list.Add(new UpcomingCompletion
+                {
+                    Id = building.Id,
+                    Name = building.Name,
+                    Type = "Building Construction",
+                    WeeksRemaining = building.ConstructionTimeRemaining
+                });
+            }
+            else if (building.ConstructionStatus == BuildingStatus.Repairing)
+            {
+                list.Add(new UpcomingCompletion
+                {
+                    Id = building.Id,
+                    Name = building.Name,
+                    Type = "Building Repair",
+                    WeeksRemaining = building.RepairTimeRemaining
+                });
+            }
+            else if (building.ConstructionStatus == BuildingStatus.Upgrading)
+            {
+                list.Add(new UpcomingCompletion
+                {
+                    Id = building.Id,
+                    Name = building.Name,
+                    Type = "Building Upgrade",
+                    WeeksRemaining = building.ConstructionTimeRemaining
+                });
+            }
+
+            if (building.CurrentProject != null)
+            {
+                list.Add(new UpcomingCompletion
+                {
+                    Id = building.CurrentProject.Id,
+                    Name = $"{building.CurrentProject.Name} ({building.Name})",
+                    Type = building.CurrentProject.TimeRemaining <= 0
+                        ? "Project (ready to resolve)"
+                        : "Project",
+                    WeeksRemaining = building.CurrentProject.TimeRemaining
+                });
+            }
+        }
+
+        foreach (var mission in _stronghold.ActiveMissions)
+        {
+            list.Add(new UpcomingCompletion
+            {
+                Id = mission.Id,
+                Name = mission.Name,
+                Type = "Mission",
+                WeeksRemaining = mission.WeeksRemaining
+            });
+        }
+
+        return list;
+    }
+
+    private WeeklyReport GetSelectedWeeklyReport(ComboBox weekCombo)
+    {
+        if (weekCombo?.SelectedItem is WeeklyReportComboItem item)
+            return item.Report;
+        return _stronghold.CurrentWeeklyReport;
+    }
+
+    private static Color GetProjectedResourceColor(int current, int projected)
+    {
+        if (projected <= 0)
+            return Color.Red;
+        if (projected > current)
+            return Color.Green;
+        if (projected < current)
+            return Color.Goldenrod; // readable yellow on light backgrounds
+        return Color.Black;
+    }
+
+    private void WeeklyReportWeekCombo_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (sender is ComboBox combo && combo.SelectedItem is WeeklyReportComboItem item)
+            _selectedWeeklyReportId = item.Report.Id;
+        RefreshWeeklyReportTab();
+    }
+
+    private void WeeklyReportResourcesList_DoubleClick(object sender, EventArgs e)
+    {
+        if (sender is not ListView listView || listView.SelectedItems.Count == 0)
+            return;
+        if (listView.SelectedItems[0].Tag is ResourceType resourceType)
+            ShowResourceInTab(resourceType);
+    }
+
+    private void WeeklyReportJournalList_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (_tabControl.TabPages.Count <= TabIndexWeeklyReport) return;
+        var detail = FindControl<TextBox>(_tabControl.TabPages[TabIndexWeeklyReport], "WeeklyReportJournalDetail");
+        var openButton = FindControl<Button>(_tabControl.TabPages[TabIndexWeeklyReport], "WeeklyReportOpenJournalButton");
+        if (detail == null) return;
+
+        if (sender is not ListView listView || listView.SelectedItems.Count == 0)
+        {
+            detail.Text = "Select an entry.";
+            if (openButton != null) openButton.Enabled = false;
+            return;
+        }
+
+        string entryId = listView.SelectedItems[0].Tag as string;
+        var entry = _stronghold.Journal.Find(j => j.Id == entryId);
+        if (entry == null)
+        {
+            detail.Text = "Entry not found.";
+            if (openButton != null) openButton.Enabled = false;
+            return;
+        }
+
+        detail.Text = $"{entry.Date}\r\n{JournalDisplay.KindLabel(entry.Type)}\r\n\r\n{entry.Title}\r\n\r\n{entry.Description}";
+        if (openButton != null)
+        {
+            openButton.Enabled = true;
+            openButton.Tag = entry.Id;
+        }
+    }
+
+    private void WeeklyReportOpenJournalButton_Click(object sender, EventArgs e)
+    {
+        if (sender is Button button && button.Tag is string entryId)
+            ShowJournalEntry(entryId);
+    }
+
+    private sealed class WeeklyReportComboItem
+    {
+        public WeeklyReport Report { get; }
+        public WeeklyReportComboItem(WeeklyReport report) => Report = report;
+        public override string ToString() => $"Week {Report.Week}, Year {Report.Year}";
     }
 
     private void RefreshMissionsTab()
     {
-        var missionsListView = FindControl<ListView>(_tabControl.TabPages[6], "MissionsListView");
+        if (_tabControl.TabPages.Count <= TabIndexMissions) return;
+        var missionsListView = FindControl<ListView>(_tabControl.TabPages[TabIndexMissions], "MissionsListView");
         if (missionsListView == null) return;
 
         missionsListView.Items.Clear();
@@ -3522,6 +4465,10 @@ public partial class MainDashboard : Form
             adjustResourceButton.Visible = _gameStateService.DMMode;
         }
 
+        var addCustomJournalButton = FindControl<Button>(_tabControl.TabPages[TabIndexJournal], "AddCustomJournalButton");
+        if (addCustomJournalButton != null)
+            addCustomJournalButton.Visible = _gameStateService.DMMode;
+
         var editTradeRouteButton = FindControl<Button>(_tabControl.TabPages[4], "EditTradeRouteButton");
         if (editTradeRouteButton != null)
         {
@@ -3750,7 +4697,8 @@ public partial class MainDashboard : Form
         if (productionSourcesListView != null)
         {
             productionSourcesListView.Items.Clear();
-            var prodSources = selectedResource.Sources.Where(s => s.IsProduction).OrderByDescending(s => s.Amount).ToList();
+            var prodSources = (selectedResource.Sources ?? new List<ResourceSource>())
+                .Where(s => s.IsProduction).OrderByDescending(s => s.Amount).ToList();
             if (prodSources.Count == 0)
             {
                 var placeholder = new ListViewItem("No production sources");
@@ -3772,7 +4720,7 @@ public partial class MainDashboard : Form
                         var building = _stronghold.Buildings.Find(b => b.Id == source.SourceId);
                         if (building != null)
                         {
-                            int workerCount = building.AssignedWorkers.Count;
+                            int workerCount = building.AssignedWorkers?.Count ?? 0;
                             typeText = $"Building (Lvl {building.Level}, {workerCount} workers)";
                         }
                     }
@@ -3788,7 +4736,8 @@ public partial class MainDashboard : Form
         if (consumptionSourcesListView != null)
         {
             consumptionSourcesListView.Items.Clear();
-            var consSources = selectedResource.Sources.Where(s => !s.IsProduction).OrderByDescending(s => s.Amount).ToList();
+            var consSources = (selectedResource.Sources ?? new List<ResourceSource>())
+                .Where(s => !s.IsProduction).OrderByDescending(s => s.Amount).ToList();
             if (consSources.Count == 0)
             {
                 var placeholder = new ListViewItem("No consumption sources");
@@ -3810,7 +4759,7 @@ public partial class MainDashboard : Form
                         var building = _stronghold.Buildings.Find(b => b.Id == source.SourceId);
                         if (building != null)
                         {
-                            int workerCount = building.AssignedWorkers.Count;
+                            int workerCount = building.AssignedWorkers?.Count ?? 0;
                             typeText = $"Building (Lvl {building.Level}, {workerCount} workers)";
                         }
                     }
@@ -3905,7 +4854,13 @@ public partial class MainDashboard : Form
                 int difference = dialog.Value - selectedResource.Amount;
                 var command = new ModifyResourceCommand(_gameStateService, selectedResource.Type, difference);
                 _gameStateService.GetCommandInvoker().ExecuteCommand(command);
+
+                // Injected gold can lift bankruptcy without waiting for Next Turn.
+                if (selectedResource.Type == ResourceType.Gold)
+                    _gameStateService.TryClearBankruptcyFromCoffers();
+
                 RefreshResourcesTab();
+                _gameStateService.OnGameStateChanged();
             }
         }
     }
@@ -4026,9 +4981,10 @@ public partial class MainDashboard : Form
                 if (building == null) return;
 
                 // Get assigned NPCs for production calculation
+                building.AssignedWorkers ??= new List<string>();
                 var assignedNPCs = building.AssignedWorkers
                     .Select(workerId => _stronghold.NPCs.Find(n => n.Id == workerId))
-                    .Where(npc => npc != null)
+                    .OfType<NPC>()
                     .ToList();
 
                 // Update building's production based on current workers
@@ -4063,8 +5019,10 @@ public partial class MainDashboard : Form
 
                                         // Add a header row for this resource
                                         var headerItem = new ListViewItem(resourceType.ToString());
-                                        var availableWorkers = assignedNPCs.Where(w => 
-                                            building.CurrentProject == null || !building.CurrentProject.AssignedWorkers.Contains(w.Id)).ToList();
+                                        var availableWorkers = assignedNPCs.Where(w =>
+                                            building.CurrentProject == null
+                                            || building.CurrentProject.AssignedWorkers == null
+                                            || !building.CurrentProject.AssignedWorkers.Contains(w.Id)).ToList();
                                         headerItem.SubItems.Add(availableWorkers.Count.ToString());
                                         
                                         // Calculate totals
@@ -4074,7 +5032,7 @@ public partial class MainDashboard : Form
                                         {
                                             foreach (var bonus in applicableBonuses)
                                             {
-                                                var skill = worker.Skills.Find(s => s.Name == bonus.skill);
+                                                var skill = worker.Skills?.Find(s => s.Name == bonus.skill);
                                                 if (skill != null)
                                                 {
                                                     totalBonus += skill.Level * bonus.bonusValue;
@@ -4088,14 +5046,21 @@ public partial class MainDashboard : Form
                                         headerItem.SubItems.Add(totalBonus.ToString("0.#"));
                                         
                                         headerItem.BackColor = Color.LightGray;
-                                        headerItem.Font = new Font(productionListView.Font, FontStyle.Bold);
+                                        try
+                                        {
+                                            headerItem.Font = new Font(productionListView.Font, FontStyle.Bold);
+                                        }
+                                        catch (ArgumentException)
+                                        {
+                                            // Some fonts cannot be bolded.
+                                        }
                                         productionListView.Items.Add(headerItem);
 
                                         // For each worker
                                         foreach (var worker in assignedNPCs)
                                         {
                                             // Skip workers assigned to projects
-                                            if (building.CurrentProject?.AssignedWorkers.Contains(worker.Id) ?? false)
+                                            if (building.CurrentProject?.AssignedWorkers?.Contains(worker.Id) ?? false)
                                                 continue;
 
                                             decimal baseProduction = resource.perWorkerValue;
@@ -4165,9 +5130,9 @@ public partial class MainDashboard : Form
                 {
                     upkeepListView.Items.Clear();
                     
-                    if (building.IsFunctional())
+                    if (building.IsFunctional() && assignedNPCs.Count > 0)
                     {
-                        // For functional buildings, show base upkeep + regular worker salaries
+                        // For functional buildings with workers, show base upkeep + salaries
                         string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
                         if (File.Exists(jsonPath))
                         {
@@ -4177,9 +5142,9 @@ public partial class MainDashboard : Form
                             
                             if (buildingInfo != null)
                             {
-                                // Calculate total regular worker salaries
+                                // Calculate total regular worker salaries (match CalculateUpkeep: skill/2)
                                 int totalSalaries = assignedNPCs.Sum(worker => 
-                                    Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+                                    Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0)));
 
                                 // Get all upkeep values for current level
                                 var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
@@ -4312,9 +5277,9 @@ public partial class MainDashboard : Form
                 {
                     var summaryParts = new List<string>();
 
-                    if (building.IsFunctional())
+                    if (building.IsFunctional() && assignedNPCs.Count > 0)
                     {
-                        // For functional buildings, show base upkeep + regular worker salaries
+                        // For functional buildings with workers, show base upkeep + salaries
                         string jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "BuildingData.json");
                         if (File.Exists(jsonPath))
                         {
@@ -4324,9 +5289,9 @@ public partial class MainDashboard : Form
                             
                             if (buildingInfo != null)
                             {
-                                // Calculate total regular worker salaries
+                                // Calculate total regular worker salaries (match CalculateUpkeep: skill/2)
                                 int totalSalaries = assignedNPCs.Sum(worker => 
-                                    Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
+                                    Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0)));
 
                                 // Get all upkeep values for current level
                                 var upkeepAtLevel = buildingInfo.upkeepScaling.Where(u => u.level == building.Level).ToList();
@@ -5808,22 +6773,192 @@ public partial class MainDashboard : Form
 
     #region Food Rationing Management
 
-    private void AddRationingButton(GroupBox resourcePanel)
+    private void AddManagementButtons(Panel host)
     {
+        var stack = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(0)
+        };
+        stack.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+        stack.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
         var rationingButton = new Button
         {
-            Height = 32,
-            Dock = DockStyle.Bottom,
-            Margin = new Padding(5, 8, 5, 5),
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 0, 0, 4),
             Tag = "RationingButton",
             FlatStyle = FlatStyle.Flat
         };
         rationingButton.Click += RationingButton_Click;
-        
-        resourcePanel.Controls.Add(rationingButton);
-        
-        // Set initial button state
+
+        var payrollButton = new Button
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Tag = "PayrollButton",
+            FlatStyle = FlatStyle.Flat
+        };
+        payrollButton.Click += PayrollButton_Click;
+
+        stack.Controls.Add(rationingButton, 0, 0);
+        stack.Controls.Add(payrollButton, 0, 1);
+        host.Controls.Add(stack);
+
         UpdateRationingButtonState(rationingButton);
+        UpdatePayrollButtonState(payrollButton);
+    }
+
+    private void UpdatePayrollButtonState(Button payrollButton)
+    {
+        if (payrollButton == null) return;
+        bool material = UpkeepService.HasMaterialOperatingShortfall(_stronghold);
+        bool gold = UpkeepService.HasGoldShortfall(_stronghold);
+        var baseFont = payrollButton.Font;
+        if (material || gold)
+        {
+            var shuttered = UpkeepService.ListShutteredBuildings(_stronghold);
+            if (material && gold)
+                payrollButton.Text = $"⚠️ UPKEEP SHORT - Manage ({shuttered.Count} idle)";
+            else if (material)
+                payrollButton.Text = $"⚠️ MATERIALS SHORT - Manage ({shuttered.Count} idle)";
+            else
+            {
+                var snap = UpkeepService.GetGoldPayroll(_stronghold);
+                payrollButton.Text = $"⚠️ GOLD SHORT - Manage Payroll (−{snap.Shortfall})";
+            }
+            payrollButton.BackColor = Color.FromArgb(180, 120, 20);
+            payrollButton.ForeColor = Color.White;
+            try { payrollButton.Font = new Font(baseFont, FontStyle.Bold); }
+            catch (ArgumentException) { /* font may not support bold */ }
+        }
+        else
+        {
+            payrollButton.Text = "Manage Payroll";
+            payrollButton.BackColor = SystemColors.Control;
+            payrollButton.ForeColor = SystemColors.ControlText;
+            try { payrollButton.Font = new Font(baseFont, FontStyle.Regular); }
+            catch (ArgumentException) { }
+        }
+    }
+
+    private void PayrollButton_Click(object? sender, EventArgs e)
+    {
+        ShowPayrollDialog();
+    }
+
+    private void ShowPayrollDialog()
+    {
+        using var dialog = new ManagePayrollDialog(_stronghold, _gameStateService);
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+            _gameStateService.OnGameStateChanged();
+    }
+
+    private void ShowPayrollPreTurnDialog()
+    {
+        var snap = UpkeepService.GetGoldPayroll(_stronghold);
+        var shuttered = UpkeepService.ListShutteredBuildings(_stronghold);
+        var lines = new List<string>();
+
+        if (shuttered.Count > 0)
+        {
+            lines.Add("⚠️ BUILDINGS CANNOT OPERATE — material upkeep (Wood/Stone/Iron/Luxury):\n");
+            foreach (var b in shuttered)
+            {
+                string name = string.IsNullOrWhiteSpace(b.Name) ? b.TypeName : b.Name;
+                lines.Add($"• {name}: {UpkeepService.FormatMaterialGaps(b, _stronghold)}");
+            }
+            lines.Add("\nA building only runs if current stocks cover its materials for this coming week.");
+            lines.Add("Unassign workers or obtain the materials. Idle buildings produce nothing and pay no upkeep.\n");
+        }
+
+        if (snap.HasShortfall)
+        {
+            lines.Add("⚠️ GOLD SHORTFALL:\n");
+            lines.Add($"• Available Gold: {snap.Available}");
+            lines.Add($"• Required Gold: {snap.Needed}");
+            lines.Add($"• Shortfall: {snap.Shortfall}");
+            lines.Add($"• Salaries: {snap.SalaryGoldUpkeep}  |  base: {snap.BaseGoldUpkeep}\n");
+        }
+
+        lines.Add("Use Manage Payroll to auto-unassign least-important workers first.");
+
+        string message = string.Join("\n", lines);
+        int messageHeight = Math.Max(180, message.Split('\n').Length * 18 + 40);
+        var dialog = new Form
+        {
+            Text = "Upkeep Warning",
+            Size = new Size(540, messageHeight + 120),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false
+        };
+
+        var messageLabel = new Label
+        {
+            Text = message,
+            Location = new Point(20, 16),
+            Size = new Size(480, messageHeight),
+            Font = new Font("Microsoft Sans Serif", 9)
+        };
+
+        var manageButton = new Button
+        {
+            Text = "Manage Payroll",
+            Location = new Point(120, messageHeight + 24),
+            Size = new Size(140, 30),
+            DialogResult = DialogResult.OK
+        };
+
+        // Continue if nothing left to cut (only protected workers / unavoidable gold base).
+        bool canContinue = UpkeepService.ListCutCandidates(_stronghold).Count == 0;
+        bool structuralBankruptcy = UpkeepService.IsStructurallyBankrupt(_stronghold);
+
+        if (structuralBankruptcy)
+        {
+            int unavoidable = UpkeepService.GetUnavoidableGoldUpkeep(_stronghold);
+            int available = UpkeepService.GetGoldAvailable(_stronghold);
+            lines.Add(
+                $"\n⚠️ BANKRUPTCY: available gold ({available}) cannot cover " +
+                $"unavoidable upkeep ({unavoidable}/week). Continuing will flag bankruptcy — " +
+                "one inhabitant abandons each week until coffers or income recover.");
+            message = string.Join("\n", lines);
+            messageHeight = Math.Max(180, message.Split('\n').Length * 18 + 40);
+            dialog.Size = new Size(540, messageHeight + 120);
+            messageLabel.Text = message;
+            messageLabel.Size = new Size(480, messageHeight);
+            manageButton.Location = new Point(120, messageHeight + 24);
+        }
+
+        dialog.Controls.Add(messageLabel);
+        dialog.Controls.Add(manageButton);
+
+        if (canContinue)
+        {
+            var continueButton = new Button
+            {
+                Text = structuralBankruptcy ? "Continue (Bankrupt)" : "Continue Anyway",
+                Location = new Point(280, messageHeight + 24),
+                Size = new Size(150, 30),
+                DialogResult = DialogResult.Cancel
+            };
+            dialog.Controls.Add(continueButton);
+        }
+        else
+        {
+            manageButton.Location = new Point(190, messageHeight + 24);
+        }
+
+        dialog.AcceptButton = manageButton;
+        var result = dialog.ShowDialog(this);
+
+        if (result == DialogResult.OK)
+            ShowPayrollDialog();
+        else if (result == DialogResult.Cancel && canContinue)
+            AdvanceWeekWithEvents();
     }
 
     private void UpdateRationingButtonState(Button rationingButton)
@@ -6037,7 +7172,10 @@ public partial class MainDashboard : Form
         else if (result == DialogResult.Cancel && !hasFoodShortage)
         {
             // User chose to continue anyway (only available when no food shortage)
-            AdvanceWeekWithEvents();
+            if (UpkeepService.HasAnyUpkeepShortfall(_stronghold))
+                ShowPayrollPreTurnDialog();
+            else
+                AdvanceWeekWithEvents();
         }
         // If result is Cancel with food shortage, do nothing (user closed dialog without action)
     }

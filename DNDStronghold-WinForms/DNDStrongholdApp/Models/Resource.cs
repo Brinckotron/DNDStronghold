@@ -10,7 +10,12 @@ namespace DNDStrongholdApp.Models
         public int Amount { get; set; }
         public int WeeklyProduction { get; set; }
         public int WeeklyConsumption { get; set; }
-        public List<ResourceSource> Sources { get; set; } = new List<ResourceSource>();
+        private List<ResourceSource> _sources = new List<ResourceSource>();
+        public List<ResourceSource> Sources
+        {
+            get => _sources ??= new List<ResourceSource>();
+            set => _sources = value ?? new List<ResourceSource>();
+        }
 
         public int NetWeeklyChange => WeeklyProduction - WeeklyConsumption;
 

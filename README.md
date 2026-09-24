@@ -81,6 +81,7 @@ after a `--` separator:
 | --- | --- |
 | `dotnet run` | Normal start; opens the "Create New Stronghold" flow |
 | `dotnet run -- p` | Test mode; loads the pregenerated stronghold from `Data/TestStrongholdData.json` |
+| `dotnet run -- p1` | Same as `p`, then silently advances to week 4 with journal/weekly-report history and ongoing construction, upgrade, trade, and project work |
 | `dotnet run -- d` | Debug mode; shows message-box checkpoints during startup |
 | `dotnet run -- p d` | Both of the above |
 

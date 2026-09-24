@@ -8,6 +8,8 @@ static class Program
 {
     public static bool DebugMode { get; private set; } = false;
     public static bool TestMode { get; private set; } = false;
+    /// <summary>Same as TestMode (p), then simulate four turns into a mid-game playthrough state.</summary>
+    public static bool PlaythroughMode { get; private set; } = false;
 
     /// <summary>
     ///  The main entry point for the application.
@@ -15,9 +17,13 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
-        // Check for debug flag
+        // Check for debug / playtest flags
+        //   d  — debug message boxes during startup
+        //   p  — load TestStrongholdData.json
+        //   p1 — same as p, then advance to week 4 with history and ongoing work
         DebugMode = args.Contains("d");
-        TestMode = args.Contains("p");
+        PlaythroughMode = args.Contains("p1");
+        TestMode = args.Contains("p") || PlaythroughMode;
 
         try
         {

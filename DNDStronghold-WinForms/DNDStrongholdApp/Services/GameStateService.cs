@@ -26,6 +26,14 @@ namespace DNDStrongholdApp.Services
         // DM Mode flag
         private bool _dmMode = false;
         private readonly List<(string BuildingId, string ProjectId)> _pendingProjectCompletions = new();
+        private int _turnJournalStartIndex = -1;
+        private readonly List<CompletedProject> _turnCompletions = new();
+        private readonly List<string> _turnDepartures = new();
+        private int _turnMoraleBefore;
+        private int _turnPopulationBefore;
+        private bool _suppressMoraleJournal;
+        private Dictionary<ResourceType, int> _turnPreviousResources;
+
         public bool DMMode
         {
             get => _dmMode;
@@ -37,6 +45,23 @@ namespace DNDStrongholdApp.Services
                     OnGameStateChanged();
                 }
             }
+        }
+
+        /// <summary>
+        /// Call before pre-turn raids so journal lines from the whole Next Turn
+        /// (raid + AdvanceWeek) are attributed to the weekly report.
+        /// </summary>
+        public void BeginTurnJournalCapture()
+        {
+            if (_currentStronghold == null) return;
+            _turnJournalStartIndex = _currentStronghold.Journal?.Count ?? 0;
+            _turnCompletions.Clear();
+            _turnDepartures.Clear();
+            _turnMoraleBefore = _currentStronghold.CurrentMorale;
+            _turnPopulationBefore = _currentStronghold.NPCs.Count;
+            _turnPreviousResources = new Dictionary<ResourceType, int>();
+            foreach (var resource in _currentStronghold.Resources)
+                _turnPreviousResources[resource.Type] = resource.Amount;
         }
         
         public static GameStateService GetInstance()
@@ -66,6 +91,8 @@ namespace DNDStrongholdApp.Services
                 if (Program.TestMode)
                 {
                     LoadTestStrongholdData();
+                    if (Program.PlaythroughMode)
+                        ApplyPlaythroughWeek4Scenario();
                 }
                 else
                 {
@@ -193,13 +220,25 @@ namespace DNDStrongholdApp.Services
         // Internal method called by AdvanceWeekCommand
         internal void ExecuteAdvanceWeek()
         {
-            // Store previous resource amounts for reporting
-            Dictionary<ResourceType, int> previousResourceAmounts = new Dictionary<ResourceType, int>();
-            foreach (var resource in _currentStronghold.Resources)
+            if (_turnJournalStartIndex < 0)
             {
-                previousResourceAmounts[resource.Type] = resource.Amount;
+                _turnJournalStartIndex = _currentStronghold.Journal?.Count ?? 0;
+                _turnCompletions.Clear();
+                _turnDepartures.Clear();
+                _turnMoraleBefore = _currentStronghold.CurrentMorale;
+                _turnPopulationBefore = _currentStronghold.NPCs.Count;
+                _turnPreviousResources = new Dictionary<ResourceType, int>();
+                foreach (var resource in _currentStronghold.Resources)
+                    _turnPreviousResources[resource.Type] = resource.Amount;
             }
-            
+
+            Dictionary<ResourceType, int> previousResourceAmounts =
+                _turnPreviousResources ?? new Dictionary<ResourceType, int>();
+            if (previousResourceAmounts.Count == 0)
+            {
+                foreach (var resource in _currentStronghold.Resources)
+                    previousResourceAmounts[resource.Type] = resource.Amount;
+            }
             // Advance the week
             _currentStronghold.AdvanceWeek();
 
@@ -233,18 +272,41 @@ namespace DNDStrongholdApp.Services
             
             // Process resources
             ProcessResources();
+
+            // Freeze what this turn actually produced/spent before rates are refreshed for outlook
+            var turnResourceFlows = _currentStronghold.Resources.ToDictionary(
+                r => r.Type,
+                r => (
+                    Produced: r.WeeklyProduction,
+                    Consumed: r.WeeklyConsumption,
+                    Sources: r.Sources.Select(s => new ResourceChangeBreakdown
+                    {
+                        Source = s.IsProduction ? $"+ {s.SourceName}" : $"- {s.SourceName}",
+                        Amount = s.IsProduction ? s.Amount : -s.Amount
+                    }).ToList()
+                ));
             
             // Process hunger progression after resource consumption
             ProcessHungerProgression();
 
             // Grave injuries may kill; any death uses the same morale penalty as raids
             ProcessHealthStates();
+
+            // Bankruptcy: one additional abandonment per week while insolvent
+            ProcessBankruptcy();
             
             // Process morale changes
             ProcessWeeklyMorale();
+
+            // Refresh rates for next-week outlook without writing extra journal lines
+            _suppressMoraleJournal = true;
+            UpdateProductionAndConsumptionRates();
+            _suppressMoraleJournal = false;
             
             // Generate weekly report
-            GenerateWeeklyReport(previousResourceAmounts);
+            GenerateWeeklyReport(previousResourceAmounts, turnResourceFlows);
+            _turnJournalStartIndex = -1;
+            _turnPreviousResources = null;
             
             // Notify listeners that the game state has changed
             OnGameStateChanged();
@@ -253,20 +315,20 @@ namespace DNDStrongholdApp.Services
         // Process construction and repairs
         private void ProcessConstructionAndRepairs()
         {
-                    foreach (var building in _currentStronghold.Buildings)
-        {
-            // Check if building in Planning state has workers assigned (regular workers or construction crew)
-            if (building.ConstructionStatus == BuildingStatus.Planning && building.GetTotalAssignedWorkers() > 0)
+            foreach (var building in _currentStronghold.Buildings)
             {
-                // Start construction if workers are assigned
-                if (building.StartConstruction())
+                // Check if building in Planning state has workers assigned (regular workers or construction crew)
+                if (building.ConstructionStatus == BuildingStatus.Planning && building.GetTotalAssignedWorkers() > 0)
+                {
+                    // Start construction if workers are assigned
+                    if (building.StartConstruction())
                     {
-                    // Calculate and apply first week's construction points
-                    building.UpdateConstructionProgress(_currentStronghold.NPCs);
-                    ApplyMagicAssist(building);
-                    building.AdvanceConstruction();
+                        // Calculate and apply first week's construction points
+                        building.UpdateConstructionProgress(_currentStronghold.NPCs);
+                        ApplyMagicAssist(building);
+                        building.AdvanceConstruction();
+                    }
                 }
-            }
                 // Update construction progress for buildings already under construction
                 else if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
                 {
@@ -274,8 +336,13 @@ namespace DNDStrongholdApp.Services
                     ApplyMagicAssist(building);
                     if (building.AdvanceConstruction())
                     {
-                        // Construction completed, clear construction crew
                         ClearConstructionCrewFromBuilding(building.Id);
+                        _turnCompletions.Add(new CompletedProject
+                        {
+                            Id = building.Id,
+                            Name = building.Name,
+                            Type = "Building Construction"
+                        });
                     }
                 }
                 
@@ -286,8 +353,13 @@ namespace DNDStrongholdApp.Services
                     ApplyMagicAssist(building);
                     if (building.AdvanceRepair())
                     {
-                        // Repair completed, clear construction crew
                         ClearConstructionCrewFromBuilding(building.Id);
+                        _turnCompletions.Add(new CompletedProject
+                        {
+                            Id = building.Id,
+                            Name = building.Name,
+                            Type = "Building Repair"
+                        });
                     }
                 }
                 
@@ -298,8 +370,13 @@ namespace DNDStrongholdApp.Services
                     ApplyMagicAssist(building);
                     if (building.AdvanceUpgrade())
                     {
-                        // Upgrade completed, clear construction crew
                         ClearConstructionCrewFromBuilding(building.Id);
+                        _turnCompletions.Add(new CompletedProject
+                        {
+                            Id = building.Id,
+                            Name = building.Name,
+                            Type = "Building Upgrade"
+                        });
                     }
                 }
             }
@@ -416,6 +493,7 @@ namespace DNDStrongholdApp.Services
             GrantResources(result.YieldGranted);
             ProjectResolutionService.AwardProjectSkillXp(project, buildingInfo, _currentStronghold.NPCs);
 
+            bool hasCargoOut = project.CargoOut != null && project.CargoOut.Any(c => c.Amount > 0);
             string journalBody =
                 $"{project.Name} at {building.Name} finished as {result.Tier}." +
                 (string.IsNullOrEmpty(project.Commission) ? "" : $" Commission: {project.Commission}.") +
@@ -423,7 +501,9 @@ namespace DNDStrongholdApp.Services
                 (project.RollMode != ProjectRollMode.None && result.D20Total.HasValue
                     ? $" Roll {result.D20Total}+{result.Bonus} vs DC {result.DC}."
                     : "") +
-                $" Yield: {ProjectResolutionService.FormatCosts(result.YieldGranted)}." +
+                (hasCargoOut
+                    ? $" Sent: {ProjectResolutionService.FormatCosts(project.CargoOut)}. Returned: {ProjectResolutionService.FormatCosts(result.YieldGranted)}."
+                    : $" Yield: {ProjectResolutionService.FormatCosts(result.YieldGranted)}.") +
                 (string.IsNullOrEmpty(result.Mishap) ? "" : $" {result.Mishap}") +
                 (string.IsNullOrEmpty(result.Summary) ? "" : $" {result.Summary}");
 
@@ -433,6 +513,23 @@ namespace DNDStrongholdApp.Services
                 JournalEntryType.ProjectComplete,
                 $"{project.Name} complete",
                 journalBody.Trim()));
+
+            var latestReport = _currentStronghold.CurrentWeeklyReport;
+            if (latestReport != null
+                && latestReport.Week == _currentStronghold.CurrentWeek
+                && latestReport.Year == _currentStronghold.YearsSinceFoundation)
+            {
+                latestReport.CompletedProjects.Add(new CompletedProject
+                {
+                    Id = project.Id,
+                    Name = $"{project.Name} ({building.Name})",
+                    Type = $"Project ({result.Tier})"
+                });
+                latestReport.UpcomingCompletions.RemoveAll(u => u.Id == project.Id);
+                var journalEntry = _currentStronghold.Journal[_currentStronghold.Journal.Count - 1];
+                if (!latestReport.TurnJournalEntryIds.Contains(journalEntry.Id))
+                    latestReport.TurnJournalEntryIds.Add(journalEntry.Id);
+            }
 
             ClearTradeOccupancy(project);
             building.CurrentProject = null;
@@ -479,7 +576,9 @@ namespace DNDStrongholdApp.Services
             {
                 result.Tier = ProjectResultTier.Failure;
                 result.YieldGranted = new List<ResourceCost>();
-                result.Summary = $"The caravan to {route?.Name ?? "the destination"} was lost. Cargo already sent is gone.";
+                result.Summary =
+                    $"The caravan to {route?.Name ?? "the destination"} was lost. " +
+                    $"Sent {ProjectResolutionService.FormatCosts(project.CargoOut)} is gone.";
                 return result;
             }
 
@@ -505,15 +604,17 @@ namespace DNDStrongholdApp.Services
                     comingBack.Add(new ResourceCost { ResourceType = item.ResourceType, Amount = item.Amount });
             }
             result.YieldGranted = TradeService.ApplyLoss(comingBack, fraction);
+            string returned = ProjectResolutionService.FormatCosts(result.YieldGranted);
+            string dest = route?.Name ?? "the destination";
             if (fraction < 1m)
             {
                 result.Tier = ProjectResultTier.Partial;
-                result.Summary = $"The caravan to {route?.Name ?? "the destination"} returned with {ProjectResolutionService.FormatCosts(result.YieldGranted)} (partial).";
+                result.Summary = $"The caravan to {dest} returned with {returned} (partial).";
             }
             else
             {
                 result.Tier = ProjectResultTier.Success;
-                result.Summary = $"The caravan to {route?.Name ?? "the destination"} returned with {ProjectResolutionService.FormatCosts(result.YieldGranted)}.";
+                result.Summary = $"The caravan to {dest} returned with {returned}.";
             }
             if (!string.IsNullOrEmpty(shortfallNote))
                 result.Summary += " " + shortfallNote;
@@ -713,6 +814,13 @@ namespace DNDStrongholdApp.Services
                         $"Mission {mission.Name} {mission.Status}",
                         $"The mission {mission.Name} has been {mission.Status.ToString().ToLower()}."
                     ));
+
+                    _turnCompletions.Add(new CompletedProject
+                    {
+                        Id = mission.Id,
+                        Name = mission.Name,
+                        Type = $"Mission ({mission.Status})"
+                    });
                     
                     // If mission was successful, add rewards
                     if (mission.Status == MissionStatus.Completed)
@@ -743,59 +851,24 @@ namespace DNDStrongholdApp.Services
         // Process resources (production, consumption, etc.)
         private void ProcessResources()
         {
-            // Reset all resource rates
-            foreach (var resource in _currentStronghold.Resources)
-            {
-                resource.WeeklyProduction = 0;
-                resource.WeeklyConsumption = 0;
-                resource.Sources.Clear();
-            }
+            var shuttered = UpkeepService.ListShutteredBuildings(_currentStronghold);
 
-            // Aggregate building production and upkeep
-            foreach (var building in _currentStronghold.Buildings)
-            {
-                if (building.IsFunctional())
-                {
-                    // Production
-                    foreach (var prod in building.ActualProduction)
-                    {
-                        var resource = _currentStronghold.Resources.Find(r => r.Type == prod.ResourceType);
-                        if (resource != null && prod.Amount > 0)
-                        {
-                            resource.WeeklyProduction += prod.Amount;
-                            resource.Sources.Add(new ResourceSource
-                            {
-                                SourceType = ResourceSourceType.Building,
-                                SourceId = building.Id,
-                                SourceName = building.Name,
-                                Amount = prod.Amount,
-                                IsProduction = true
-                            });
-                        }
-                    }
-                    // Upkeep
-                    foreach (var upkeep in building.ActualUpkeep)
-                    {
-                        var resource = _currentStronghold.Resources.Find(r => r.Type == upkeep.ResourceType);
-                        if (resource != null && upkeep.Amount > 0)
-                        {
-                            resource.WeeklyConsumption += upkeep.Amount;
-                            resource.Sources.Add(new ResourceSource
-                            {
-                                SourceType = ResourceSourceType.Building,
-                                SourceId = building.Id,
-                                SourceName = building.Name,
-                                Amount = upkeep.Amount,
-                                IsProduction = false
-                            });
-                        }
-                    }
-                }
-            }
+            // Recalculate rates with operable filter so this tick matches material affordability.
+            _suppressMoraleJournal = true;
+            UpdateProductionAndConsumptionRates();
+            _suppressMoraleJournal = false;
 
-            // Calculate and add NPC food consumption
-            CalculateNPCFoodConsumption();
-            // TODO: Add special building food consumption (tavern, inn, etc.)
+            foreach (var building in shuttered)
+            {
+                string name = string.IsNullOrWhiteSpace(building.Name) ? building.TypeName : building.Name;
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    $"{name} idle",
+                    $"{name} cannot operate: {UpkeepService.FormatMaterialGaps(building, _currentStronghold)}. " +
+                    "No production or upkeep while shuttered."));
+            }
 
             // Apply the weekly changes to all resources
             foreach (var resource in _currentStronghold.Resources)
@@ -811,32 +884,75 @@ namespace DNDStrongholdApp.Services
         }
         
         // Generate weekly report
-        private void GenerateWeeklyReport(Dictionary<ResourceType, int> previousResourceAmounts)
+        private void GenerateWeeklyReport(
+            Dictionary<ResourceType, int> previousResourceAmounts,
+            Dictionary<ResourceType, (int Produced, int Consumed, List<ResourceChangeBreakdown> Sources)> turnResourceFlows)
         {
-            WeeklyReport report = new WeeklyReport(_currentStronghold.CurrentWeek, _currentStronghold.YearsSinceFoundation);
-            
-            // Add resource changes
+            _currentStronghold.WeeklyReports ??= new List<WeeklyReport>();
+
+            WeeklyReport report = new WeeklyReport(_currentStronghold.CurrentWeek, _currentStronghold.YearsSinceFoundation)
+            {
+                Season = _currentStronghold.CurrentSeason,
+                MoraleBefore = _turnMoraleBefore,
+                MoraleAfter = _currentStronghold.CurrentMorale,
+                PopulationBefore = _turnPopulationBefore,
+                PopulationAfter = _currentStronghold.NPCs.Count,
+                HungryAfter = _currentStronghold.NPCs.Count(n => n.HungerState == HungerStatus.Hungry),
+                StarvingAfter = _currentStronghold.NPCs.Count(n => n.HungerState == HungerStatus.Starving),
+                DepartedNpcNames = _turnDepartures.ToList(),
+                CompletedProjects = _turnCompletions.ToList()
+            };
+
+            // Resource changes with production, consumption, and source breakdown from this turn
             foreach (var resource in _currentStronghold.Resources)
             {
-                int previousAmount = previousResourceAmounts.ContainsKey(resource.Type) ? previousResourceAmounts[resource.Type] : 0;
-                
-                report.ResourceChanges.Add(new ResourceChange
+                int previousAmount = previousResourceAmounts.ContainsKey(resource.Type)
+                    ? previousResourceAmounts[resource.Type]
+                    : 0;
+
+                turnResourceFlows.TryGetValue(resource.Type, out var flow);
+
+                var change = new ResourceChange
                 {
                     ResourceType = resource.Type,
                     PreviousAmount = previousAmount,
-                    CurrentAmount = resource.Amount
+                    CurrentAmount = resource.Amount,
+                    Produced = flow.Produced,
+                    Consumed = flow.Consumed,
+                    Breakdown = flow.Sources ?? new List<ResourceChangeBreakdown>()
+                };
+
+                report.ResourceChanges.Add(change);
+
+                // Outlook uses current (post-turn) rates
+                int projected = Math.Max(0, resource.Amount + resource.WeeklyProduction - resource.WeeklyConsumption);
+                report.SavedOutlook.Add(new ResourceOutlook
+                {
+                    ResourceType = resource.Type,
+                    ProjectedAmount = projected,
+                    WeeklyProduction = resource.WeeklyProduction,
+                    WeeklyConsumption = resource.WeeklyConsumption
                 });
             }
-            
-            // Add income/expense summary
-            var goldResource = _currentStronghold.Resources.Find(r => r.Type == ResourceType.Gold);
-            if (goldResource != null)
+
+            // Gold income/expense summary from this turn's flows
+            var goldChange = report.ResourceChanges.Find(c => c.ResourceType == ResourceType.Gold);
+            if (goldChange != null)
             {
-                report.IncomeExpenseSummary.TotalIncome = goldResource.WeeklyProduction;
-                report.IncomeExpenseSummary.TotalExpenses = goldResource.WeeklyConsumption;
+                report.IncomeExpenseSummary.TotalIncome = goldChange.Produced;
+                report.IncomeExpenseSummary.TotalExpenses = goldChange.Consumed;
+                foreach (var source in goldChange.Breakdown)
+                {
+                    report.IncomeExpenseSummary.Breakdown.Add(new IncomeExpenseBreakdown
+                    {
+                        Category = source.Source.TrimStart('+', '-', ' '),
+                        Income = source.Amount > 0 ? source.Amount : 0,
+                        Expenses = source.Amount < 0 ? -source.Amount : 0
+                    });
+                }
             }
-            
-            // Add upcoming completions
+
+            // Upcoming completions (including projects ready to resolve)
             foreach (var building in _currentStronghold.Buildings)
             {
                 if (building.ConstructionStatus == BuildingStatus.UnderConstruction)
@@ -859,8 +975,31 @@ namespace DNDStrongholdApp.Services
                         WeeksRemaining = building.RepairTimeRemaining
                     });
                 }
+                else if (building.ConstructionStatus == BuildingStatus.Upgrading)
+                {
+                    report.UpcomingCompletions.Add(new UpcomingCompletion
+                    {
+                        Id = building.Id,
+                        Name = building.Name,
+                        Type = "Building Upgrade",
+                        WeeksRemaining = building.ConstructionTimeRemaining
+                    });
+                }
+
+                if (building.CurrentProject != null)
+                {
+                    report.UpcomingCompletions.Add(new UpcomingCompletion
+                    {
+                        Id = building.CurrentProject.Id,
+                        Name = $"{building.CurrentProject.Name} ({building.Name})",
+                        Type = building.CurrentProject.TimeRemaining <= 0
+                            ? "Project (ready to resolve)"
+                            : "Project",
+                        WeeksRemaining = building.CurrentProject.TimeRemaining
+                    });
+                }
             }
-            
+
             foreach (var mission in _currentStronghold.ActiveMissions)
             {
                 report.UpcomingCompletions.Add(new UpcomingCompletion
@@ -871,18 +1010,16 @@ namespace DNDStrongholdApp.Services
                     WeeksRemaining = mission.WeeksRemaining
                 });
             }
-            
-            // Set current weekly report
+
+            // Journal entries written during this Next Turn
+            int start = Math.Max(0, _turnJournalStartIndex);
+            for (int i = start; i < _currentStronghold.Journal.Count; i++)
+            {
+                report.TurnJournalEntryIds.Add(_currentStronghold.Journal[i].Id);
+            }
+
+            _currentStronghold.WeeklyReports.Add(report);
             _currentStronghold.CurrentWeeklyReport = report;
-            
-            // Add journal entry for weekly report
-            _currentStronghold.Journal.Add(new JournalEntry(
-                _currentStronghold.CurrentWeek,
-                _currentStronghold.YearsSinceFoundation,
-                JournalEntryType.WeeklyReport,
-                $"Week {_currentStronghold.CurrentWeek} Report",
-                report.GenerateSummary()
-            ));
         }
         
         // Save game to file
@@ -1122,6 +1259,474 @@ namespace DNDStrongholdApp.Services
                     skill.IsLearned = true;
             }
             npc.UpdateUpkeepCosts();
+        }
+
+        /// <summary>
+        /// Builds on the standard test stronghold: runs four silent turns so journal and
+        /// weekly reports have history, then leaves construction, upgrade, trade, and
+        /// project work in progress at week 4.
+        /// </summary>
+        private void ApplyPlaythroughWeek4Scenario()
+        {
+            if (_currentStronghold == null) return;
+
+            BoostResource(ResourceType.Gold, 800);
+            BoostResource(ResourceType.Food, 250);
+            BoostResource(ResourceType.Wood, 120);
+            BoostResource(ResourceType.Stone, 80);
+            BoostResource(ResourceType.Iron, 40);
+            BoostResource(ResourceType.Luxury, 15);
+            _currentStronghold.CurrentMorale = 62;
+            _currentStronghold.MoraleBaseline = 55;
+            _currentStronghold.Reputation = Math.Max(_currentStronghold.Reputation, 15);
+
+            AddPlaythroughJournal(
+                JournalEntryType.Event,
+                "Council convenes",
+                "The steward calls a council. Expansion of the quarry and stronger watchtowers are approved for the coming weeks.");
+
+            // Week 0 actions before the first turn
+            StartWatchtowerUpgradeForPlaythrough();
+            StartQuarryConstructionForPlaythrough(progressFraction: 0.15);
+            StartSmithyCraftProjectForPlaythrough(timeRemaining: 3);
+            HostTradeFairForPlaythrough();
+
+            SimulateSilentTurn(); // → week 1
+            AddPlaythroughJournal(
+                JournalEntryType.Event,
+                "Rationing review",
+                "With the farm producing well, the steward keeps the garrison on full rations.");
+            AddPlaythroughJournal(
+                JournalEntryType.NPCAssigned,
+                "Laborers to the quarry",
+                "Two more laborers join the quarry crew to speed stone cutting.");
+
+            SimulateSilentTurn(); // → week 2
+            EstablishMillcreekRouteForPlaythrough();
+            AddPlaythroughJournal(
+                JournalEntryType.BuildingPlanned,
+                "Stables planned",
+                "Plans for a new stables are drawn up. Timber and coin are set aside for next season.");
+
+            SimulateSilentTurn(); // → week 3
+            var millcreek = _currentStronghold.TradeRoutes?.Find(r =>
+                r.Name.Contains("Millcreek", StringComparison.OrdinalIgnoreCase));
+            if (millcreek != null)
+            {
+                var demand = new TradeMarketEvent
+                {
+                    RouteId = millcreek.Id,
+                    RouteName = millcreek.Name,
+                    Kind = TradeMarketEventKind.DemandSpike,
+                    ResourceType = ResourceType.Luxury,
+                    WeeksRemaining = 4,
+                    Notes = "Millcreek's market day is buzzing — luxury goods fetch a premium."
+                };
+                RecordTradeMarketEvent(demand, notify: false);
+            }
+
+            AddPlaythroughJournal(
+                JournalEntryType.Event,
+                "Morale lifts",
+                "Word of the new trade opening and steady food stores lifts spirits across the stronghold.");
+            _currentStronghold.CurrentMorale = Math.Clamp(_currentStronghold.CurrentMorale + 4, 0, 100);
+
+            SimulateSilentTurn(); // → week 4
+
+            // Leave a busy mid-game board regardless of how fast construction ticked
+            SeedOngoingWorkAtWeek4();
+
+            _suppressMoraleJournal = true;
+            UpdateProductionAndConsumptionRates();
+            _suppressMoraleJournal = false;
+            // Avoid notifying during init — constructor already notifies after this returns via Load path.
+            // LoadTestStrongholdData already called OnGameStateChanged before we ran; refresh once here.
+            OnGameStateChanged();
+        }
+
+        private void SimulateSilentTurn()
+        {
+            BeginTurnJournalCapture();
+            // No raids during silent playthrough — keep the board deterministic
+            AdvanceWeek();
+            AutoResolvePendingProjectsForPlaythrough();
+        }
+
+        private void AutoResolvePendingProjectsForPlaythrough()
+        {
+            foreach (var building in _currentStronghold.Buildings.ToList())
+            {
+                if (building.CurrentProject != null && building.CurrentProject.TimeRemaining <= 0)
+                    FinishProject(building.Id, d20Total: 16, skipped: false, notify: false);
+            }
+        }
+
+        private void SeedOngoingWorkAtWeek4()
+        {
+            // Quarry still under construction
+            StartQuarryConstructionForPlaythrough(progressFraction: 0.45);
+
+            // Watchtower mid-upgrade
+            StartWatchtowerUpgradeForPlaythrough(progressFraction: 0.55);
+
+            // Smithy craft job with time left
+            StartSmithyCraftProjectForPlaythrough(timeRemaining: 2);
+
+            // Merchant opening a second route
+            StartEstablishTradeRouteForPlaythrough();
+
+            // Stables planned / under construction with a peasant crew
+            StartStablesConstructionForPlaythrough(progressFraction: 0.25);
+
+            AddPlaythroughJournal(
+                JournalEntryType.Event,
+                "Busy week ahead",
+                "The quarry, stables, watchtower upgrade, smithy commission, and a new trade embassy are all underway.");
+        }
+
+        private void StartWatchtowerUpgradeForPlaythrough(double progressFraction = 0.0)
+        {
+            var watchtower = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "Watchtower");
+            if (watchtower == null) return;
+
+            if (watchtower.ConstructionStatus == BuildingStatus.Upgrading)
+            {
+                SetConstructionProgress(watchtower, progressFraction);
+                return;
+            }
+
+            if (watchtower.ConstructionStatus != BuildingStatus.Complete || watchtower.Level >= watchtower.GetMaxLevel())
+                return;
+
+            if (watchtower.GetTotalAssignedWorkers() == 0)
+            {
+                var militia = FindUnassignedNpc(NPCType.Militia) ?? FindAssignedNpc(NPCType.Militia);
+                if (militia != null)
+                    AssignNpcToBuildingWorkers(watchtower, militia);
+            }
+
+            if (watchtower.StartUpgrade(_currentStronghold.Resources))
+            {
+                SetConstructionProgress(watchtower, progressFraction);
+                AddPlaythroughJournal(
+                    JournalEntryType.Event,
+                    $"Upgrading {watchtower.Name}",
+                    $"Work begins to raise {watchtower.Name} to level {watchtower.Level + 1}.");
+            }
+        }
+
+        private void StartQuarryConstructionForPlaythrough(double progressFraction)
+        {
+            var quarry = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "Quarry");
+            if (quarry == null)
+            {
+                quarry = new Building("Quarry")
+                {
+                    Name = "Stone Quarry",
+                    ConstructionStatus = BuildingStatus.UnderConstruction,
+                    Level = 1
+                };
+                _currentStronghold.Buildings.Add(quarry);
+                AddPlaythroughJournal(
+                    JournalEntryType.BuildingPlanned,
+                    "Stone Quarry construction planned",
+                    "A quarry site is cleared on the eastern ridge. Laborers begin cutting the first blocks.");
+            }
+
+            EnsureBuildingUnderConstruction(quarry, progressFraction, NPCType.Laborer, 2);
+        }
+
+        private void StartStablesConstructionForPlaythrough(double progressFraction)
+        {
+            var stables = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "Stables");
+            if (stables == null)
+            {
+                stables = new Building("Stables")
+                {
+                    Name = "South Stables",
+                    ConstructionStatus = BuildingStatus.UnderConstruction,
+                    Level = 1
+                };
+                _currentStronghold.Buildings.Add(stables);
+                AddPlaythroughJournal(
+                    JournalEntryType.BuildingStart,
+                    "South Stables under construction",
+                    "Frames go up for a new stables south of the keep.");
+            }
+
+            EnsureBuildingUnderConstruction(stables, progressFraction, NPCType.Peasant, 2);
+        }
+
+        private void EnsureBuildingUnderConstruction(Building building, double progressFraction, NPCType preferredCrew, int crewCount)
+        {
+            building.ConstructionStatus = BuildingStatus.UnderConstruction;
+            if (building.RequiredConstructionPoints <= 0)
+                building.RequiredConstructionPoints = 80;
+
+            // Clear old crew assignments on this building, then assign fresh workers
+            foreach (var id in building.DedicatedConstructionCrew.ToList())
+            {
+                var npc = _currentStronghold.NPCs.Find(n => n.Id == id);
+                if (npc != null)
+                {
+                    npc.Assignment = new NPCAssignment
+                    {
+                        Type = AssignmentType.Unassigned,
+                        TargetId = string.Empty,
+                        TargetName = string.Empty
+                    };
+                }
+            }
+            building.DedicatedConstructionCrew.Clear();
+            building.AssignedWorkers.Clear();
+
+            var crew = new List<string>();
+            for (int i = 0; i < crewCount; i++)
+            {
+                var worker = FindUnassignedNpc(preferredCrew)
+                    ?? FindUnassignedNpc(NPCType.Laborer)
+                    ?? FindUnassignedNpc(NPCType.Peasant);
+                if (worker == null) break;
+                worker.Assignment = new NPCAssignment
+                {
+                    Type = AssignmentType.Building,
+                    TargetId = building.Id,
+                    TargetName = building.Name + " (Construction Crew)"
+                };
+                crew.Add(worker.Id);
+            }
+            building.AssignConstructionCrew(crew);
+            SetConstructionProgress(building, progressFraction);
+            building.UpdateConstructionProgress(_currentStronghold.NPCs);
+        }
+
+        private void SetConstructionProgress(Building building, double progressFraction)
+        {
+            progressFraction = Math.Clamp(progressFraction, 0, 0.95);
+            if (building.RequiredConstructionPoints <= 0)
+                building.RequiredConstructionPoints = 50;
+            building.CurrentConstructionPoints = (int)(building.RequiredConstructionPoints * progressFraction);
+            building.ConstructionProgress = (int)(progressFraction * 100);
+            building.UpdateConstructionProgress(_currentStronghold.NPCs);
+        }
+
+        private void StartSmithyCraftProjectForPlaythrough(int timeRemaining)
+        {
+            var smithy = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "Smithy");
+            if (smithy == null || smithy.ConstructionStatus != BuildingStatus.Complete)
+                return;
+
+            if (smithy.CurrentProject != null)
+                smithy.CurrentProject = null;
+
+            var artisan = _currentStronghold.NPCs.FirstOrDefault(n =>
+                n.Type == NPCType.Artisan && smithy.AssignedWorkers.Contains(n.Id))
+                ?? FindUnassignedNpc(NPCType.Artisan);
+            if (artisan == null) return;
+
+            if (!smithy.AssignedWorkers.Contains(artisan.Id))
+                AssignNpcToBuildingWorkers(smithy, artisan);
+
+            var project = new Project
+            {
+                Name = "Craft Equipment",
+                Description = "Produce specialized equipment for the stronghold.",
+                Duration = 3,
+                TimeRemaining = Math.Max(1, timeRemaining),
+                MinWorkers = 1,
+                OutcomeType = ProjectOutcomeType.Table,
+                RollMode = ProjectRollMode.None,
+                SetupPrompts = new List<string> { "Workers", "Commission" },
+                BonusSkills = new List<string> { "Smithing", "Crafting" },
+                Commission = "Militia spears and shields",
+                InitialCost = new List<ResourceCost>
+                {
+                    new ResourceCost { ResourceType = ResourceType.Iron, Amount = 5 },
+                    new ResourceCost { ResourceType = ResourceType.Wood, Amount = 3 }
+                },
+                HasTicked = timeRemaining < 3
+            };
+            project.AssignedWorkers.Add(artisan.Id);
+            project.DC = DifficultyTier.Medium.GetDC();
+
+            // Deduct costs only when freshly starting
+            if (timeRemaining >= 3)
+            {
+                if (!smithy.StartProject(project, _currentStronghold.Resources))
+                    return;
+                AddPlaythroughJournal(
+                    JournalEntryType.Event,
+                    "Craft Equipment commissioned",
+                    "The Town Smithy takes a commission for militia spears and shields.");
+            }
+            else
+            {
+                smithy.CurrentProject = project;
+            }
+        }
+
+        private void HostTradeFairForPlaythrough()
+        {
+            var office = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "TradeOffice");
+            if (office == null || office.ConstructionStatus != BuildingStatus.Complete)
+                return;
+            if (office.CurrentProject != null) return;
+
+            var merchant = _currentStronghold.NPCs.FirstOrDefault(n =>
+                n.Type == NPCType.Merchant && office.AssignedWorkers.Contains(n.Id))
+                ?? FindUnassignedNpc(NPCType.Merchant);
+            if (merchant == null) return;
+
+            var project = new Project
+            {
+                Name = "Trade Fair",
+                Description = "Host a week-long fair.",
+                Duration = 1,
+                TimeRemaining = 1,
+                MinWorkers = 1,
+                OutcomeType = ProjectOutcomeType.InApp,
+                RollMode = ProjectRollMode.None,
+                FairFocusResource = ResourceType.Food,
+                SetupPrompts = new List<string> { "Workers", "Focus" },
+                BonusSkills = new List<string> { "Trade", "Connections" },
+                InitialCost = new List<ResourceCost>
+                {
+                    new ResourceCost { ResourceType = ResourceType.Gold, Amount = 10 },
+                    new ResourceCost { ResourceType = ResourceType.Food, Amount = 5 }
+                }
+            };
+            project.AssignedWorkers.Add(merchant.Id);
+
+            if (office.StartProject(project, _currentStronghold.Resources))
+            {
+                AddPlaythroughJournal(
+                    JournalEntryType.Event,
+                    "Trade Fair begins",
+                    "Banners go up outside the Trade Office. The fair focuses on food stalls this week.");
+            }
+        }
+
+        private void EstablishMillcreekRouteForPlaythrough()
+        {
+            _currentStronghold.TradeRoutes ??= new List<TradeRoute>();
+            if (_currentStronghold.TradeRoutes.Any(r =>
+                r.Name.Contains("Millcreek", StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            var dest = TradeDestinationService.GetInstance().GetById("millcreek")
+                ?? TradeDestinationService.GetInstance().GetDestinations().FirstOrDefault();
+            if (dest == null) return;
+
+            var route = TradeService.CreateRoute(
+                dest, ProjectResultTier.Success,
+                _currentStronghold.CurrentWeek, _currentStronghold.YearsSinceFoundation);
+            _currentStronghold.TradeRoutes.Add(route);
+
+            AddPlaythroughJournal(
+                JournalEntryType.TradeRouteEstablished,
+                $"Trade route to {route.Name} established",
+                $"Merchants return with signed terms. Distance: {route.DistanceWeeks} week(s). Demand: {string.Join(", ", route.CurrentDemand)}.");
+        }
+
+        private void StartEstablishTradeRouteForPlaythrough()
+        {
+            var office = _currentStronghold.Buildings.FirstOrDefault(b => b.TypeName == "TradeOffice");
+            if (office == null || office.ConstructionStatus != BuildingStatus.Complete)
+                return;
+
+            office.CurrentProject = null;
+
+            var merchant = _currentStronghold.NPCs.FirstOrDefault(n =>
+                n.Type == NPCType.Merchant && office.AssignedWorkers.Contains(n.Id))
+                ?? FindUnassignedNpc(NPCType.Merchant);
+            if (merchant == null) return;
+
+            var destinations = TradeDestinationService.GetInstance().GetDestinations();
+            var dest = destinations.FirstOrDefault(d =>
+                !string.Equals(d.Id, "millcreek", StringComparison.OrdinalIgnoreCase)
+                && !TradeService.HasOpenRouteTo(_currentStronghold, d.Id))
+                ?? destinations.FirstOrDefault(d => !TradeService.HasOpenRouteTo(_currentStronghold, d.Id));
+            if (dest == null) return;
+
+            var project = new Project
+            {
+                Name = "Establish Trade Route",
+                Description = "Open a new destination for trade missions.",
+                Duration = 2,
+                TimeRemaining = 2,
+                MinWorkers = 1,
+                OutcomeType = ProjectOutcomeType.InApp,
+                RollMode = ProjectRollMode.Required,
+                Difficulty = DifficultyTier.Medium,
+                DC = DifficultyTier.Medium.GetDC(),
+                TradeDestinationId = dest.Id,
+                SetupPrompts = new List<string> { "Workers", "Destination", "Difficulty" },
+                BonusSkills = new List<string> { "Trade", "Connections" },
+                InitialCost = new List<ResourceCost>
+                {
+                    new ResourceCost { ResourceType = ResourceType.Gold, Amount = 100 }
+                },
+                HasTicked = false
+            };
+            project.AssignedWorkers.Add(merchant.Id);
+
+            if (office.StartProject(project, _currentStronghold.Resources))
+            {
+                AddPlaythroughJournal(
+                    JournalEntryType.Event,
+                    $"Embassy to {dest.Name}",
+                    $"A merchant sets out to open trade with {dest.Name}. Terms will be settled when they return.");
+            }
+        }
+
+        private void BoostResource(ResourceType type, int amount)
+        {
+            var resource = _currentStronghold.Resources.Find(r => r.Type == type);
+            if (resource == null) return;
+            resource.Amount += amount;
+            if (type == ResourceType.Gold)
+                _currentStronghold.Treasury = resource.Amount;
+        }
+
+        private void AddPlaythroughJournal(JournalEntryType type, string title, string description)
+        {
+            _currentStronghold.Journal.Add(new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                type,
+                title,
+                description));
+        }
+
+        private NPC? FindUnassignedNpc(NPCType type)
+        {
+            return _currentStronghold.NPCs.FirstOrDefault(n =>
+                n.Type == type && n.Assignment.Type == AssignmentType.Unassigned && n.IsAlive);
+        }
+
+        private NPC? FindAssignedNpc(NPCType type)
+        {
+            return _currentStronghold.NPCs.FirstOrDefault(n =>
+                n.Type == type && n.Assignment.Type == AssignmentType.Building && n.IsAlive);
+        }
+
+        private void AssignNpcToBuildingWorkers(Building building, NPC npc)
+        {
+            // Unassign from previous building if needed
+            foreach (var b in _currentStronghold.Buildings)
+            {
+                b.AssignedWorkers.Remove(npc.Id);
+                b.DedicatedConstructionCrew.Remove(npc.Id);
+            }
+
+            npc.Assignment = new NPCAssignment
+            {
+                Type = AssignmentType.Building,
+                TargetId = building.Id,
+                TargetName = building.Name
+            };
+            if (!building.AssignedWorkers.Contains(npc.Id))
+                building.AssignedWorkers.Add(npc.Id);
         }
 
         // Data classes for test stronghold JSON structure
@@ -1384,6 +1989,60 @@ namespace DNDStrongholdApp.Services
             var command = new AssignConstructionCrewCommand(this, buildingId, npcIds);
             _commandInvoker.ExecuteCommand(command);
         }
+
+        /// <summary>
+        /// Lay off workers to reduce gold payroll. Skips stewards and NPCs away on missions.
+        /// </summary>
+        public int UnassignWorkersForPayroll(IEnumerable<string> npcIds, bool notify = true)
+        {
+            var ids = npcIds?.Distinct().ToList() ?? new List<string>();
+            if (ids.Count == 0) return 0;
+
+            var laidOff = new List<string>();
+            foreach (var npcId in ids)
+            {
+                var npc = _currentStronghold.NPCs.Find(n => n.Id == npcId);
+                if (npc == null || !npc.IsAlive) continue;
+                if (CombatService.IsAway(npc, _currentStronghold)) continue;
+                if (string.Equals(npc.Title, "Steward", StringComparison.OrdinalIgnoreCase)
+                    && npc.Assignment.Type == AssignmentType.Building)
+                {
+                    var keep = _currentStronghold.Buildings.Find(b => b.Id == npc.Assignment.TargetId);
+                    if (keep != null && keep.TypeName == "Keep")
+                        continue;
+                }
+
+                foreach (var building in _currentStronghold.Buildings)
+                {
+                    building.AssignedWorkers ??= new List<string>();
+                    building.DedicatedConstructionCrew ??= new List<string>();
+                    building.AssignedWorkers.Remove(npcId);
+                    building.DedicatedConstructionCrew.Remove(npcId);
+                }
+
+                npc.Assignment = new NPCAssignment
+                {
+                    Type = AssignmentType.Unassigned,
+                    TargetId = string.Empty,
+                    TargetName = string.Empty
+                };
+                laidOff.Add(npc.Name);
+            }
+
+            if (laidOff.Count > 0)
+            {
+                _currentStronghold.Journal.Add(new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    "Payroll cuts",
+                    $"Unassigned to afford upkeep: {string.Join(", ", laidOff)}."));
+            }
+
+            if (notify && laidOff.Count > 0)
+                OnGameStateChanged();
+            return laidOff.Count;
+        }
         
         // Internal method called by AssignConstructionCrewCommand
         internal void ExecuteAssignConstructionCrewToBuilding(string buildingId, List<string> npcIds)
@@ -1511,86 +2170,53 @@ namespace DNDStrongholdApp.Services
         // Update production and consumption calculations without applying changes
         private void UpdateProductionAndConsumptionRates()
         {
+            var operable = UpkeepService.GetOperableBuildingIds(_currentStronghold);
+
             // Update building production and upkeep for all buildings
             foreach (var building in _currentStronghold.Buildings)
             {
                 building.ActualUpkeep.Clear();
+                building.ActualProduction.Clear();
                 
                 if (building.IsFunctional())
                 {
-                    // Get assigned NPCs for this building
-                    var assignedNPCs = building.AssignedWorkers
-                        .Select(workerId => _currentStronghold.NPCs.Find(n => n.Id == workerId))
-                        .Where(npc => npc != null)
-                        .ToList();
+                    bool staffed = building.AssignedWorkers != null && building.AssignedWorkers.Count > 0;
+                    bool canOperate = staffed && operable.Contains(building.Id);
 
-                    // Update production based on current workers and morale
-                    var moraleStatus = GetMoraleStatus();
-                    building.UpdateProduction(assignedNPCs, moraleStatus);
-                    
-                    // Add journal entry if morale affected production
-                    if (!string.IsNullOrEmpty(building.LastMoraleJournalMessage))
+                    if (canOperate)
                     {
-                        _currentStronghold.Journal.Add(new JournalEntry(
-                            _currentStronghold.CurrentWeek,
-                            _currentStronghold.YearsSinceFoundation,
-                            JournalEntryType.Event,
-                            "Morale Production Effect",
-                            building.LastMoraleJournalMessage
-                        ));
+                        var assignedNPCs = building.AssignedWorkers
+                            .Select(workerId => _currentStronghold.NPCs.Find(n => n.Id == workerId))
+                            .Where(npc => npc != null)
+                            .ToList();
+
+                        var moraleStatus = GetMoraleStatus();
+                        building.UpdateProduction(assignedNPCs, moraleStatus);
                         
-                        // Clear the message after adding to journal
-                        building.LastMoraleJournalMessage = null;
-                    }
-
-                    // Calculate worker salaries (Gold upkeep)
-                    int totalSalaries = assignedNPCs.Sum(worker => 
-                        Math.Max(1, (int)Math.Ceiling((worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1) / 2.0)));
-
-                    // Add worker salaries to Gold upkeep
-                    if (totalSalaries > 0)
-                    {
-                        building.ActualUpkeep.Add(new ResourceCost
+                        if (!string.IsNullOrEmpty(building.LastMoraleJournalMessage))
                         {
-                            ResourceType = ResourceType.Gold,
-                            Amount = totalSalaries
-                        });
+                            if (!_suppressMoraleJournal)
+                            {
+                                _currentStronghold.Journal.Add(new JournalEntry(
+                                    _currentStronghold.CurrentWeek,
+                                    _currentStronghold.YearsSinceFoundation,
+                                    JournalEntryType.Event,
+                                    "Morale Production Effect",
+                                    building.LastMoraleJournalMessage
+                                ));
+                            }
+
+                            building.LastMoraleJournalMessage = null;
+                        }
+
+                        building.ActualUpkeep.AddRange(building.CalculateUpkeep(_currentStronghold.NPCs));
                     }
+                    // Staffed but lacking material upkeep: leave production/upkeep empty (shuttered).
                 }
-                else if (building.ConstructionStatus == BuildingStatus.Planning ||
-                         building.ConstructionStatus == BuildingStatus.UnderConstruction ||
-                         building.ConstructionStatus == BuildingStatus.Repairing ||
-                         building.ConstructionStatus == BuildingStatus.Upgrading)
+                else
                 {
-                    // Calculate upkeep for all workers contributing to construction
-                    int totalConstructionSalaries = 0;
-                    
-                    // Add regular worker salaries (they're contributing to construction)
-                    var regularWorkerNPCs = building.AssignedWorkers
-                        .Select(workerId => _currentStronghold.NPCs.Find(n => n.Id == workerId))
-                        .Where(npc => npc != null)
-                        .ToList();
-                    
-                    totalConstructionSalaries += regularWorkerNPCs.Sum(worker => 
-                        Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-                    
-                    // Add construction crew salaries
-                    var constructionCrewNPCs = building.DedicatedConstructionCrew
-                        .Select(crewId => _currentStronghold.NPCs.Find(n => n.Id == crewId))
-                        .Where(npc => npc != null)
-                        .ToList();
-
-                    totalConstructionSalaries += constructionCrewNPCs.Sum(worker => 
-                        Math.Max(1, worker.Skills.Any() ? worker.Skills.Max(s => s.Level) : 1));
-
-                    if (totalConstructionSalaries > 0)
-                    {
-                        building.ActualUpkeep.Add(new ResourceCost
-                        {
-                            ResourceType = ResourceType.Gold,
-                            Amount = totalConstructionSalaries
-                        });
-                    }
+                    // Construction / repair / upgrade salaries still apply.
+                    building.ActualUpkeep.AddRange(building.CalculateUpkeep(_currentStronghold.NPCs));
                 }
             }
 
@@ -1625,6 +2251,25 @@ namespace DNDStrongholdApp.Services
                         }
                     }
                     // Upkeep
+                    foreach (var upkeep in building.ActualUpkeep)
+                    {
+                        var resource = _currentStronghold.Resources.Find(r => r.Type == upkeep.ResourceType);
+                        if (resource != null && upkeep.Amount > 0)
+                        {
+                            resource.WeeklyConsumption += upkeep.Amount;
+                            resource.Sources.Add(new ResourceSource
+                            {
+                                SourceType = ResourceSourceType.Building,
+                                SourceId = building.Id,
+                                SourceName = building.Name,
+                                Amount = upkeep.Amount,
+                                IsProduction = false
+                            });
+                        }
+                    }
+                }
+                else
+                {
                     foreach (var upkeep in building.ActualUpkeep)
                     {
                         var resource = _currentStronghold.Resources.Find(r => r.Type == upkeep.ResourceType);
@@ -1814,7 +2459,126 @@ namespace DNDStrongholdApp.Services
 
             string name = npc.Name;
             _currentStronghold.NPCs.Remove(npc);
+            _turnDepartures.Add(name);
             OnNPCAbandonment(name);
+        }
+
+        /// <summary>
+        /// Updates the bankrupt flag from structural insolvency and, while bankrupt,
+        /// causes one eligible NPC to abandon (in addition to hunger abandonments).
+        /// </summary>
+        private void ProcessBankruptcy()
+        {
+            bool insolvent = UpkeepService.IsStructurallyBankrupt(_currentStronghold);
+            bool wasBankrupt = _currentStronghold.IsBankrupt;
+
+            if (insolvent && !wasBankrupt)
+            {
+                _currentStronghold.IsBankrupt = true;
+                int unavoidable = UpkeepService.GetUnavoidableGoldUpkeep(_currentStronghold);
+                int available = UpkeepService.GetGoldAvailable(_currentStronghold);
+                var entry = new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    "⚠️ Bankruptcy",
+                    $"The stronghold can no longer cover unavoidable upkeep " +
+                    $"({unavoidable} gold/week) with available gold ({available}: coffers + production). " +
+                    $"While bankrupt, one inhabitant abandons each week.");
+                entry.Importance = ImportanceLevel.High;
+                _currentStronghold.Journal.Add(entry);
+            }
+            else if (!insolvent && wasBankrupt)
+            {
+                _currentStronghold.IsBankrupt = false;
+                var entry = new JournalEntry(
+                    _currentStronghold.CurrentWeek,
+                    _currentStronghold.YearsSinceFoundation,
+                    JournalEntryType.Event,
+                    "Bankruptcy Ended",
+                    "Available gold again covers unavoidable Keep upkeep. The bankruptcy is lifted.");
+                entry.Importance = ImportanceLevel.High;
+                _currentStronghold.Journal.Add(entry);
+            }
+
+            if (!_currentStronghold.IsBankrupt)
+                return;
+
+            var candidate = PickBankruptcyAbandonmentCandidate();
+            if (candidate == null)
+                return;
+
+            AbandonStronghold(candidate);
+        }
+
+        /// <summary>
+        /// Clears bankruptcy immediately if coffers/production now cover unavoidable
+        /// upkeep (e.g. after a DM gold injection). Does not enter bankruptcy or abandon.
+        /// </summary>
+        public bool TryClearBankruptcyFromCoffers()
+        {
+            if (_currentStronghold == null || !_currentStronghold.IsBankrupt)
+                return false;
+            if (UpkeepService.IsStructurallyBankrupt(_currentStronghold))
+                return false;
+
+            _currentStronghold.IsBankrupt = false;
+            var entry = new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                "Bankruptcy Ended",
+                "Available gold again covers unavoidable Keep upkeep. The bankruptcy is lifted.");
+            entry.Importance = ImportanceLevel.High;
+            _currentStronghold.Journal.Add(entry);
+            OnGameStateChanged();
+            return true;
+        }
+
+        /// <summary>DM tool: append a freeform journal entry for the current week.</summary>
+        public JournalEntry AddCustomJournalEntry(
+            string title,
+            string description,
+            ImportanceLevel importance = ImportanceLevel.Medium)
+        {
+            if (_currentStronghold == null)
+                throw new InvalidOperationException("No stronghold loaded.");
+
+            var entry = new JournalEntry(
+                _currentStronghold.CurrentWeek,
+                _currentStronghold.YearsSinceFoundation,
+                JournalEntryType.Event,
+                string.IsNullOrWhiteSpace(title) ? "Note" : title.Trim(),
+                description?.Trim() ?? "");
+            entry.Importance = importance;
+            _currentStronghold.Journal.Add(entry);
+            OnGameStateChanged();
+            return entry;
+        }
+
+        private NPC? PickBankruptcyAbandonmentCandidate()
+        {
+            var eligible = _currentStronghold.NPCs
+                .Where(n => n != null && n.IsAlive)
+                .Where(n => !n.Hero)
+                .Where(n => !CombatService.IsAway(n, _currentStronghold))
+                .Where(n => !IsKeepSteward(n))
+                .OrderByDescending(n =>
+                    n.Assignment == null || n.Assignment.Type == AssignmentType.Unassigned ? 1 : 0)
+                .ThenBy(n => UpkeepService.WorkerSalary(n))
+                .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return eligible.Count == 0 ? null : eligible[0];
+        }
+
+        private bool IsKeepSteward(NPC npc)
+        {
+            if (!string.Equals(npc.Title, "Steward", StringComparison.OrdinalIgnoreCase))
+                return false;
+            var keep = _currentStronghold.Buildings.Find(b => b.TypeName == "Keep");
+            if (keep == null) return false;
+            return keep.AssignedWorkers != null && keep.AssignedWorkers.Contains(npc.Id);
         }
 
         public void KillNpc(NPC npc)
@@ -1823,8 +2587,10 @@ namespace DNDStrongholdApp.Services
             CombatService.UnassignNpc(_currentStronghold, npc);
             npc.IsAlive = false;
             npc.States.Clear();
+            string name = npc.Name;
             _currentStronghold.NPCs.Remove(npc);
-            OnNPCDeath(npc.Name);
+            _turnDepartures.Add(name);
+            OnNPCDeath(name);
         }
 
         private void ProcessHealthStates()

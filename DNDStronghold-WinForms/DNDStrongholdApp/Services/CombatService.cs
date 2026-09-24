@@ -374,6 +374,7 @@ namespace DNDStrongholdApp.Services
         public static bool IsAway(NPC npc, Stronghold stronghold)
         {
             if (npc == null) return false;
+            if (npc.Assignment == null) return false;
             if (npc.Assignment.Type == AssignmentType.Mission) return true;
 
             var building = FindAssignedBuilding(npc, stronghold);

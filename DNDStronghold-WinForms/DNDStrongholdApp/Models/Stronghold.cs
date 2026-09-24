@@ -10,7 +10,7 @@ namespace DNDStrongholdApp.Models
         public string Location { get; set; } = "Unknown";
         public int Level { get; set; } = 1;
         public int Reputation { get; set; } = 0;
-        public int CurrentWeek { get; set; } = 1;
+        public int CurrentWeek { get; set; } = 0;
         public int YearsSinceFoundation { get; set; } = 0;
         public Season CurrentSeason { get; set; } = Season.Spring;
         public List<string> Owners { get; set; } = new List<string>();
@@ -24,6 +24,7 @@ namespace DNDStrongholdApp.Models
         public List<TradeRoute> TradeRoutes { get; set; } = new List<TradeRoute>();
         public List<TradeMarketEvent> TradeMarketEvents { get; set; } = new List<TradeMarketEvent>();
         public List<EnemyFaction> EnemyFactions { get; set; } = new List<EnemyFaction>();
+        public List<WeeklyReport> WeeklyReports { get; set; } = new List<WeeklyReport>();
         public WeeklyReport? CurrentWeeklyReport { get; set; } = null;
 
         public void EnsureCombatDefaults()
@@ -33,12 +34,27 @@ namespace DNDStrongholdApp.Models
                 EnemyFactions.Add(EnemyFaction.CreateBandits());
             foreach (var faction in EnemyFactions)
                 faction.Normalize();
+
+            WeeklyReports ??= new List<WeeklyReport>();
+            Journal ??= new List<JournalEntry>();
+            if (CurrentWeeklyReport == null && WeeklyReports.Count > 0)
+                CurrentWeeklyReport = WeeklyReports[WeeklyReports.Count - 1];
+            else if (CurrentWeeklyReport != null
+                     && WeeklyReports.Count == 0)
+                WeeklyReports.Add(CurrentWeeklyReport);
         }
         
         // Morale System
         public int CurrentMorale { get; set; } = 50; // Current morale level (0-100)
         public int MoraleBaseline { get; set; } = 50; // Resting point for morale (0-100)
         public List<TemporaryMoraleEffect> TemporaryMoraleEffects { get; set; } = new List<TemporaryMoraleEffect>();
+
+        /// <summary>
+        /// True when available gold cannot cover unavoidable upkeep (Keep + Steward)
+        /// after all cuttable workers are gone. While set, one NPC abandons each week.
+        /// Filling the coffers (e.g. DM resource adjust) can clear this.
+        /// </summary>
+        public bool IsBankrupt { get; set; } = false;
 
         // Constructor
         public Stronghold()

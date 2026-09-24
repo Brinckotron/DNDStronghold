@@ -14,11 +14,40 @@ namespace DNDStrongholdApp.Models
         public string Name { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public NPCGender Gender { get; set; } = NPCGender.Male;
-        public List<Skill> Skills { get; set; } = new List<Skill>();
-        public NPCAssignment Assignment { get; set; } = new NPCAssignment();
-        public List<ResourceCost> UpkeepCost { get; set; } = new List<ResourceCost>();
-        public List<NPCState> States { get; set; } = new List<NPCState>();
-        public List<NPCTrait> Traits { get; set; } = new List<NPCTrait>();
+        public List<Skill> Skills
+        {
+            get => _skills ??= new List<Skill>();
+            set => _skills = value ?? new List<Skill>();
+        }
+        private List<Skill> _skills = new List<Skill>();
+
+        public NPCAssignment Assignment
+        {
+            get => _assignment ??= new NPCAssignment();
+            set => _assignment = value ?? new NPCAssignment();
+        }
+        private NPCAssignment _assignment = new NPCAssignment();
+
+        public List<ResourceCost> UpkeepCost
+        {
+            get => _upkeepCost ??= new List<ResourceCost>();
+            set => _upkeepCost = value ?? new List<ResourceCost>();
+        }
+        private List<ResourceCost> _upkeepCost = new List<ResourceCost>();
+
+        public List<NPCState> States
+        {
+            get => _states ??= new List<NPCState>();
+            set => _states = value ?? new List<NPCState>();
+        }
+        private List<NPCState> _states = new List<NPCState>();
+
+        public List<NPCTrait> Traits
+        {
+            get => _traits ??= new List<NPCTrait>();
+            set => _traits = value ?? new List<NPCTrait>();
+        }
+        private List<NPCTrait> _traits = new List<NPCTrait>();
         public int Age { get; set; } = 20; // Starting age
         public bool IsAlive { get; set; } = true;
         public bool Hero { get; set; }
